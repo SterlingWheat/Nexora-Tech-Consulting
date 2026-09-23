@@ -1,0 +1,32 @@
+# Archivos de Sistema Operativo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editores e IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Node / Vue.js
+node_modules/
+dist/
+npm-debug.log*
+
+# Java / Spring Boot
+target/
+*.class
+*.jar
+*.war
+.gradle/
+build/
+
+# Flutter / Dart
+.dart_tool/
+.packages
+build/
+
+# Archivos de entorno
+.env
+.env.local
