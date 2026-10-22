@@ -20,7 +20,7 @@ Desarrollar soluciones tecnológicas confiables y adaptadas a las necesidades de
 * **Control de versiones:** Git / GitHub
 * **Requisitos:** SRS
 * **Arquitectura:** C4 Model
-* **Base de datos:** SQL Server
+* **Base de datos:** PostgreSQL
 * **Backend:** API REST
 * **Frontend:** Flutter / Web
 * **Calidad:** Herramientas de testing
