@@ -1,5 +1,4 @@
 package com.example.backend;
-
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -41,7 +40,6 @@ public class SecurityConfig {
         return new InMemoryUserDetailsManager(admin, voluntario);
     }
 
-    // ESTE ES EL BEAN QUE FALTA PARA QUE SPRING NO CREE SU USUARIO POR DEFECTO
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration config) throws Exception {
         return config.getAuthenticationManager();
