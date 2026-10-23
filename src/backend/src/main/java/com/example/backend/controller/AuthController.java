@@ -2,36 +2,30 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.LoginRequest;
 import com.example.backend.dto.LoginResponse;
-import com.example.backend.model.Usuario;
-import com.example.backend.repository.UsuarioRepository;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.example.backend.service.AuthService;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Optional;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+    private final AuthService authService;
+
+    public AuthController(AuthService authService) {
+        this.authService = authService;
+    }
 
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest request) {
-        
-        Optional<Usuario> usuarioOpt = usuarioRepository.findByEmail(request.getEmail());
+    public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.iniciarSesion(request));
+    }
 
-        if (usuarioOpt.isEmpty()) {
-            return ResponseEntity.status(401).body("Credenciales inválidas");
-        }
-
-        Usuario usuario = usuarioOpt.get();
-
-        
-        String tokenFalso = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.falso_token_para_pruebas";
-        
-        // 4. Devolvemos el token y el rol
-        return ResponseEntity.ok(new LoginResponse(tokenFalso, usuario.getRol().name()));
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<Map<String, String>> credencialesInvalidas() {
+        return ResponseEntity.status(401).body(Map.of("message", "Credenciales inválidas"));
     }
 }

@@ -1,37 +1,59 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.UsuarioCreateRequest;
+import com.example.backend.dto.UsuarioResponse;
+import com.example.backend.dto.UsuarioUpdateRequest;
 import com.example.backend.model.Usuario;
 import com.example.backend.repository.UsuarioRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/usuarios")
 public class UsuarioController {
 
-    @Autowired
-    private UsuarioRepository usuarioRepository;
+    private final UsuarioRepository usuarioRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    @PostMapping
-    public ResponseEntity<?> crearUsuario(@RequestBody Usuario usuario) {
-        // Validar que el correo no esté registrado
-        if (usuarioRepository.existsByEmail(usuario.getEmail())) {
-            return ResponseEntity.badRequest().body("El correo ya está registrado.");
-        }
-        usuario.setActivo(true); // Por defecto activo
-        return ResponseEntity.ok(usuarioRepository.save(usuario));
+    public UsuarioController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+        this.usuarioRepository = usuarioRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
-    
+    @PostMapping
+    public ResponseEntity<?> crearUsuario(@RequestBody UsuarioCreateRequest request) {
+        if (request.email() == null || request.email().isBlank()
+                || request.password() == null || request.password().isBlank()
+                || request.password().length() < 8
+                || request.nombre() == null || request.nombre().isBlank()
+                || request.rol() == null) {
+            return ResponseEntity.badRequest().body("Datos de usuario inválidos.");
+        }
+        String email = normalizarEmail(request.email());
+        if (usuarioRepository.existsByEmailIgnoreCase(email)) {
+            return ResponseEntity.status(409).body("El correo ya está registrado.");
+        }
+
+        Usuario usuario = Usuario.builder()
+                .nombre(request.nombre().trim())
+                .email(email)
+                .password(passwordEncoder.encode(request.password()))
+                .rol(request.rol())
+                .activo(true)
+                .build();
+        return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
+    }
+
     @GetMapping
-    public ResponseEntity<List<Usuario>> listarUsuarios(
+    public ResponseEntity<List<UsuarioResponse>> listarUsuarios(
             @RequestParam(required = false) String rol,
             @RequestParam(required = false) Boolean activo) {
-        
+
         List<Usuario> usuarios = usuarioRepository.findAll();
 
         if (rol != null && !rol.isEmpty()) {
@@ -39,30 +61,73 @@ public class UsuarioController {
                     .filter(u -> u.getRol().name().equalsIgnoreCase(rol))
                     .toList();
         }
-        
 
         if (activo != null) {
             usuarios = usuarios.stream()
                     .filter(u -> u.getActivo().equals(activo))
                     .toList();
         }
-        
-        return ResponseEntity.ok(usuarios);
+
+        return ResponseEntity.ok(usuarios.stream().map(UsuarioResponse::from).toList());
     }
 
+    @GetMapping("/{id}")
+    public ResponseEntity<UsuarioResponse> obtenerUsuario(@PathVariable Integer id) {
+        return usuarioRepository.findById(id)
+                .map(UsuarioResponse::from)
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> actualizarUsuario(
+            @PathVariable Integer id,
+            @RequestBody UsuarioUpdateRequest request) {
+        if (request.nombre() == null || request.nombre().isBlank()
+                || request.email() == null || request.email().isBlank()
+                || (request.password() != null && !request.password().isBlank()
+                        && request.password().length() < 8)
+                || request.rol() == null) {
+            return ResponseEntity.badRequest().body("Datos de usuario inválidos.");
+        }
+
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        if (usuarioOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        String email = normalizarEmail(request.email());
+        if (usuarioRepository.existsByEmailIgnoreCaseAndIdUsuarioNot(email, id)) {
+            return ResponseEntity.status(409).body("El correo ya está registrado.");
+        }
+
+        Usuario usuario = usuarioOpt.get();
+        usuario.setNombre(request.nombre().trim());
+        usuario.setEmail(email);
+        usuario.setRol(request.rol());
+        if (request.password() != null && !request.password().isBlank()) {
+            usuario.setPassword(passwordEncoder.encode(request.password()));
+        }
+
+        return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
+    }
 
     @PutMapping("/{id}/desactivar")
     public ResponseEntity<?> desactivarUsuario(@PathVariable Integer id) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
-        
+
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-        
+
         Usuario usuario = usuarioOpt.get();
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
-        
+
         return ResponseEntity.ok("Usuario desactivado correctamente.");
+    }
+
+    private String normalizarEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

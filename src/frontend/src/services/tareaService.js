@@ -1,56 +1,54 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/tareas';
+import { authService } from './authService'
+import { TASK_API_URL } from './apiConfig'
+
+const headersAutenticados = (headers = {}) => ({
+  ...headers,
+  ...authService.getAuthorizationHeader()
+})
+
+const comprobarRespuesta = async (respuesta, mensaje) => {
+  if (respuesta.status === 401) {
+    window.dispatchEvent(new Event('auth:expired'))
+  }
+  if (!respuesta.ok) {
+    const errorText = await respuesta.text()
+    throw new Error(errorText || mensaje)
+  }
+  return respuesta.json()
+}
 
 export const tareaService = {
-  // Obtiene todas las tareas
   async obtenerTareas() {
-    const respuesta = await fetch(API_URL);
-    if (!respuesta.ok) {
-      throw new Error('Error al obtener las tareas');
-    }
-    return await respuesta.json();
+    const respuesta = await fetch(TASK_API_URL, { headers: headersAutenticados() })
+    return comprobarRespuesta(respuesta, 'Error al obtener las tareas')
   },
 
-  // Criterio 4: Obtiene el catálogo de categorías
   async obtenerCategorias() {
-    const respuesta = await fetch(`${API_URL}/categorias`);
-    if (!respuesta.ok) {
-      throw new Error('Error al obtener las categorías');
-    }
-    return await respuesta.json();
+    const respuesta = await fetch(`${TASK_API_URL}/categorias`, {
+      headers: headersAutenticados()
+    })
+    return comprobarRespuesta(respuesta, 'Error al obtener las categorías')
   },
 
-  // Criterio 1: Crear tarea (El backend se encarga de ponerla en estado 'Pendiente')
   async crearTarea(tarea) {
-    const respuesta = await fetch(API_URL, {
+    const respuesta = await fetch(TASK_API_URL, {
       method: 'POST',
-      headers: {
+      headers: headersAutenticados({
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(tarea),
-    });
-    
-    if (!respuesta.ok) {
-      const errorText = await respuesta.text();
-      throw new Error(errorText || 'Error al crear la tarea');
-    }
-    return await respuesta.json();
+      }),
+      body: JSON.stringify(tarea)
+    })
+    return comprobarRespuesta(respuesta, 'Error al crear la tarea')
   },
 
-  // Criterio 2 y 3: Editar tarea
   async editarTarea(id, tarea) {
-    const respuesta = await fetch(`${API_URL}/${id}`, {
+    const respuesta = await fetch(`${TASK_API_URL}/${id}`, {
       method: 'PUT',
-      headers: {
+      headers: headersAutenticados({
         'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(tarea),
-    });
-
-    if (!respuesta.ok) {
-      const errorText = await respuesta.text();
-      // Si el status es 409 (Conflict), significa que la tarea está Finalizada o Cancelada (Criterio 3)
-      throw new Error(errorText || 'Error al editar la tarea');
-    }
-    return await respuesta.json();
+      }),
+      body: JSON.stringify(tarea)
+    })
+    return comprobarRespuesta(respuesta, 'Error al editar la tarea')
   }
-};
+}
