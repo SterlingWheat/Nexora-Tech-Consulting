@@ -1,5 +1,6 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.HabilitarAccesoRequestDTO;
 import com.example.backend.dto.VoluntarioRequestDTO;
 import com.example.backend.dto.VoluntarioResponseDTO;
 import com.example.backend.model.Usuario;
@@ -31,13 +32,26 @@ public class VoluntarioGestionController {
 
     @PostMapping
     public ResponseEntity<VoluntarioResponseDTO> registrarVoluntario(@Valid @RequestBody VoluntarioRequestDTO request) {
-        Voluntario guardado = voluntarioService.registrarVoluntario(mapearAEntidad(request));
+        Voluntario guardado = voluntarioService.registrarVoluntario(
+                mapearAEntidad(request), 
+                request.getCrearCuenta(), 
+                request.getPassword()
+        );
         return new ResponseEntity<>(mapearADTO(guardado), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<VoluntarioResponseDTO> actualizarVoluntario(@PathVariable Integer id, @Valid @RequestBody VoluntarioRequestDTO request) {
         return ResponseEntity.ok(mapearADTO(voluntarioService.actualizarVoluntario(id, mapearAEntidad(request))));
+    }
+
+    // Nuevo Endpoint para el botón Habilitar Acceso
+    @PostMapping("/{id}/habilitar-acceso")
+    public ResponseEntity<VoluntarioResponseDTO> habilitarAcceso(
+            @PathVariable Integer id, 
+            @Valid @RequestBody HabilitarAccesoRequestDTO request) {
+        Voluntario actualizado = voluntarioService.habilitarAcceso(id, request.getPassword());
+        return ResponseEntity.ok(mapearADTO(actualizado));
     }
 
     @GetMapping
@@ -48,23 +62,18 @@ public class VoluntarioGestionController {
         return ResponseEntity.ok(voluntarios);
     }
 
-    // Endpoint originalmente en VoluntarioGestionController para obtener detalles del Voluntario
     @GetMapping("/{id}/detalle")
     public ResponseEntity<VoluntarioResponseDTO> obtenerVoluntario(@PathVariable Integer id) {
         return ResponseEntity.ok(mapearADTO(voluntarioService.obtenerVoluntarioPorId(id)));
     }
 
-    // Endpoint consolidado desde VoluntarioController (ahora eliminado) para el perfil de usuario del voluntario
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerPerfilUsuarioDelVoluntario(@PathVariable Integer id, Authentication authentication) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
-
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-
         Usuario usuario = usuarioOpt.get();
-
         if (authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_VOLUNTARIO"))) {
             
@@ -74,7 +83,6 @@ public class VoluntarioGestionController {
                 return ResponseEntity.status(403).body("Acceso denegado: no puedes ver el perfil de otro voluntario.");
             }
         }
-
         return ResponseEntity.ok(usuario);
     }
 
@@ -85,13 +93,14 @@ public class VoluntarioGestionController {
         v.setDocumento(request.getDocumento());
         v.setEmail(request.getEmail());
         v.setTelefono(request.getTelefono());
-        // carreraProfesion puede ser agregada en el DTO posteriormente si el frontend lo implementa
         return v;
     }
 
     private VoluntarioResponseDTO mapearADTO(Voluntario v) {
         VoluntarioResponseDTO dto = new VoluntarioResponseDTO();
         dto.setIdVoluntario(v.getIdVoluntario());
+        // Incluir el id_usuario si lo tiene
+        dto.setIdUsuario(v.getUsuario() != null ? v.getUsuario().getIdUsuario() : null);
         dto.setNombre(v.getNombre());
         dto.setApellido(v.getApellido());
         dto.setDocumento(v.getDocumento());

@@ -8,8 +8,10 @@
           <em>voluntario.</em>
         </h1>
         <p class="vol-descripcion">
-          Completa los datos personales y de contacto. Los voluntarios nuevos quedan registrados como activos.
+          Completa los datos personales y de contacto. 
+          <span v-if="!esEdicion">Opcionalmente, puedes crearle una cuenta para que acceda al sistema.</span>
         </p>
+        
         <form class="vol-formulario" novalidate @submit.prevent="guardarVoluntario">
           
           <div class="vol-campo">
@@ -36,7 +38,20 @@
             <label for="telefono">Teléfono</label>
             <input id="telefono" type="tel" v-model="formulario.telefono" placeholder="Ej: 70012345" maxlength="20" />
           </div>
-          
+
+          <!-- Solo mostramos opción de crear cuenta si es un registro NUEVO -->
+          <div v-if="!esEdicion" class="vol-campo-checkbox">
+            <label>
+              <input type="checkbox" v-model="formulario.crearCuenta" />
+              <strong>Crear cuenta de acceso al sistema para este voluntario</strong>
+            </label>
+          </div>
+
+          <div v-if="!esEdicion && formulario.crearCuenta" class="vol-campo">
+            <label for="password">Contraseña temporal (Mín. 8 caracteres) *</label>
+            <input id="password" type="password" v-model="formulario.password" placeholder="Ingresa una contraseña" />
+          </div>
+
           <div v-if="error" class="vol-error" role="alert">
             <span aria-hidden="true">⚠️</span>
             {{ error }}
@@ -59,8 +74,8 @@ import { voluntarioService } from '../services/voluntarioService'
 
 const router = useRouter()
 const route = useRoute()
-
 const esEdicion = ref(!!route.params.id)
+
 const cargando = ref(false)
 const error = ref('')
 
@@ -69,7 +84,9 @@ const formulario = ref({
   apellido: '',
   documento: '',
   email: '',
-  telefono: ''
+  telefono: '',
+  crearCuenta: false,
+  password: ''
 })
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -83,12 +100,15 @@ const validar = () => {
   if (!f.email.trim()) return 'El correo es obligatorio'
   if (!EMAIL_REGEX.test(f.email.trim())) return 'El correo no tiene un formato válido'
   if (f.telefono.trim() && !TELEFONO_REGEX.test(f.telefono.trim())) return 'El teléfono no tiene un formato válido'
+  
+  if (!esEdicion.value && f.crearCuenta) {
+    if (!f.password || f.password.trim().length < 8) return 'La contraseña debe tener al menos 8 caracteres'
+  }
   return ''
 }
 
 onMounted(async () => {
   if (!esEdicion.value) return
-  
   try {
     const v = await voluntarioService.obtenerVoluntario(route.params.id)
     formulario.value = {
@@ -96,7 +116,9 @@ onMounted(async () => {
       apellido: v.apellido,
       documento: v.documento,
       email: v.email,
-      telefono: v.telefono || ''
+      telefono: v.telefono || '',
+      crearCuenta: false,
+      password: ''
     }
   } catch (err) {
     error.value = 'Error al cargar los datos: ' + err.message
@@ -108,7 +130,6 @@ const guardarVoluntario = async () => {
   if (error.value) return
   
   cargando.value = true
-  
   try {
     const payload = {
       nombre: formulario.value.nombre.trim(),
@@ -117,12 +138,17 @@ const guardarVoluntario = async () => {
       email: formulario.value.email.trim(),
       telefono: formulario.value.telefono.trim()
     }
-
+    
     if (esEdicion.value) {
       await voluntarioService.actualizarVoluntario(route.params.id, payload)
     } else {
+      payload.crearCuenta = formulario.value.crearCuenta
+      if (payload.crearCuenta) {
+        payload.password = formulario.value.password
+      }
       await voluntarioService.registrarVoluntario(payload)
     }
+    
     router.push('/voluntarios')
   } catch (err) {
     error.value = err.message
@@ -212,6 +238,27 @@ const volver = () => {
 .vol-campo input:focus {
   border-color: var(--salvia);
 }
+.vol-campo-checkbox {
+  display: flex;
+  align-items: center;
+  background: #fcf8f3;
+  padding: 15px;
+  border-radius: 12px;
+  border: 1px dashed var(--crema);
+}
+.vol-campo-checkbox label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--texto);
+  cursor: pointer;
+}
+.vol-campo-checkbox input {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+}
 .vol-boton {
   width: 100%;
   padding: 16px 24px;
@@ -255,8 +302,5 @@ const volver = () => {
 }
 .vol-volver:hover {
   color: var(--verde-oscuro);
-}
-@media (max-width: 750px) {
-  .vol-formulario-contenedor { padding: 42px 28px; }
 }
 </style>

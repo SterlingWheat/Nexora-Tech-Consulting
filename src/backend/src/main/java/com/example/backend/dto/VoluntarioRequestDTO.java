@@ -8,7 +8,6 @@ import lombok.Data;
 
 @Data
 public class VoluntarioRequestDTO {
-
     @NotBlank(message = "El nombre es obligatorio")
     @Size(max = 100, message = "El nombre no puede superar los 100 caracteres")
     private String nombre;
@@ -28,4 +27,8 @@ public class VoluntarioRequestDTO {
 
     @Pattern(regexp = "^$|^[0-9+()\\-\\s]{6,20}$", message = "El teléfono no tiene un formato válido")
     private String telefono;
+
+    // Campos opcionales para fusionar la creación de usuario
+    private Boolean crearCuenta;
+    private String password;
 }

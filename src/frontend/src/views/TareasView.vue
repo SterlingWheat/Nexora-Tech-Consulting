@@ -6,7 +6,7 @@
         <h1>Gestión de <em>tareas operativas.</em></h1>
         <p>
           Administra y organiza el trabajo de los voluntarios de Casa Amandita. 
-          Consulta las tareas operativas y su avance.
+          Consulta las tareas operativas, asigna voluntarios y refleja el avance.
         </p>
       </div>
 
@@ -14,11 +14,18 @@
         Tu rol no tiene permiso para crear o editar tareas.
       </p>
 
+      <!-- HU1: Componente de filtros -->
+      <FiltrosTarea 
+        :categorias="categorias" 
+        :voluntarios="voluntarios" 
+        @filtrar="aplicarFiltros" 
+      />
+
       <div class="tareas-tarjeta">
         <div class="tareas-tarjeta-encabezado">
           <div>
             <h2>Listado de tareas</h2>
-            <p>Consulta el progreso y estado de cada actividad.</p>
+            <p v-if="totalElementos > 0">Mostrando {{ totalElementos }} tareas en total.</p>
           </div>
           <button v-if="puedeGestionarTareas" class="tareas-boton-nuevo" @click="irANuevaTarea">
             Crear Tarea
@@ -28,11 +35,11 @@
         <div v-if="cargando" class="tareas-cargando">
           Cargando tareas desde la base de datos...
         </div>
-
+        
         <div v-else-if="tareas.length === 0" class="tareas-vacio">
-          No hay tareas registradas todavía. Crea la primera con el botón superior.
+          No hay tareas que coincidan con la búsqueda o registradas todavía.
         </div>
-
+        
         <div v-else class="tareas-tabla-contenedor">
           <table class="tareas-tabla">
             <thead>
@@ -41,7 +48,7 @@
                 <th>Categoría</th>
                 <th>Estado</th>
                 <th>Avance</th>
-                <th v-if="puedeGestionarTareas">Acciones</th>
+                <th v-if="puedeGestionarTareas" class="th-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -64,21 +71,64 @@
                   <strong>{{ tarea.avance ?? 0 }}%</strong>
                 </td>
                 <td v-if="puedeGestionarTareas">
-                  <button 
-                    class="tareas-boton-editar" 
-                    :disabled="tarea.estado === 'Finalizada' || tarea.estado === 'Cancelada'"
-                    @click="editarTarea(tarea.idTarea)"
-                    :title="tarea.estado === 'Finalizada' || tarea.estado === 'Cancelada' ? 'No se puede editar una tarea Finalizada o Cancelada' : 'Editar tarea'"
-                  >
-                    Editar
-                  </button>
+                  <div class="acciones-grid">
+                    <button 
+                      class="tareas-boton-accion" 
+                      :disabled="esEstadoInmutable(tarea.estado)"
+                      @click="editarTarea(tarea.idTarea)"
+                      title="Editar"
+                    >
+                      Editar
+                    </button>
+                    <!-- HU2: Asignación de voluntarios -->
+                    <button 
+                      class="tareas-boton-accion btn-asignar" 
+                      :disabled="esEstadoInmutable(tarea.estado)"
+                      @click="abrirAsignarVoluntario(tarea)"
+                      title="Asignar Voluntarios"
+                    >
+                      Asignar
+                    </button>
+                    <!-- HU3: Gestión de estados -->
+                    <button 
+                      class="tareas-boton-accion btn-estado" 
+                      :disabled="esEstadoInmutable(tarea.estado)"
+                      @click="abrirCambiarEstado(tarea)"
+                      title="Cambiar Estado"
+                    >
+                      Estado
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
+          
+          <!-- HU1: Componente de paginación -->
+          <Paginacion 
+            :paginaActual="paginaActual" 
+            :totalPaginas="totalPaginas" 
+            @cambiarPagina="cambiarPagina" 
+          />
         </div>
       </div>
     </div>
+
+    <!-- Modales para HU2 y HU3 -->
+    <AsignarVoluntarioModal 
+      :visible="mostrarModalAsignar"
+      :tarea="tareaSeleccionada"
+      @close="mostrarModalAsignar = false"
+      @asignado="onAccionCompletada"
+    />
+
+    <CambiarEstadoModal 
+      :visible="mostrarModalEstado"
+      :tarea="tareaSeleccionada"
+      @close="mostrarModalEstado = false"
+      @estadoCambiado="onAccionCompletada"
+    />
+
   </section>
 </template>
 
@@ -87,21 +137,60 @@ import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { tareaService } from '../services/tareaService'
+import { voluntarioService } from '../services/voluntarioService'
+
+import FiltrosTarea from '../components/FiltrosTarea.vue'
+import Paginacion from '../components/Paginacion.vue'
+import AsignarVoluntarioModal from '../components/AsignarVoluntarioModal.vue'
+import CambiarEstadoModal from '../components/CambiarEstadoModal.vue'
 
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
-const puedeGestionarTareas = computed(() =>
+
+const puedeGestionarTareas = computed(() => 
   ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol)
 )
 const accesoDenegado = computed(() => route.query.acceso === 'denegado')
+
+// Estado de la vista
 const tareas = ref([])
+const categorias = ref([])
+const voluntarios = ref([])
 const cargando = ref(true)
 
-const cargarTareas = async () => {
+// Estado de paginación y filtros
+const paginaActual = ref(0)
+const totalPaginas = ref(0)
+const totalElementos = ref(0)
+const filtrosActuales = ref({})
+
+// Estado de Modales
+const mostrarModalAsignar = ref(false)
+const mostrarModalEstado = ref(false)
+const tareaSeleccionada = ref(null)
+
+const cargarDependencias = async () => {
+  try {
+    const [cats, vols] = await Promise.all([
+      tareaService.obtenerCategorias(),
+      voluntarioService.obtenerVoluntarios()
+    ])
+    categorias.value = cats
+    voluntarios.value = vols
+  } catch (err) {
+    console.error('Error al cargar dependencias:', err)
+  }
+}
+
+const cargarTareas = async (page = 0) => {
   cargando.value = true
   try {
-    tareas.value = await tareaService.obtenerTareas()
+    const response = await tareaService.filtrarTareas(filtrosActuales.value, page, 10)
+    tareas.value = response.content
+    paginaActual.value = response.number
+    totalPaginas.value = response.totalPages
+    totalElementos.value = response.totalElements
   } catch (err) {
     console.error('Error al consultar tareas:', err)
   } finally {
@@ -109,9 +198,23 @@ const cargarTareas = async () => {
   }
 }
 
-onMounted(() => {
-  cargarTareas()
+onMounted(async () => {
+  await cargarDependencias()
+  await cargarTareas(0)
 })
+
+const aplicarFiltros = (nuevosFiltros) => {
+  filtrosActuales.value = nuevosFiltros
+  cargarTareas(0)
+}
+
+const cambiarPagina = (nuevaPagina) => {
+  cargarTareas(nuevaPagina)
+}
+
+const esEstadoInmutable = (estado) => {
+  return estado === 'Finalizada' || estado === 'Cancelada'
+}
 
 const irANuevaTarea = () => {
   router.push('/tareas/nueva')
@@ -119,6 +222,21 @@ const irANuevaTarea = () => {
 
 const editarTarea = (id) => {
   router.push(`/tareas/editar/${id}`)
+}
+
+const abrirAsignarVoluntario = (tarea) => {
+  tareaSeleccionada.value = tarea
+  mostrarModalAsignar.value = true
+}
+
+const abrirCambiarEstado = (tarea) => {
+  tareaSeleccionada.value = tarea
+  mostrarModalEstado.value = true
+}
+
+const onAccionCompletada = () => {
+  // Refrescar los datos después de una asignación o cambio de estado
+  cargarTareas(paginaActual.value)
 }
 </script>
 
@@ -128,24 +246,20 @@ const editarTarea = (id) => {
   padding: 75px 24px 100px;
   background: radial-gradient(ellipse at 100% 0%, rgba(241, 205, 183, 0.25), transparent 42%), var(--crema-claro);
 }
-
 .tareas-contenedor {
   width: min(1150px, 100%);
   margin: auto;
 }
-
 .tareas-encabezado {
   max-width: 720px;
   margin-bottom: 40px;
 }
-
 .tareas-etiqueta {
   font-size: 10px;
   font-weight: 700;
   color: var(--verde-oscuro);
   letter-spacing: 2px;
 }
-
 .tareas-encabezado h1 {
   margin: 18px 0;
   font-family: "DM Serif Display", serif;
@@ -153,18 +267,15 @@ const editarTarea = (id) => {
   font-size: clamp(40px, 5vw, 65px);
   color: var(--texto);
 }
-
 .tareas-encabezado h1 em {
   color: var(--verde-oscuro);
 }
-
 .tareas-encabezado p {
   max-width: 630px;
   color: var(--texto-suave);
   font-size: 14px;
   line-height: 1.9;
 }
-
 .tareas-tarjeta {
   padding: 30px;
   background: white;
@@ -172,7 +283,6 @@ const editarTarea = (id) => {
   border-radius: 23px;
   box-shadow: 0 15px 50px rgba(81, 72, 62, 0.04);
 }
-
 .tareas-tarjeta-encabezado {
   display: flex;
   align-items: center;
@@ -180,20 +290,19 @@ const editarTarea = (id) => {
   gap: 20px;
   margin-bottom: 28px;
 }
-
 .tareas-tarjeta-encabezado h2 {
   font-family: "DM Serif Display", serif;
   font-size: 27px;
   font-weight: 400;
   color: var(--texto);
+  margin: 0;
 }
-
 .tareas-tarjeta-encabezado p {
   margin-top: 7px;
+  margin-bottom: 0;
   font-size: 12px;
   color: var(--texto-suave);
 }
-
 .tareas-boton-nuevo {
   padding: 12px 24px;
   border-radius: 30px;
@@ -205,19 +314,16 @@ const editarTarea = (id) => {
   cursor: pointer;
   transition: transform 0.2s, background 0.2s;
 }
-
 .tareas-boton-nuevo:hover {
   transform: translateY(-2px);
   background: var(--salvia);
 }
-
 .tareas-cargando, .tareas-vacio {
   text-align: center;
   padding: 40px;
   color: var(--texto-suave);
   font-size: 14px;
 }
-
 .tareas-aviso {
   margin: 0 0 20px;
   padding: 14px 18px;
@@ -227,17 +333,14 @@ const editarTarea = (id) => {
   color: #8d4037;
   font-size: 13px;
 }
-
 .tareas-tabla-contenedor {
   overflow-x: auto;
 }
-
 .tareas-tabla {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
-
 .tareas-tabla th {
   padding: 16px;
   background: var(--crema-claro);
@@ -246,37 +349,33 @@ const editarTarea = (id) => {
   font-weight: 700;
   white-space: nowrap;
 }
-
 .tareas-tabla th:first-child { border-radius: 10px 0 0 10px; }
 .tareas-tabla th:last-child { border-radius: 0 10px 10px 0; }
-
+.th-acciones {
+  min-width: 220px;
+}
 .tareas-tabla td {
   padding: 22px 16px;
   border-bottom: 1px solid var(--crema);
   vertical-align: middle;
 }
-
 .tareas-datos {
   display: flex;
   flex-direction: column;
   gap: 5px;
 }
-
 .tareas-datos strong {
   color: var(--texto);
   font-size: 13px;
 }
-
 .tareas-datos small {
   color: var(--texto-suave);
   font-size: 12px;
 }
-
 .tareas-categoria {
   font-size: 12px;
   color: var(--texto);
 }
-
 .tareas-badge {
   display: inline-flex;
   padding: 8px 13px;
@@ -285,28 +384,45 @@ const editarTarea = (id) => {
   font-weight: 700;
   white-space: nowrap;
 }
-
 .badge-pendiente { background: #F8E4D4; color: #A46B4C; }
+.badge-asignada { background: #D9E5F2; color: #4B6E91; }
 .badge-en-progreso { background: #E3E9D7; color: #596B43; }
 .badge-finalizada { background: #E8F2E5; color: #50704B; }
 .badge-cancelada { background: #FFF0EB; color: #A34D41; }
-
-.tareas-boton-editar {
-  padding: 8px 16px;
+.acciones-grid {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.tareas-boton-accion {
+  padding: 8px 12px;
   border: 1px solid var(--salvia-claro);
   border-radius: 10px;
   background: transparent;
   color: var(--texto);
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
-
-.tareas-boton-editar:hover:not(:disabled) {
+.tareas-boton-accion:hover:not(:disabled) {
   background: var(--crema);
 }
-
-.tareas-boton-editar:disabled {
+.btn-asignar {
+  border-color: #A5AA94;
+  color: var(--verde-oscuro);
+}
+.btn-asignar:hover:not(:disabled) {
+  background: #f1f5ec;
+}
+.btn-estado {
+  border-color: var(--durazno);
+  color: #8A5A36;
+}
+.btn-estado:hover:not(:disabled) {
+  background: #FFF7EE;
+}
+.tareas-boton-accion:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
@@ -315,6 +431,6 @@ const editarTarea = (id) => {
   .tareas-pagina { padding: 50px 15px; }
   .tareas-tarjeta { padding: 17px; }
   .tareas-tarjeta-encabezado { flex-direction: column; align-items: flex-start; }
-  .tareas-tabla { min-width: 580px; }
+  .tareas-tabla { min-width: 780px; }
 }
 </style>
