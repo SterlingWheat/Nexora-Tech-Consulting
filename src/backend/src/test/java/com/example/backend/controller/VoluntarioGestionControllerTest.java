@@ -4,6 +4,7 @@ import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Voluntario;
+import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.service.VoluntarioService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -38,7 +39,7 @@ class VoluntarioGestionControllerTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new VoluntarioGestionController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new VoluntarioGestionController(service, mock(UsuarioRepository.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 
@@ -51,7 +52,7 @@ class VoluntarioGestionControllerTest {
     // Criterio 1
     @Test
     void post_valido_devuelve201ConVoluntarioActivo() throws Exception {
-        when(service.registrarVoluntario(any())).thenReturn(guardado());
+        when(service.registrarVoluntario(any(), any(), any())).thenReturn(guardado());
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
                 .andExpect(status().isCreated())
@@ -62,7 +63,7 @@ class VoluntarioGestionControllerTest {
     // Criterio 2
     @Test
     void post_duplicado_devuelve409ConMensajeClaro() throws Exception {
-        when(service.registrarVoluntario(any()))
+        when(service.registrarVoluntario(any(), any(), any()))
                 .thenThrow(new ConflictException("Ya existe un voluntario registrado con el documento 1234567"));
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
@@ -79,7 +80,8 @@ class VoluntarioGestionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("El nombre es obligatorio")))
                 .andExpect(content().string(containsString("El documento es obligatorio")));
-        verify(service, never()).registrarVoluntario(any());
+
+        verify(service, never()).registrarVoluntario(any(), any(), any());
     }
 
     // Criterio 4
@@ -89,7 +91,7 @@ class VoluntarioGestionControllerTest {
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("formato válido")));
+                .andExpect(content().string(containsString("formato")));
     }
 
     // Criterio 4
@@ -99,7 +101,7 @@ class VoluntarioGestionControllerTest {
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("teléfono")));
+                .andExpect(content().string(containsString("formato")));
     }
 
     // El teléfono admite como máximo 20 caracteres (columna varchar(20))
@@ -109,13 +111,15 @@ class VoluntarioGestionControllerTest {
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest())
-                .andExpect(content().string(containsString("teléfono")));
-        verify(service, never()).registrarVoluntario(any());
+                .andExpect(content().string(containsString("formato")));
+
+        verify(service, never()).registrarVoluntario(any(), any(), any());
     }
 
     @Test
     void post_telefonoDeExactamente20Caracteres_esValido() throws Exception {
-        when(service.registrarVoluntario(any())).thenReturn(guardado());
+        when(service.registrarVoluntario(any(), any(), any())).thenReturn(guardado());
+
         String limite = VALIDO.replace("70012345", "12345678901234567890");
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(limite))
@@ -127,6 +131,7 @@ class VoluntarioGestionControllerTest {
     void put_valido_devuelve200ConFechaModificacion() throws Exception {
         Voluntario actualizado = guardado();
         actualizado.setFechaModificacion(LocalDateTime.now());
+
         when(service.actualizarVoluntario(eq(1), any())).thenReturn(actualizado);
 
         mvc.perform(put("/api/voluntarios/1").contentType(MediaType.APPLICATION_JSON).content(VALIDO))

@@ -5,6 +5,7 @@ import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Disponibilidad;
+import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.DisponibilidadService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -40,7 +41,7 @@ class DisponibilidadControllerTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new DisponibilidadController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new DisponibilidadController(service, mock(VoluntarioRepository.class)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 
@@ -90,32 +91,32 @@ class DisponibilidadControllerTest {
         mvc.perform(put(URL).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("franjas es obligatoria")));
+
         verifyNoInteractions(service);
     }
 
     @Test
     void put_franjaIncompleta_devuelve400() throws Exception {
         String incompleta = "{\"franjas\":[{\"diaSemana\":\"LUNES\",\"horaInicio\":\"08:00\"}]}";
-
         mvc.perform(put(URL).contentType(MediaType.APPLICATION_JSON).content(incompleta))
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("hora de fin")));
+
         verifyNoInteractions(service);
     }
 
     @Test
     void put_diaInvalido_devuelve400() throws Exception {
         String invalido = VALIDO.replace("LUNES", "FUNDAY");
-
         mvc.perform(put(URL).contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest());
+
         verifyNoInteractions(service);
     }
 
     @Test
     void put_horaConFormatoInvalido_devuelve400() throws Exception {
         String invalido = VALIDO.replace("08:00", "ocho");
-
         mvc.perform(put(URL).contentType(MediaType.APPLICATION_JSON).content(invalido))
                 .andExpect(status().isBadRequest());
     }

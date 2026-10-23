@@ -1,7 +1,8 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.LoginRequest;
-import com.example.backend.model.Rol;
+import com.example.backend.exception.UsuarioInactivoException;
+import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
 import com.example.backend.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -72,7 +73,7 @@ class AuthServiceTest {
         Usuario usuario = usuario("{bcrypt}hash", false);
         when(usuarioRepository.findByEmail("persona@example.com")).thenReturn(Optional.of(usuario));
 
-        assertThrows(BadCredentialsException.class,
+        assertThrows(UsuarioInactivoException.class,
                 () -> authService.iniciarSesion(loginRequest("persona@example.com", "correcta")));
         verify(passwordEncoder, never()).matches(any(), any());
     }
@@ -94,8 +95,8 @@ class AuthServiceTest {
         return Usuario.builder()
                 .email("persona@example.com")
                 .password(password)
-                .rol(Rol.VOLUNTARIO)
-                .activo(activo)
+                .rol(new RolEntity(4, "VOLUNTARIO"))
+                .estado(activo ? "ACTIVO" : "INACTIVO")
                 .build();
     }
 

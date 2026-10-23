@@ -3,11 +3,12 @@ package com.example.backend.security;
 import com.example.backend.controller.TareaController;
 import com.example.backend.controller.PerfilController;
 import com.example.backend.controller.UsuarioController;
-import com.example.backend.dto.UsuarioResponse;
+import com.example.backend.model.RolEntity;
 import com.example.backend.model.Tarea;
-import com.example.backend.model.Rol;
 import com.example.backend.model.Usuario;
+import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
+import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.JwtService;
 import com.example.backend.service.TareaService;
 import org.junit.jupiter.api.Test;
@@ -47,6 +48,12 @@ class TaskRoleAccessTest {
 
     @MockitoBean
     private UsuarioRepository usuarioRepository;
+
+    @MockitoBean
+    private RolRepository rolRepository;
+
+    @MockitoBean
+    private VoluntarioRepository voluntarioRepository;
 
     @MockitoBean
     private PasswordEncoder passwordEncoder;
@@ -155,7 +162,7 @@ class TaskRoleAccessTest {
 
     @Test
     void voluntarioPuedeConsultarSoloSuPerfil() throws Exception {
-        Usuario voluntario = usuario(7, "voluntario@example.com", Rol.VOLUNTARIO);
+        Usuario voluntario = usuario(7, "voluntario@example.com", new RolEntity(4, "VOLUNTARIO"));
         when(usuarioRepository.findByEmail("voluntario@example.com"))
                 .thenReturn(java.util.Optional.of(voluntario));
 
@@ -170,7 +177,7 @@ class TaskRoleAccessTest {
     @Test
     void administradorPuedeConsultarElPerfilDeOtroUsuario() throws Exception {
         when(usuarioRepository.findById(7))
-                .thenReturn(java.util.Optional.of(usuario(7, "voluntario@example.com", Rol.VOLUNTARIO)));
+                .thenReturn(java.util.Optional.of(usuario(7, "voluntario@example.com", new RolEntity(4, "VOLUNTARIO"))));
 
         mockMvc.perform(get("/api/usuarios/7").with(user("admin").roles("ADMINISTRADOR")))
                 .andExpect(status().isOk())
@@ -186,14 +193,14 @@ class TaskRoleAccessTest {
         verifyNoInteractions(usuarioRepository);
     }
 
-    private Usuario usuario(Integer id, String email, Rol rol) {
+    private Usuario usuario(Integer id, String email, RolEntity rol) {
         return Usuario.builder()
                 .idUsuario(id)
                 .nombre("Voluntario")
                 .email(email)
                 .password("{bcrypt}hash-secreto")
                 .rol(rol)
-                .activo(true)
+                .estado("ACTIVO")
                 .build();
     }
 }

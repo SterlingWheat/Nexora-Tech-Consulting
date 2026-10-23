@@ -3,6 +3,8 @@ package com.example.backend.service;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Voluntario;
+import com.example.backend.repository.RolRepository;
+import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.impl.VoluntarioServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;
 
@@ -22,12 +25,18 @@ class VoluntarioServiceImplTest {
 
     @Mock
     private VoluntarioRepository repository;
+    @Mock
+    private UsuarioRepository usuarioRepository;
+    @Mock
+    private RolRepository rolRepository;
+    @Mock
+    private PasswordEncoder passwordEncoder;
 
     private VoluntarioServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new VoluntarioServiceImpl(repository);
+        service = new VoluntarioServiceImpl(repository, usuarioRepository, rolRepository, passwordEncoder);
     }
 
     private Voluntario nuevo() {
@@ -45,7 +54,7 @@ class VoluntarioServiceImplTest {
     void registrar_conDatosValidos_quedaActivoYNormalizado() {
         when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
 
-        Voluntario guardado = service.registrarVoluntario(nuevo());
+        Voluntario guardado = service.registrarVoluntario(nuevo(), false, null);
 
         assertTrue(guardado.getActivo());
         assertEquals("Ana", guardado.getNombre());
@@ -59,7 +68,7 @@ class VoluntarioServiceImplTest {
     void registrar_documentoDuplicado_lanzaConflictoYNoGuarda() {
         when(repository.existsByDocumentoIgnoreCase("1234567")).thenReturn(true);
 
-        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo()));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo(), false, null));
 
         assertTrue(ex.getMessage().contains("documento"));
         verify(repository, never()).save(any());
@@ -71,7 +80,7 @@ class VoluntarioServiceImplTest {
         when(repository.existsByDocumentoIgnoreCase(any())).thenReturn(false);
         when(repository.existsByEmailIgnoreCase("ana@correo.com")).thenReturn(true);
 
-        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo()));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo(), false, null));
 
         assertTrue(ex.getMessage().contains("correo"));
         verify(repository, never()).save(any());
@@ -82,6 +91,7 @@ class VoluntarioServiceImplTest {
     void actualizar_conDatosValidos_guardaCambios() {
         Voluntario existente = Voluntario.builder().idVoluntario(1).nombre("Viejo").apellido("Apellido")
                 .documento("111").email("viejo@correo.com").build();
+
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
 
@@ -105,6 +115,7 @@ class VoluntarioServiceImplTest {
     void actualizar_conDocumentoDeOtroVoluntario_lanzaConflicto() {
         Voluntario existente = Voluntario.builder().idVoluntario(1).nombre("X").apellido("Y")
                 .documento("111").email("x@correo.com").build();
+
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.existsByDocumentoIgnoreCaseAndIdVoluntarioNot("1234567", 1)).thenReturn(true);
 
@@ -116,6 +127,7 @@ class VoluntarioServiceImplTest {
     void actualizar_conCorreoDeOtroVoluntario_lanzaConflicto() {
         Voluntario existente = Voluntario.builder().idVoluntario(1).nombre("X").apellido("Y")
                 .documento("111").email("x@correo.com").build();
+
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.existsByEmailIgnoreCaseAndIdVoluntarioNot("ana@correo.com", 1)).thenReturn(true);
 

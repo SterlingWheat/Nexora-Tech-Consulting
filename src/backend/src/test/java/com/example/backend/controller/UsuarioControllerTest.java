@@ -1,15 +1,20 @@
 package com.example.backend.controller;
 
-import com.example.backend.model.Rol;
+import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
+import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
+import com.example.backend.repository.VoluntarioRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 
+import java.util.Optional;
+
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -23,14 +28,22 @@ import static org.springframework.test.web.servlet.setup.MockMvcBuilders.standal
 class UsuarioControllerTest {
 
     private UsuarioRepository usuarioRepository;
+    private RolRepository rolRepository;
     private PasswordEncoder passwordEncoder;
+    private VoluntarioRepository voluntarioRepository;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         usuarioRepository = mock(UsuarioRepository.class);
+        rolRepository = mock(RolRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
-        mockMvc = standaloneSetup(new UsuarioController(usuarioRepository, passwordEncoder)).build();
+        voluntarioRepository = mock(VoluntarioRepository.class);
+
+        when(rolRepository.findByNombre(anyString())).thenAnswer(inv -> 
+                Optional.of(new RolEntity(1, inv.getArgument(0))));
+
+        mockMvc = standaloneSetup(new UsuarioController(usuarioRepository, rolRepository, passwordEncoder, voluntarioRepository)).build();
     }
 
     @Test
@@ -90,10 +103,11 @@ class UsuarioControllerTest {
                 .nombre("Nombre anterior")
                 .email("anterior@example.com")
                 .password("{bcrypt}hash")
-                .rol(Rol.VOLUNTARIO)
-                .activo(true)
+                .rol(new RolEntity(4, "VOLUNTARIO"))
+                .estado("ACTIVO")
                 .build();
-        when(usuarioRepository.findById(7)).thenReturn(java.util.Optional.of(usuario));
+
+        when(usuarioRepository.findById(7)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmailIgnoreCaseAndIdUsuarioNot("nuevo@example.com", 7))
                 .thenReturn(false);
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -132,10 +146,11 @@ class UsuarioControllerTest {
                 .nombre("Persona")
                 .email("persona@example.com")
                 .password("{bcrypt}hash")
-                .rol(Rol.VOLUNTARIO)
-                .activo(true)
+                .rol(new RolEntity(4, "VOLUNTARIO"))
+                .estado("ACTIVO")
                 .build();
-        when(usuarioRepository.findById(7)).thenReturn(java.util.Optional.of(usuario));
+
+        when(usuarioRepository.findById(7)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.existsByEmailIgnoreCaseAndIdUsuarioNot("ocupado@example.com", 7))
                 .thenReturn(true);
 
@@ -159,17 +174,19 @@ class UsuarioControllerTest {
                 .nombre("Ana")
                 .email("ana@example.com")
                 .password("{bcrypt}hash")
-                .rol(Rol.VOLUNTARIO)
-                .activo(true)
+                .rol(new RolEntity(4, "VOLUNTARIO"))
+                .estado("ACTIVO")
                 .build();
+
         Usuario inactivo = Usuario.builder()
                 .idUsuario(2)
                 .nombre("Luis")
                 .email("luis@example.com")
                 .password("{bcrypt}hash")
-                .rol(Rol.VOLUNTARIO)
-                .activo(false)
+                .rol(new RolEntity(4, "VOLUNTARIO"))
+                .estado("INACTIVO")
                 .build();
+
         when(usuarioRepository.findAll()).thenReturn(java.util.List.of(activo, inactivo));
 
         mockMvc.perform(get("/api/usuarios").param("rol", "VOLUNTARIO").param("activo", "false"))
@@ -192,10 +209,11 @@ class UsuarioControllerTest {
                 .nombre("Ana")
                 .email("ana@example.com")
                 .password("{bcrypt}hash")
-                .rol(Rol.VOLUNTARIO)
-                .activo(true)
+                .rol(new RolEntity(4, "VOLUNTARIO"))
+                .estado("ACTIVO")
                 .build();
-        when(usuarioRepository.findById(7)).thenReturn(java.util.Optional.of(usuario));
+
+        when(usuarioRepository.findById(7)).thenReturn(Optional.of(usuario));
         when(usuarioRepository.save(usuario)).thenReturn(usuario);
 
         mockMvc.perform(put("/api/usuarios/7/desactivar"))
