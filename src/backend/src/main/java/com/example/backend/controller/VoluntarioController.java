@@ -7,7 +7,6 @@ import com.example.backend.service.VoluntarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -25,26 +24,14 @@ public class VoluntarioController {
     }
 
     @PostMapping
-    public ResponseEntity<?> registrarVoluntario(@Valid @RequestBody VoluntarioRequestDTO request) {
-        try {
-            Voluntario guardado = voluntarioService.registrarVoluntario(mapearAEntidad(request));
-            return new ResponseEntity<>(mapearADTO(guardado), HttpStatus.CREATED);
-        } catch (IllegalStateException e) {
-            // Criterio 2: documento o correo duplicado
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        }
+    public ResponseEntity<VoluntarioResponseDTO> registrarVoluntario(@Valid @RequestBody VoluntarioRequestDTO request) {
+        Voluntario guardado = voluntarioService.registrarVoluntario(mapearAEntidad(request));
+        return new ResponseEntity<>(mapearADTO(guardado), HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<?> actualizarVoluntario(@PathVariable Integer id, @Valid @RequestBody VoluntarioRequestDTO request) {
-        try {
-            Voluntario actualizado = voluntarioService.actualizarVoluntario(id, mapearAEntidad(request));
-            return ResponseEntity.ok(mapearADTO(actualizado));
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
+    public ResponseEntity<VoluntarioResponseDTO> actualizarVoluntario(@PathVariable Integer id, @Valid @RequestBody VoluntarioRequestDTO request) {
+        return ResponseEntity.ok(mapearADTO(voluntarioService.actualizarVoluntario(id, mapearAEntidad(request))));
     }
 
     @GetMapping
@@ -56,21 +43,8 @@ public class VoluntarioController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<?> obtenerVoluntario(@PathVariable Integer id) {
-        try {
-            return ResponseEntity.ok(mapearADTO(voluntarioService.obtenerVoluntarioPorId(id)));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(e.getMessage());
-        }
-    }
-
-    // Criterio 4: validaciones de la API con mensaje claro por campo
-    @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<String> manejarValidacion(MethodArgumentNotValidException e) {
-        String mensaje = e.getBindingResult().getFieldErrors().stream()
-                .map(fe -> fe.getDefaultMessage())
-                .collect(Collectors.joining("; "));
-        return ResponseEntity.badRequest().body(mensaje);
+    public ResponseEntity<VoluntarioResponseDTO> obtenerVoluntario(@PathVariable Integer id) {
+        return ResponseEntity.ok(mapearADTO(voluntarioService.obtenerVoluntarioPorId(id)));
     }
 
     private Voluntario mapearAEntidad(VoluntarioRequestDTO request) {

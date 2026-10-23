@@ -49,6 +49,13 @@ const routes = [
     name: 'editar-voluntario',
     component: VoluntarioFormView,
     props: true
+  },
+
+  // Disponibilidad horaria (KAN-20)
+  {
+    path: '/voluntarios/:id/disponibilidad',
+    name: 'disponibilidad-voluntario',
+    component: () => import('../views/DisponibilidadView.vue')
   }
 ]
 

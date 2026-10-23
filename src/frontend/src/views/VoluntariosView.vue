@@ -56,6 +56,7 @@
                 <td>{{ formatearFecha(v.fechaModificacion) }}</td>
                 <td>
                   <button class="vols-boton-editar" @click="editar(v.idVoluntario)">Editar</button>
+                  <button class="vols-boton-editar vols-boton-disp" @click="verDisponibilidad(v.idVoluntario)">Disponibilidad</button>
                 </td>
               </tr>
             </tbody>
@@ -97,6 +98,7 @@ const formatearFecha = (fecha) => {
 
 const irANuevo = () => router.push('/voluntarios/nuevo')
 const editar = (id) => router.push(`/voluntarios/editar/${id}`)
+const verDisponibilidad = (id) => router.push(`/voluntarios/${id}/disponibilidad`)
 </script>
 
 <style scoped>
@@ -261,6 +263,10 @@ const editar = (id) => router.push(`/voluntarios/editar/${id}`)
   font-size: 12px;
   cursor: pointer;
   transition: all 0.2s;
+}
+
+.vols-boton-disp {
+  margin-left: 8px;
 }
 
 .vols-boton-editar:hover {

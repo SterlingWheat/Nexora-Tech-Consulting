@@ -1,5 +1,7 @@
 package com.example.backend.service;
 
+import com.example.backend.exception.ConflictException;
+import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Voluntario;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.impl.VoluntarioServiceImpl;
@@ -57,7 +59,7 @@ class VoluntarioServiceImplTest {
     void registrar_documentoDuplicado_lanzaConflictoYNoGuarda() {
         when(repository.existsByDocumentoIgnoreCase("1234567")).thenReturn(true);
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.registrarVoluntario(nuevo()));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo()));
 
         assertTrue(ex.getMessage().contains("documento"));
         verify(repository, never()).save(any());
@@ -69,7 +71,7 @@ class VoluntarioServiceImplTest {
         when(repository.existsByDocumentoIgnoreCase(any())).thenReturn(false);
         when(repository.existsByEmailIgnoreCase("ana@correo.com")).thenReturn(true);
 
-        IllegalStateException ex = assertThrows(IllegalStateException.class, () -> service.registrarVoluntario(nuevo()));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo()));
 
         assertTrue(ex.getMessage().contains("correo"));
         verify(repository, never()).save(any());
@@ -95,7 +97,7 @@ class VoluntarioServiceImplTest {
     void actualizar_inexistente_lanzaNoEncontrado() {
         when(repository.findById(99)).thenReturn(Optional.empty());
 
-        assertThrows(IllegalArgumentException.class, () -> service.actualizarVoluntario(99, nuevo()));
+        assertThrows(ResourceNotFoundException.class, () -> service.actualizarVoluntario(99, nuevo()));
         verify(repository, never()).save(any());
     }
 
@@ -106,7 +108,7 @@ class VoluntarioServiceImplTest {
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.existsByDocumentoIgnoreCaseAndIdVoluntarioNot("1234567", 1)).thenReturn(true);
 
-        assertThrows(IllegalStateException.class, () -> service.actualizarVoluntario(1, nuevo()));
+        assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo()));
         verify(repository, never()).save(any());
     }
 
@@ -117,7 +119,7 @@ class VoluntarioServiceImplTest {
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.existsByEmailIgnoreCaseAndIdVoluntarioNot("ana@correo.com", 1)).thenReturn(true);
 
-        assertThrows(IllegalStateException.class, () -> service.actualizarVoluntario(1, nuevo()));
+        assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo()));
         verify(repository, never()).save(any());
     }
 }

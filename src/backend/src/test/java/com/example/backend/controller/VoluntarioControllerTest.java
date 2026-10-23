@@ -1,5 +1,8 @@
 package com.example.backend.controller;
 
+import com.example.backend.exception.ConflictException;
+import com.example.backend.exception.GlobalExceptionHandler;
+import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Voluntario;
 import com.example.backend.service.VoluntarioService;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,7 +38,8 @@ class VoluntarioControllerTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new VoluntarioController(service)).build();
+        mvc = MockMvcBuilders.standaloneSetup(new VoluntarioController(service))
+                .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 
     private Voluntario guardado() {
@@ -59,7 +63,7 @@ class VoluntarioControllerTest {
     @Test
     void post_duplicado_devuelve409ConMensajeClaro() throws Exception {
         when(service.registrarVoluntario(any()))
-                .thenThrow(new IllegalStateException("Ya existe un voluntario registrado con el documento 1234567"));
+                .thenThrow(new ConflictException("Ya existe un voluntario registrado con el documento 1234567"));
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
                 .andExpect(status().isConflict())
@@ -113,7 +117,7 @@ class VoluntarioControllerTest {
     @Test
     void put_inexistente_devuelve404() throws Exception {
         when(service.actualizarVoluntario(eq(99), any()))
-                .thenThrow(new IllegalArgumentException("Voluntario no encontrado con ID: 99"));
+                .thenThrow(new ResourceNotFoundException("Voluntario no encontrado con ID: 99"));
 
         mvc.perform(put("/api/voluntarios/99").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
                 .andExpect(status().isNotFound());
@@ -122,7 +126,7 @@ class VoluntarioControllerTest {
     @Test
     void put_duplicado_devuelve409() throws Exception {
         when(service.actualizarVoluntario(eq(1), any()))
-                .thenThrow(new IllegalStateException("Ya existe un voluntario registrado con el correo ana@correo.com"));
+                .thenThrow(new ConflictException("Ya existe un voluntario registrado con el correo ana@correo.com"));
 
         mvc.perform(put("/api/voluntarios/1").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
                 .andExpect(status().isConflict());
@@ -139,7 +143,7 @@ class VoluntarioControllerTest {
 
     @Test
     void get_porIdInexistente_devuelve404() throws Exception {
-        when(service.obtenerVoluntarioPorId(99)).thenThrow(new IllegalArgumentException("no existe"));
+        when(service.obtenerVoluntarioPorId(99)).thenThrow(new ResourceNotFoundException("no existe"));
 
         mvc.perform(get("/api/voluntarios/99")).andExpect(status().isNotFound());
     }

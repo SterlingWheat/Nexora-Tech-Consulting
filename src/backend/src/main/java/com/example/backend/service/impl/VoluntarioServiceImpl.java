@@ -1,5 +1,7 @@
 package com.example.backend.service.impl;
 
+import com.example.backend.exception.ConflictException;
+import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Voluntario;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.VoluntarioService;
@@ -22,10 +24,10 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     public Voluntario registrarVoluntario(Voluntario voluntario) {
         normalizar(voluntario);
         if (voluntarioRepository.existsByDocumentoIgnoreCase(voluntario.getDocumento())) {
-            throw new IllegalStateException("Ya existe un voluntario registrado con el documento " + voluntario.getDocumento());
+            throw new ConflictException("Ya existe un voluntario registrado con el documento " + voluntario.getDocumento());
         }
         if (voluntarioRepository.existsByEmailIgnoreCase(voluntario.getEmail())) {
-            throw new IllegalStateException("Ya existe un voluntario registrado con el correo " + voluntario.getEmail());
+            throw new ConflictException("Ya existe un voluntario registrado con el correo " + voluntario.getEmail());
         }
         // Criterio 1: el voluntario queda registrado como activo
         voluntario.setActivo(true);
@@ -39,10 +41,10 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         normalizar(detalles);
 
         if (voluntarioRepository.existsByDocumentoIgnoreCaseAndIdVoluntarioNot(detalles.getDocumento(), idVoluntario)) {
-            throw new IllegalStateException("Ya existe un voluntario registrado con el documento " + detalles.getDocumento());
+            throw new ConflictException("Ya existe un voluntario registrado con el documento " + detalles.getDocumento());
         }
         if (voluntarioRepository.existsByEmailIgnoreCaseAndIdVoluntarioNot(detalles.getEmail(), idVoluntario)) {
-            throw new IllegalStateException("Ya existe un voluntario registrado con el correo " + detalles.getEmail());
+            throw new ConflictException("Ya existe un voluntario registrado con el correo " + detalles.getEmail());
         }
 
         existente.setNombre(detalles.getNombre());
@@ -64,7 +66,7 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     @Transactional(readOnly = true)
     public Voluntario obtenerVoluntarioPorId(Integer idVoluntario) {
         return voluntarioRepository.findById(idVoluntario)
-                .orElseThrow(() -> new IllegalArgumentException("Voluntario no encontrado con ID: " + idVoluntario));
+                .orElseThrow(() -> new ResourceNotFoundException("Voluntario no encontrado con ID: " + idVoluntario));
     }
 
     private void normalizar(Voluntario v) {
