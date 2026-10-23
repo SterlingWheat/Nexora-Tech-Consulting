@@ -3,6 +3,7 @@ package com.example.backend.service.impl;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Turno;
+import com.example.backend.repository.CupoOcupado;
 import com.example.backend.repository.TurnoRepository;
 import com.example.backend.service.TurnoService;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 public class TurnoServiceImpl implements TurnoService {
@@ -37,14 +40,30 @@ public class TurnoServiceImpl implements TurnoService {
     @Override
     @Transactional(readOnly = true)
     public List<Turno> listarTurnos() {
-        return turnoRepository.findAllByOrderByFechaAscHoraInicioAsc();
+        List<Turno> turnos = turnoRepository.findAllByOrderByFechaAscHoraInicioAsc();
+        completarCuposOcupados(turnos);
+        return turnos;
     }
 
     @Override
     @Transactional(readOnly = true)
     public Turno obtenerTurnoPorId(Integer idTurno) {
-        return turnoRepository.findById(idTurno)
+        Turno turno = turnoRepository.findById(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+        completarCuposOcupados(List.of(turno));
+        return turno;
+    }
+
+    // Criterio 3: los cupos ocupados salen de las asignaciones vigentes del turno
+    private void completarCuposOcupados(List<Turno> turnos) {
+        if (turnos.isEmpty()) {
+            return;
+        }
+        Map<Integer, Long> ocupados = turnoRepository
+                .contarCuposOcupados(turnos.stream().map(Turno::getIdTurno).collect(Collectors.toList()))
+                .stream()
+                .collect(Collectors.toMap(CupoOcupado::getIdTurno, CupoOcupado::getTotal));
+        turnos.forEach(t -> t.setCuposOcupados(ocupados.getOrDefault(t.getIdTurno(), 0L).intValue()));
     }
 
     // Criterio 2

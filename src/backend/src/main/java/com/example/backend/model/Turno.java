@@ -35,11 +35,12 @@ public class Turno {
     @Column(nullable = false, length = 200)
     private String actividad;
 
-    @Column(name = "cupos_totales", nullable = false)
+    // Columna "cupos" del esquema original del equipo
+    @Column(name = "cupos", nullable = false)
     private Integer cuposTotales;
 
-    // Lo incrementarán las asignaciones de voluntarios a turnos (historias futuras)
-    @Column(name = "cupos_ocupados", nullable = false)
+    // No se guarda: se cuenta desde asignacion_turno para que las asignaciones del resto del equipo se reflejen solas
+    @Transient
     @Builder.Default
     private Integer cuposOcupados = 0;
 
@@ -50,9 +51,6 @@ public class Turno {
     protected void onCreate() {
         if (this.fechaCreacion == null) {
             this.fechaCreacion = LocalDateTime.now();
-        }
-        if (this.cuposOcupados == null) {
-            this.cuposOcupados = 0;
         }
     }
 
