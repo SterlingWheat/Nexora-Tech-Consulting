@@ -5,6 +5,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
 import java.time.LocalDateTime;
 
 @Entity
@@ -23,7 +24,7 @@ public class Tarea {
     @Column(nullable = false, length = 200)
     private String titulo;
 
-    // Mapeado explícitamente al error tipográfico "descripcior" de la tabla para evitar fallos SQL[cite: 1, 3]
+    // Mapeado explícitamente al error tipográfico "descripcior" de la tabla para evitar fallos SQL
     @Column(name = "descripcior", columnDefinition = "TEXT")
     private String descripcion;
 

@@ -1,14 +1,20 @@
 package com.example.backend.service.impl;
 
+import com.example.backend.exception.BusinessValidationException;
+import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.CategoriaTarea;
 import com.example.backend.model.Tarea;
 import com.example.backend.repository.CategoriaTareaRepository;
 import com.example.backend.repository.TareaRepository;
+import com.example.backend.service.HistorialTareaService;
 import com.example.backend.service.TareaService;
-//import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.util.Arrays;
 import java.util.List;
 
 @Service
@@ -16,23 +22,25 @@ public class TareaServiceImpl implements TareaService {
 
     private final TareaRepository tareaRepository;
     private final CategoriaTareaRepository categoriaTareaRepository;
+    private final HistorialTareaService historialTareaService;
 
-    //@Autowired
-    public TareaServiceImpl(TareaRepository tareaRepository, CategoriaTareaRepository categoriaTareaRepository) {
+    public TareaServiceImpl(TareaRepository tareaRepository, 
+                            CategoriaTareaRepository categoriaTareaRepository,
+                            HistorialTareaService historialTareaService) {
         this.tareaRepository = tareaRepository;
         this.categoriaTareaRepository = categoriaTareaRepository;
+        this.historialTareaService = historialTareaService;
     }
 
     @Override
     @Transactional
     public Tarea crearTarea(Tarea tarea) {
-        // Criterio 1: La tarea se crea en estado Pendiente (esto también está respaldado por el @PrePersist en el modelo)
-        tarea.setEstado("Pendiente"); /*[cite: 2]*/
-        tarea.setAvance((short) 0); /*[cite: 2]*/
+        // HU1 y Tarea: La tarea se crea en estado Pendiente
+        tarea.setEstado("Pendiente");
+        tarea.setAvance((short) 0);
         
-        // Validar que la categoría exista
         CategoriaTarea categoria = categoriaTareaRepository.findById(tarea.getCategoria().getIdCategoria())
-                .orElseThrow(() -> new IllegalArgumentException("La categoría seleccionada no existe."));
+                .orElseThrow(() -> new ResourceNotFoundException("La categoría seleccionada no existe."));
         
         tarea.setCategoria(categoria);
         return tareaRepository.save(tarea);
@@ -42,23 +50,19 @@ public class TareaServiceImpl implements TareaService {
     @Transactional
     public Tarea editarTarea(Integer idTarea, Tarea tareaDetalles) {
         Tarea tareaExistente = tareaRepository.findById(idTarea)
-                .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada con ID: " + idTarea));
+                .orElseThrow(() -> new ResourceNotFoundException("Tarea no encontrada con ID: " + idTarea));
 
-        // Criterio 3: Dada una tarea Finalizada o Cancelada, el sistema impide su edición.
         if ("Finalizada".equalsIgnoreCase(tareaExistente.getEstado()) || 
             "Cancelada".equalsIgnoreCase(tareaExistente.getEstado())) {
-            throw new IllegalStateException("No se puede editar la tarea porque se encuentra " + tareaExistente.getEstado());
+            throw new BusinessValidationException("No se puede editar la tarea porque se encuentra " + tareaExistente.getEstado());
         }
 
-        // Criterio 2: Se guardan los cambios. Al usar JPA, las asignaciones (si existieran en la relación) 
-        // se mantienen intactas porque solo actualizamos los campos básicos de la tarea.
         tareaExistente.setTitulo(tareaDetalles.getTitulo());
         tareaExistente.setDescripcion(tareaDetalles.getDescripcion());
         
-        // Validar y actualizar categoría (Criterio 4)
         if (tareaDetalles.getCategoria() != null && tareaDetalles.getCategoria().getIdCategoria() != null) {
             CategoriaTarea categoria = categoriaTareaRepository.findById(tareaDetalles.getCategoria().getIdCategoria())
-                    .orElseThrow(() -> new IllegalArgumentException("La categoría seleccionada no existe."));
+                    .orElseThrow(() -> new ResourceNotFoundException("La categoría seleccionada no existe."));
             tareaExistente.setCategoria(categoria);
         }
 
@@ -75,13 +79,47 @@ public class TareaServiceImpl implements TareaService {
     @Transactional(readOnly = true)
     public Tarea obtenerTareaPorId(Integer idTarea) {
         return tareaRepository.findById(idTarea)
-                .orElseThrow(() -> new IllegalArgumentException("Tarea no encontrada con ID: " + idTarea));
+                .orElseThrow(() -> new ResourceNotFoundException("Tarea no encontrada con ID: " + idTarea));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable, 
+                                     LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
+        // HU1 Criterio 1 y 2: Filtrado en la base de datos
+        return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, pageable);
+    }
+
+    @Override
+    @Transactional
+    public Tarea cambiarEstado(Integer idTarea, String nuevoEstado, Integer idUsuario) {
+        Tarea tarea = obtenerTareaPorId(idTarea);
+        String estadoActual = tarea.getEstado();
+
+        // HU3 Criterio 1: Estados permitidos
+        List<String> estadosValidos = Arrays.asList("Pendiente", "Asignada", "En progreso", "Finalizada", "Cancelada");
+        if (!estadosValidos.contains(nuevoEstado)) {
+            throw new BusinessValidationException("El estado '" + nuevoEstado + "' no es un estado controlado válido.");
+        }
+
+        // HU3 Criterio 3: Transiciones no permitidas (Evitar mover desde estados terminales)
+        if ("Finalizada".equalsIgnoreCase(estadoActual) || "Cancelada".equalsIgnoreCase(estadoActual)) {
+            throw new BusinessValidationException("Transición no permitida: La tarea ya se encuentra " + estadoActual + ".");
+        }
+
+        tarea.setEstado(nuevoEstado);
+        Tarea tareaGuardada = tareaRepository.save(tarea);
+
+        // HU3 Criterio 2: Registrar en el historial la fecha, usuario y cambio de estado
+        String detalle = "El estado cambió de '" + estadoActual + "' a '" + nuevoEstado + "'.";
+        historialTareaService.registrarAccion(idTarea, idUsuario, detalle);
+
+        return tareaGuardada;
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<CategoriaTarea> listarCategorias() {
-        // Criterio 4: Las categorías se seleccionan de un catálogo.
         return categoriaTareaRepository.findAll();
     }
 }
