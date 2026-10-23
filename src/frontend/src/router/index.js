@@ -1,87 +1,126 @@
 import { createRouter, createWebHistory } from 'vue-router'
-
-// Importaciones de las vistas (asegúrate de importar también tus otras vistas existentes como Home, Login, etc.)
+import LoginView from '../views/LoginView.vue'
+import PerfilView from '../views/PerfilView.vue'
 import TareasView from '../views/TareasView.vue'
 import TareaFormView from '../views/TareaFormView.vue'
+import UsuariosView from '../views/UsuariosView.vue'
 import VoluntariosView from '../views/VoluntariosView.vue'
 import VoluntarioFormView from '../views/VoluntarioFormView.vue'
+import { useAuthStore } from '../stores/authStore'
 
 const routes = [
-  /*
   {
     path: '/',
-    name: 'home',
-    component: () => import('../views/HomeView.vue')
+    redirect: '/tareas'
   },
-  */
-
-  // Nuevas rutas
+  {
+    path: '/login',
+    name: 'login',
+    component: LoginView,
+    meta: { guestOnly: true }
+  },
   {
     path: '/tareas',
     name: 'tareas',
-    component: TareasView
+    component: TareasView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/perfil',
+    name: 'mi-perfil',
+    component: PerfilView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/usuarios',
+    name: 'usuarios',
+    component: UsuariosView,
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
+  },
+  {
+    path: '/usuarios/:id/perfil',
+    name: 'perfil-voluntario',
+    component: PerfilView,
+    props: true,
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
   },
   {
     path: '/tareas/nueva',
     name: 'nueva-tarea',
-    component: TareaFormView
+    component: TareaFormView,
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   },
   {
     path: '/tareas/editar/:id',
     name: 'editar-tarea',
     component: TareaFormView,
-    props: true // Permite pasar el parámetro :id como prop a la vista si lo necesitas
+    props: true,
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   },
-
-  // Voluntarios (KAN-14)
+  
+  // Rutas de Voluntarios y Turnos (de la rama main)
   {
     path: '/voluntarios',
     name: 'voluntarios',
-    component: VoluntariosView
+    component: VoluntariosView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/voluntarios/nuevo',
     name: 'nuevo-voluntario',
-    component: VoluntarioFormView
+    component: VoluntarioFormView,
+    meta: { requiresAuth: true }
   },
   {
     path: '/voluntarios/editar/:id',
     name: 'editar-voluntario',
     component: VoluntarioFormView,
-    props: true
+    props: true,
+    meta: { requiresAuth: true }
   },
-
-  // Disponibilidad horaria (KAN-20)
   {
     path: '/voluntarios/:id/disponibilidad',
     name: 'disponibilidad-voluntario',
-    component: () => import('../views/DisponibilidadView.vue')
+    component: () => import('../views/DisponibilidadView.vue'),
+    meta: { requiresAuth: true }
   },
-
-  // Turnos (KAN-21)
   {
     path: '/turnos',
     name: 'turnos',
-    component: () => import('../views/TurnosView.vue')
+    component: () => import('../views/TurnosView.vue'),
+    meta: { requiresAuth: true }
   },
   {
     path: '/turnos/nuevo',
     name: 'nuevo-turno',
-    component: () => import('../views/TurnoFormView.vue')
+    component: () => import('../views/TurnoFormView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 
 const router = createRouter({
-  // Se asume el uso de Vite, que proporciona import.meta.env.BASE_URL
   history: createWebHistory(import.meta.env.BASE_URL),
   routes,
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
       return savedPosition
-    } else {
-      return { top: 0, behavior: 'smooth' }
     }
+    return { top: 0, behavior: 'smooth' }
   }
+})
+
+router.beforeEach((to) => {
+  const authStore = useAuthStore()
+  if (to.meta.requiresAuth && !authStore.isAuthenticated) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.meta.roles && !to.meta.roles.includes(authStore.rol)) {
+    return { name: 'tareas', query: { acceso: 'denegado' } }
+  }
+  if (to.meta.guestOnly && authStore.isAuthenticated) {
+    return { name: 'tareas' }
+  }
+  return true
 })
 
 export default router

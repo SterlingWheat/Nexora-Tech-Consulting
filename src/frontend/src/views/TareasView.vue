@@ -6,9 +6,13 @@
         <h1>Gestión de <em>tareas operativas.</em></h1>
         <p>
           Administra y organiza el trabajo de los voluntarios de Casa Amandita. 
-          Aquí puedes crear nuevas tareas o modificar su estado y avance.
+          Consulta las tareas operativas y su avance.
         </p>
       </div>
+
+      <p v-if="accesoDenegado" class="tareas-aviso" role="alert">
+        Tu rol no tiene permiso para crear o editar tareas.
+      </p>
 
       <div class="tareas-tarjeta">
         <div class="tareas-tarjeta-encabezado">
@@ -16,7 +20,7 @@
             <h2>Listado de tareas</h2>
             <p>Consulta el progreso y estado de cada actividad.</p>
           </div>
-          <button class="tareas-boton-nuevo" @click="irANuevaTarea">
+          <button v-if="puedeGestionarTareas" class="tareas-boton-nuevo" @click="irANuevaTarea">
             Crear Tarea
           </button>
         </div>
@@ -37,7 +41,7 @@
                 <th>Categoría</th>
                 <th>Estado</th>
                 <th>Avance</th>
-                <th>Acciones</th>
+                <th v-if="puedeGestionarTareas">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -59,7 +63,7 @@
                 <td>
                   <strong>{{ tarea.avance ?? 0 }}%</strong>
                 </td>
-                <td>
+                <td v-if="puedeGestionarTareas">
                   <button 
                     class="tareas-boton-editar" 
                     :disabled="tarea.estado === 'Finalizada' || tarea.estado === 'Cancelada'"
@@ -79,11 +83,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { computed, ref, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/authStore'
 import { tareaService } from '../services/tareaService'
 
+const route = useRoute()
 const router = useRouter()
+const authStore = useAuthStore()
+const puedeGestionarTareas = computed(() =>
+  ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol)
+)
+const accesoDenegado = computed(() => route.query.acceso === 'denegado')
 const tareas = ref([])
 const cargando = ref(true)
 
@@ -205,6 +216,16 @@ const editarTarea = (id) => {
   padding: 40px;
   color: var(--texto-suave);
   font-size: 14px;
+}
+
+.tareas-aviso {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border: 1px solid #ef9d87;
+  border-radius: 10px;
+  background: #fff0eb;
+  color: #8d4037;
+  font-size: 13px;
 }
 
 .tareas-tabla-contenedor {

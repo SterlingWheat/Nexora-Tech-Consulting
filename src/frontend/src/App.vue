@@ -7,11 +7,26 @@
           <strong>Casa Amandita</strong>
           <small>Tareas Operativas</small>
         </RouterLink>
-        <nav class="nav-links">
+        <nav v-if="authStore.isAuthenticated" class="nav-links">
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
-          <RouterLink to="/voluntarios" class="nav-btn">Voluntarios</RouterLink>
+          
+          <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
+          
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
-          <RouterLink to="/tareas/nueva" class="nav-btn-nuevo">+ Nueva Tarea</RouterLink>
+          
+          <RouterLink v-if="authStore.rol === 'ADMINISTRADOR'" to="/usuarios" class="nav-btn">
+            Voluntarios
+          </RouterLink>
+          
+          <RouterLink
+            v-if="puedeGestionarTareas"
+            to="/tareas/nueva"
+            class="nav-btn-nuevo"
+          >
+            + Nueva Tarea
+          </RouterLink>
+          
+          <button class="nav-btn-cerrar" type="button" @click="cerrarSesion">Cerrar sesión</button>
         </nav>
       </div>
     </header>
@@ -24,7 +39,29 @@
 </template>
 
 <script setup>
+import { computed, onMounted, onUnmounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from './stores/authStore'
+
+const authStore = useAuthStore()
+const router = useRouter()
+const puedeGestionarTareas = computed(() =>
+  ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol)
+)
+
+const cerrarSesion = async () => {
+  authStore.logout()
+  await router.replace('/login')
+}
+
+const manejarSesionExpirada = () => {
+  authStore.logout()
+  router.replace({ name: 'login', query: { expired: '1' } })
+}
+
+onMounted(() => window.addEventListener('auth:expired', manejarSesionExpirada))
+onUnmounted(() => window.removeEventListener('auth:expired', manejarSesionExpirada))
 </script>
 
 <style>
@@ -119,6 +156,15 @@ body {
 
 .nav-btn-nuevo:hover {
   opacity: 0.9;
+}
+
+.nav-btn-cerrar {
+  border: 0;
+  background: transparent;
+  color: var(--texto);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
 }
 
 .app-contenido {
