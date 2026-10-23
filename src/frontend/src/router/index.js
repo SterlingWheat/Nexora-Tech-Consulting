@@ -4,6 +4,8 @@ import PerfilView from '../views/PerfilView.vue'
 import TareasView from '../views/TareasView.vue'
 import TareaFormView from '../views/TareaFormView.vue'
 import UsuariosView from '../views/UsuariosView.vue'
+import VoluntariosView from '../views/VoluntariosView.vue'
+import VoluntarioFormView from '../views/VoluntarioFormView.vue'
 import { useAuthStore } from '../stores/authStore'
 
 const routes = [
@@ -54,6 +56,45 @@ const routes = [
     component: TareaFormView,
     props: true,
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
+  },
+  
+  // Rutas de Voluntarios y Turnos (de la rama main)
+  {
+    path: '/voluntarios',
+    name: 'voluntarios',
+    component: VoluntariosView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/voluntarios/nuevo',
+    name: 'nuevo-voluntario',
+    component: VoluntarioFormView,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/voluntarios/editar/:id',
+    name: 'editar-voluntario',
+    component: VoluntarioFormView,
+    props: true,
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/voluntarios/:id/disponibilidad',
+    name: 'disponibilidad-voluntario',
+    component: () => import('../views/DisponibilidadView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/turnos',
+    name: 'turnos',
+    component: () => import('../views/TurnosView.vue'),
+    meta: { requiresAuth: true }
+  },
+  {
+    path: '/turnos/nuevo',
+    name: 'nuevo-turno',
+    component: () => import('../views/TurnoFormView.vue'),
+    meta: { requiresAuth: true }
   }
 ]
 

@@ -9,10 +9,15 @@
         </RouterLink>
         <nav v-if="authStore.isAuthenticated" class="nav-links">
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
+          
           <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
+          
+          <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
+          
           <RouterLink v-if="authStore.rol === 'ADMINISTRADOR'" to="/usuarios" class="nav-btn">
             Voluntarios
           </RouterLink>
+          
           <RouterLink
             v-if="puedeGestionarTareas"
             to="/tareas/nueva"
@@ -20,6 +25,7 @@
           >
             + Nueva Tarea
           </RouterLink>
+          
           <button class="nav-btn-cerrar" type="button" @click="cerrarSesion">Cerrar sesión</button>
         </nav>
       </div>
