@@ -3,6 +3,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 // Importaciones de las vistas (asegúrate de importar también tus otras vistas existentes como Home, Login, etc.)
 import TareasView from '../views/TareasView.vue'
 import TareaFormView from '../views/TareaFormView.vue'
+import VoluntariosView from '../views/VoluntariosView.vue'
+import VoluntarioFormView from '../views/VoluntarioFormView.vue'
 
 const routes = [
   /*
@@ -29,6 +31,43 @@ const routes = [
     name: 'editar-tarea',
     component: TareaFormView,
     props: true // Permite pasar el parámetro :id como prop a la vista si lo necesitas
+  },
+
+  // Voluntarios (KAN-14)
+  {
+    path: '/voluntarios',
+    name: 'voluntarios',
+    component: VoluntariosView
+  },
+  {
+    path: '/voluntarios/nuevo',
+    name: 'nuevo-voluntario',
+    component: VoluntarioFormView
+  },
+  {
+    path: '/voluntarios/editar/:id',
+    name: 'editar-voluntario',
+    component: VoluntarioFormView,
+    props: true
+  },
+
+  // Disponibilidad horaria (KAN-20)
+  {
+    path: '/voluntarios/:id/disponibilidad',
+    name: 'disponibilidad-voluntario',
+    component: () => import('../views/DisponibilidadView.vue')
+  },
+
+  // Turnos (KAN-21)
+  {
+    path: '/turnos',
+    name: 'turnos',
+    component: () => import('../views/TurnosView.vue')
+  },
+  {
+    path: '/turnos/nuevo',
+    name: 'nuevo-turno',
+    component: () => import('../views/TurnoFormView.vue')
   }
 ]
 
