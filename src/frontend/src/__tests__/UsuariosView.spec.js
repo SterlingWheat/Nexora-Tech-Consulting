@@ -4,15 +4,16 @@ import { createPinia } from 'pinia'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import UsuariosView from '../views/UsuariosView.vue'
 
-const { listar, crear, actualizar, desactivar } = vi.hoisted(() => ({
+const { listar, crear, actualizar, desactivar, activar } = vi.hoisted(() => ({
   listar: vi.fn(),
   crear: vi.fn(),
   actualizar: vi.fn(),
-  desactivar: vi.fn()
+  desactivar: vi.fn(),
+  activar: vi.fn()
 }))
 
 vi.mock('../services/usuarioService', () => ({
-  usuarioService: { listar, crear, actualizar, desactivar }
+  usuarioService: { listar, crear, actualizar, desactivar, activar }
 }))
 
 const usuario = {
@@ -21,6 +22,14 @@ const usuario = {
   email: 'ana@example.com',
   rol: 'VOLUNTARIO',
   activo: true
+}
+
+const usuarioInactivo = {
+  idUsuario: 8,
+  nombre: 'Luis Inactivo',
+  email: 'luis@example.com',
+  rol: 'VOLUNTARIO',
+  activo: false
 }
 
 const montarVista = async () => {
@@ -43,10 +52,14 @@ const montarVista = async () => {
 describe('UsuariosView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    listar.mockResolvedValue([usuario])
+    listar.mockResolvedValue([usuario, usuarioInactivo])
     crear.mockResolvedValue(usuario)
     actualizar.mockResolvedValue(usuario)
     desactivar.mockResolvedValue('Usuario desactivado correctamente.')
+    activar.mockResolvedValue('Usuario activado correctamente.')
+    
+    // Mockear window.confirm para las pruebas
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
   })
 
   it('permite crear una cuenta con rol y credenciales', async () => {
@@ -58,6 +71,7 @@ describe('UsuariosView', () => {
     await inputs[1].setValue('luis@example.com')
     await inputs[2].setValue('password-seguro')
     await wrapper.get('.usuarios-formulario select').setValue('VOLUNTARIO')
+
     await wrapper.get('.usuarios-formulario').trigger('submit')
     await flushPromises()
 
@@ -90,6 +104,21 @@ describe('UsuariosView', () => {
     await filtros[1].setValue('false')
     await filtros[1].trigger('change')
     await flushPromises()
+
     expect(listar).toHaveBeenLastCalledWith({ rol: 'VOLUNTARIO', activo: 'false' })
+  })
+
+  it('permite desactivar y activar usuarios', async () => {
+    const wrapper = await montarVista()
+    const botonesDesactivar = wrapper.findAll('.usuarios-enlace.peligro')
+    const botonesActivar = wrapper.findAll('button').filter(w => w.text() === 'Activar')
+
+    await botonesDesactivar[0].trigger('click')
+    await flushPromises()
+    expect(desactivar).toHaveBeenCalledWith(7)
+
+    await botonesActivar[0].trigger('click')
+    await flushPromises()
+    expect(activar).toHaveBeenCalledWith(8)
   })
 })

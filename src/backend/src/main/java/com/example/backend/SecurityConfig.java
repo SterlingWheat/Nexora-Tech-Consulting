@@ -6,6 +6,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -21,6 +22,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // Permite usar @PreAuthorize en los controladores si se requiere mayor granularidad
 public class SecurityConfig {
 
     @Bean
@@ -35,34 +37,40 @@ public class SecurityConfig {
 
         http
                 .csrf(csrf -> csrf.disable())
-                // Customizer.withDefaults() le indica a Spring Security que busque
-                // e inyecte automáticamente el bean CorsConfigurationSource definido abajo
                 .cors(Customizer.withDefaults())
                 .httpBasic(basic -> basic.disable())
                 .formLogin(form -> form.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Permite todas las peticiones preflight OPTIONS sin autenticación[cite: 1]
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         
-                        // Perfil[cite: 1]
+                        // Perfil
                         .requestMatchers("/api/perfil/me").authenticated()
                         
-                        // Gestión de Usuarios[cite: 1]
+                        // Gestión de Usuarios
                         .requestMatchers("/api/usuarios/**").hasRole("ADMINISTRADOR")
                         
-                        // Gestión de Tareas[cite: 1]
+                        // Gestión de Tareas
                         .requestMatchers(HttpMethod.GET, "/api/tareas/**")
                             .hasAnyRole("ADMINISTRADOR", "TI", "GESTOR_TAREAS", "VOLUNTARIO")
                         .requestMatchers(HttpMethod.POST, "/api/tareas/**")
                             .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.PUT, "/api/tareas/**")
                             .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
+                        .requestMatchers(HttpMethod.PATCH, "/api/tareas/**")
+                            .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers("/api/tareas/**").denyAll()
                         
-                        // Gestión de Turnos y Voluntarios[cite: 1]
-                        .requestMatchers("/api/turnos/**").authenticated()
+                        // Gestión de Turnos (Solución Error 1 - Restricción de creación/modificación)
+                        .requestMatchers(HttpMethod.POST, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
+                        .requestMatchers(HttpMethod.PUT, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
+                        .requestMatchers(HttpMethod.DELETE, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
+                        .requestMatchers(HttpMethod.GET, "/api/turnos/**").authenticated()
+                        
+                        // Gestión de Voluntarios (Solución Error 1 - Restricción general por roles)
+                        .requestMatchers(HttpMethod.POST, "/api/voluntarios/*/habilitar-acceso").hasAnyRole("ADMINISTRADOR", "TI")
+                        .requestMatchers(HttpMethod.POST, "/api/voluntarios").hasAnyRole("ADMINISTRADOR", "TI", "GESTOR_TAREAS")
                         .requestMatchers("/api/voluntarios/**").authenticated()
                         
                         .anyRequest().authenticated())
@@ -72,6 +80,12 @@ public class SecurityConfig {
                             response.setContentType("application/json");
                             response.setCharacterEncoding("UTF-8");
                             response.getWriter().write("{\"message\":\"No autorizado\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(403);
+                            response.setContentType("application/json");
+                            response.setCharacterEncoding("UTF-8");
+                            response.getWriter().write("{\"message\":\"Acceso denegado\"}");
                         }))
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -85,7 +99,6 @@ public class SecurityConfig {
             @Value("${app.frontend-origin:http://localhost:5173}") String frontendOrigin) {
         
         CorsConfiguration configuration = new CorsConfiguration();
-        // Acepta el origen configurado y cualquier puerto de localhost de desarrollo[cite: 1]
         configuration.setAllowedOriginPatterns(List.of(
                 frontendOrigin,
                 "http://localhost:*",

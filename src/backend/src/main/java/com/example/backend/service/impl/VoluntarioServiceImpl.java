@@ -38,12 +38,14 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     @Transactional
     public Voluntario registrarVoluntario(Voluntario voluntario, Boolean crearCuenta, String password) {
         normalizar(voluntario);
+
         if (voluntarioRepository.existsByDocumentoIgnoreCase(voluntario.getDocumento())) {
             throw new ConflictException("Ya existe un voluntario registrado con el documento " + voluntario.getDocumento());
         }
         if (voluntarioRepository.existsByEmailIgnoreCase(voluntario.getEmail())) {
             throw new ConflictException("Ya existe un voluntario registrado con el correo " + voluntario.getEmail());
         }
+
         voluntario.setActivo(true);
 
         if (Boolean.TRUE.equals(crearCuenta)) {
@@ -57,7 +59,9 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     @Transactional
     public Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles) {
         Voluntario existente = obtenerVoluntarioPorId(idVoluntario);
+
         normalizar(detalles);
+
         if (voluntarioRepository.existsByDocumentoIgnoreCaseAndIdVoluntarioNot(detalles.getDocumento(), idVoluntario)) {
             throw new ConflictException("Ya existe un voluntario registrado con el documento " + detalles.getDocumento());
         }
@@ -84,6 +88,22 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         }
         
         crearCuentaAcceso(voluntario, password);
+        return voluntarioRepository.save(voluntario);
+    }
+
+    // Solución Error 2: Mantiene la consistencia de acceso entre el Voluntario y su Usuario si lo posee
+    @Override
+    @Transactional
+    public Voluntario cambiarEstado(Integer idVoluntario, boolean activo) {
+        Voluntario voluntario = obtenerVoluntarioPorId(idVoluntario);
+        voluntario.setActivo(activo);
+        
+        if (voluntario.getUsuario() != null) {
+            Usuario usuario = voluntario.getUsuario();
+            usuario.setActivo(activo);
+            usuarioRepository.save(usuario);
+        }
+        
         return voluntarioRepository.save(voluntario);
     }
 

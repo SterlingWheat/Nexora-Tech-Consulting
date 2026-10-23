@@ -15,26 +15,43 @@ describe('router authentication guard', () => {
     authStore.token = 'signed-token'
     await router.push('/tareas')
     expect(router.currentRoute.value.name).toBe('tareas')
+
     authStore.logout()
   })
 
-  it('blocks task creation routes for TI and volunteers', async () => {
+  it('blocks creation routes based on roles', async () => {
     setActivePinia(createPinia())
     const authStore = useAuthStore()
     authStore.token = 'signed-token'
 
+    // Tareas y Turnos bloqueados para TI y VOLUNTARIO
     for (const rol of ['TI', 'VOLUNTARIO']) {
       authStore.rol = rol
       await router.push('/tareas/nueva')
       expect(router.currentRoute.value.name).toBe('tareas')
       expect(router.currentRoute.value.query.acceso).toBe('denegado')
+
+      await router.push('/turnos/nuevo')
+      expect(router.currentRoute.value.name).toBe('tareas')
+      expect(router.currentRoute.value.query.acceso).toBe('denegado')
     }
 
-    for (const rol of ['ADMINISTRADOR', 'GESTOR_TAREAS']) {
-      authStore.rol = rol
-      await router.push('/tareas/nueva')
-      expect(router.currentRoute.value.name).toBe('nueva-tarea')
-    }
+    // Voluntarios bloqueado para VOLUNTARIO (TI sí puede gestionar voluntarios)
+    authStore.rol = 'VOLUNTARIO'
+    await router.push('/voluntarios/nuevo')
+    expect(router.currentRoute.value.name).toBe('tareas')
+    expect(router.currentRoute.value.query.acceso).toBe('denegado')
+
+    // Acceso permitido para administradores
+    authStore.rol = 'ADMINISTRADOR'
+    await router.push('/tareas/nueva')
+    expect(router.currentRoute.value.name).toBe('nueva-tarea')
+
+    await router.push('/voluntarios/nuevo')
+    expect(router.currentRoute.value.name).toBe('nuevo-voluntario')
+
+    await router.push('/turnos/nuevo')
+    expect(router.currentRoute.value.name).toBe('nuevo-turno')
 
     authStore.logout()
     await router.push('/')

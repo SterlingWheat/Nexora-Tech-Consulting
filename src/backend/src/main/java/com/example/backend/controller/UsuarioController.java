@@ -7,6 +7,7 @@ import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
+import com.example.backend.repository.VoluntarioRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
@@ -22,11 +23,16 @@ public class UsuarioController {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
+    private final VoluntarioRepository voluntarioRepository;
 
-    public UsuarioController(UsuarioRepository usuarioRepository, RolRepository rolRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioController(UsuarioRepository usuarioRepository, 
+                             RolRepository rolRepository, 
+                             PasswordEncoder passwordEncoder,
+                             VoluntarioRepository voluntarioRepository) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
+        this.voluntarioRepository = voluntarioRepository;
     }
 
     @PostMapping
@@ -53,7 +59,7 @@ public class UsuarioController {
                 .email(email)
                 .password(passwordEncoder.encode(request.password()))
                 .rol(rolEntity)
-                .estado("ACTIVO") // <--- Corregido a .estado("ACTIVO")
+                .estado("ACTIVO")
                 .build();
 
         return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
@@ -63,7 +69,7 @@ public class UsuarioController {
     public ResponseEntity<List<UsuarioResponse>> listarUsuarios(
             @RequestParam(required = false) String rol,
             @RequestParam(required = false) Boolean activo) {
-
+        
         List<Usuario> usuarios = usuarioRepository.findAll();
 
         if (rol != null && !rol.isEmpty()) {
@@ -71,13 +77,11 @@ public class UsuarioController {
                     .filter(u -> u.getRol().getNombre().equalsIgnoreCase(rol))
                     .toList();
         }
-
         if (activo != null) {
             usuarios = usuarios.stream()
                     .filter(u -> u.getActivo().equals(activo))
                     .toList();
         }
-
         return ResponseEntity.ok(usuarios.stream().map(UsuarioResponse::from).toList());
     }
 
@@ -93,7 +97,7 @@ public class UsuarioController {
     public ResponseEntity<?> actualizarUsuario(
             @PathVariable Integer id,
             @RequestBody UsuarioUpdateRequest request) {
-
+        
         if (request.nombre() == null || request.nombre().isBlank()
                 || request.email() == null || request.email().isBlank()
                 || (request.password() != null && !request.password().isBlank()
@@ -128,18 +132,44 @@ public class UsuarioController {
         return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
     }
 
+    // Solución Error 2: Sincronizar desactivación de cuenta de usuario con la entidad Voluntario
     @PutMapping("/{id}/desactivar")
     public ResponseEntity<?> desactivarUsuario(@PathVariable Integer id) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
-
         Usuario usuario = usuarioOpt.get();
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
 
+        // Si el usuario es de un voluntario, desactivar también al voluntario
+        voluntarioRepository.findByUsuarioIdUsuario(id).ifPresent(vol -> {
+            vol.setActivo(false);
+            voluntarioRepository.save(vol);
+        });
+
         return ResponseEntity.ok("Usuario desactivado correctamente.");
+    }
+    
+    // Solución Error 2: Nuevo endpoint para reactivar cuentas previamente desactivadas
+    @PutMapping("/{id}/activar")
+    public ResponseEntity<?> activarUsuario(@PathVariable Integer id) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        if (usuarioOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        Usuario usuario = usuarioOpt.get();
+        usuario.setActivo(true);
+        usuarioRepository.save(usuario);
+
+        // Si el usuario es de un voluntario, activar también al voluntario
+        voluntarioRepository.findByUsuarioIdUsuario(id).ifPresent(vol -> {
+            vol.setActivo(true);
+            voluntarioRepository.save(vol);
+        });
+
+        return ResponseEntity.ok("Usuario activado correctamente.");
     }
 
     private String normalizarEmail(String email) {

@@ -2,20 +2,27 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
 const push = vi.fn()
-
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
 }))
 
 vi.mock('../services/voluntarioService', () => ({
-  voluntarioService: { obtenerVoluntarios: vi.fn() },
+  voluntarioService: { 
+    obtenerVoluntarios: vi.fn(),
+    activarVoluntario: vi.fn(),
+    desactivarVoluntario: vi.fn(),
+    habilitarAcceso: vi.fn()
+  },
 }))
 
 import VoluntariosView from '../views/VoluntariosView.vue'
 import { voluntarioService } from '../services/voluntarioService'
 
 describe('VoluntariosView', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
+  })
 
   it('lista los voluntarios con su estado', async () => {
     voluntarioService.obtenerVoluntarios.mockResolvedValue([
@@ -23,7 +30,6 @@ describe('VoluntariosView', () => {
     ])
     const wrapper = mount(VoluntariosView)
     await flushPromises()
-
     expect(wrapper.text()).toContain('Ana Quispe')
     expect(wrapper.text()).toContain('Activo')
     expect(wrapper.text()).toContain('Sin teléfono')
@@ -33,7 +39,6 @@ describe('VoluntariosView', () => {
     voluntarioService.obtenerVoluntarios.mockResolvedValue([])
     const wrapper = mount(VoluntariosView)
     await flushPromises()
-
     expect(wrapper.text()).toContain('No hay voluntarios registrados')
   })
 
@@ -41,7 +46,6 @@ describe('VoluntariosView', () => {
     voluntarioService.obtenerVoluntarios.mockRejectedValue(new Error('Error al obtener los voluntarios'))
     const wrapper = mount(VoluntariosView)
     await flushPromises()
-
     expect(wrapper.find('[role="alert"]').text()).toContain('Error al obtener')
   })
 
@@ -51,11 +55,31 @@ describe('VoluntariosView', () => {
     ])
     const wrapper = mount(VoluntariosView)
     await flushPromises()
-
+    
     await wrapper.find('.vols-boton-nuevo').trigger('click')
     expect(push).toHaveBeenCalledWith('/voluntarios/nuevo')
 
     await wrapper.find('.vols-boton-editar').trigger('click')
     expect(push).toHaveBeenCalledWith('/voluntarios/editar/3')
+  })
+
+  it('permite desactivar y activar un voluntario', async () => {
+    voluntarioService.obtenerVoluntarios.mockResolvedValue([
+      { idVoluntario: 1, nombre: 'Ana', apellido: 'Q', documento: '1', email: 'a@a.com', activo: true },
+      { idVoluntario: 2, nombre: 'Luis', apellido: 'P', documento: '2', email: 'l@l.com', activo: false }
+    ])
+    voluntarioService.desactivarVoluntario.mockResolvedValue({})
+    voluntarioService.activarVoluntario.mockResolvedValue({})
+
+    const wrapper = mount(VoluntariosView)
+    await flushPromises()
+
+    await wrapper.find('.btn-desactivar').trigger('click')
+    await flushPromises()
+    expect(voluntarioService.desactivarVoluntario).toHaveBeenCalledWith(1)
+
+    await wrapper.find('.btn-activar').trigger('click')
+    await flushPromises()
+    expect(voluntarioService.activarVoluntario).toHaveBeenCalledWith(2)
   })
 })

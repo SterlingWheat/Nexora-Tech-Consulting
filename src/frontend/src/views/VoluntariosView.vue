@@ -5,7 +5,7 @@
         <span class="vols-etiqueta">PADRÓN DE VOLUNTARIOS</span>
         <h1>Gestión de <em>voluntarios.</em></h1>
         <p>
-          Registra voluntarios y mantén sus datos personales al día.
+          Registra voluntarios y mantén sus datos personales al día. 
           Habilita su acceso si necesitan ingresar al sistema.
         </p>
       </div>
@@ -60,13 +60,29 @@
                     <button class="vols-boton-editar" @click="editar(v.idVoluntario)">Editar</button>
                     <button class="vols-boton-editar vols-boton-disp" @click="verDisponibilidad(v.idVoluntario)">Disponibilidad</button>
                     
-                    <!-- Botón mágico de Habilitar Acceso si idUsuario es null -->
+                    <!-- Botón lógico de Habilitar Acceso si idUsuario es null -->
                     <button 
                       v-if="!v.idUsuario" 
                       class="vols-boton-editar btn-habilitar" 
                       @click="abrirModalAcceso(v)"
                     >
                       Habilitar acceso
+                    </button>
+                    
+                    <!-- Solución Error 2: Botones para desactivar y activar directamente desde aquí -->
+                    <button 
+                      v-if="v.activo" 
+                      class="vols-boton-editar btn-desactivar" 
+                      @click="desactivar(v.idVoluntario)"
+                    >
+                      Desactivar
+                    </button>
+                    <button 
+                      v-else 
+                      class="vols-boton-editar btn-activar" 
+                      @click="activar(v.idVoluntario)"
+                    >
+                      Activar
                     </button>
                   </div>
                 </td>
@@ -98,7 +114,6 @@
         </div>
       </div>
     </div>
-
   </section>
 </template>
 
@@ -157,7 +172,6 @@ const confirmarAcceso = async () => {
   
   guardandoAcceso.value = true
   errorModal.value = ''
-  
   try {
     await voluntarioService.habilitarAcceso(voluntarioSeleccionado.value.idVoluntario, passwordTemporal.value)
     modalVisible.value = false // Modificamos la variable directamente para forzar el cierre
@@ -166,6 +180,33 @@ const confirmarAcceso = async () => {
     errorModal.value = err.message
   } finally {
     guardandoAcceso.value = false
+  }
+}
+
+// Solución Error 2: Funciones para Activar y Desactivar voluntarios
+const activar = async (idVoluntario) => {
+  if (!window.confirm('¿Estás seguro de que deseas activar a este voluntario?')) return
+  error.value = ''
+  cargando.value = true
+  try {
+    await voluntarioService.activarVoluntario(idVoluntario)
+    await cargarVoluntarios()
+  } catch (err) {
+    error.value = err.message
+    cargando.value = false
+  }
+}
+
+const desactivar = async (idVoluntario) => {
+  if (!window.confirm('¿Estás seguro de que deseas desactivar a este voluntario? (Esto también desactivará su acceso al sistema)')) return
+  error.value = ''
+  cargando.value = true
+  try {
+    await voluntarioService.desactivarVoluntario(idVoluntario)
+    await cargarVoluntarios()
+  } catch (err) {
+    error.value = err.message
+    cargando.value = false
   }
 }
 </script>
@@ -248,6 +289,7 @@ const confirmarAcceso = async () => {
   transform: translateY(-2px);
   background: var(--salvia);
 }
+
 .vols-mensaje {
   text-align: center;
   padding: 40px;
@@ -257,6 +299,7 @@ const confirmarAcceso = async () => {
 .vols-mensaje-error {
   color: #A34D41;
 }
+
 .vols-tabla-contenedor {
   overflow-x: auto;
 }
@@ -282,6 +325,7 @@ const confirmarAcceso = async () => {
   font-size: 13px;
   color: var(--texto);
 }
+
 .vols-datos {
   display: flex;
   flex-direction: column;
@@ -291,6 +335,7 @@ const confirmarAcceso = async () => {
   color: var(--texto-suave);
   font-size: 12px;
 }
+
 .badge-acceso {
   display: block;
   font-size: 10px;
@@ -312,6 +357,7 @@ const confirmarAcceso = async () => {
 }
 .badge-activo { background: #E8F2E5; color: #50704B; }
 .badge-inactivo { background: #FFF0EB; color: #A34D41; }
+
 .acciones-celda {
   display: flex;
   flex-wrap: wrap;
@@ -336,6 +382,20 @@ const confirmarAcceso = async () => {
 }
 .btn-habilitar:hover {
   background: #D9E5F2;
+}
+.btn-desactivar {
+  border-color: #E9B0A5;
+  color: #A34D41;
+}
+.btn-desactivar:hover {
+  background: #FFF0EB;
+}
+.btn-activar {
+  border-color: var(--verde-oscuro);
+  color: var(--verde-oscuro);
+}
+.btn-activar:hover {
+  background: #f1f5ec;
 }
 
 /* MODAL */

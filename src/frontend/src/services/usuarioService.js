@@ -6,6 +6,7 @@ const requestUsuarios = async (path, { method = 'GET', body } = {}) => {
   if (body) {
     headers['Content-Type'] = 'application/json'
   }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method,
     headers,
@@ -17,6 +18,7 @@ const requestUsuarios = async (path, { method = 'GET', body } = {}) => {
   }
 
   const responseBody = await response.text()
+
   if (!response.ok) {
     let message = responseBody
     try {
@@ -30,6 +32,7 @@ const requestUsuarios = async (path, { method = 'GET', body } = {}) => {
   if (!responseBody) {
     return null
   }
+
   try {
     return JSON.parse(responseBody)
   } catch {
@@ -59,6 +62,12 @@ export const usuarioService = {
 
   desactivar(id) {
     return requestUsuarios(`/usuarios/${encodeURIComponent(id)}/desactivar`, {
+      method: 'PUT'
+    })
+  },
+
+  activar(id) {
+    return requestUsuarios(`/usuarios/${encodeURIComponent(id)}/activar`, {
       method: 'PUT'
     })
   }

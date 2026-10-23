@@ -10,6 +10,7 @@ import com.example.backend.service.VoluntarioService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
@@ -30,6 +31,17 @@ public class VoluntarioGestionController {
         this.usuarioRepository = usuarioRepository;
     }
 
+    // Solución Error 1: Evitar que un voluntario acceda o modifique a otro voluntario
+    private void verificarPermiso(Integer idVoluntario, Authentication authentication) {
+        if (authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_VOLUNTARIO"))) {
+            Voluntario v = voluntarioService.obtenerVoluntarioPorId(idVoluntario);
+            if (v.getEmail() == null || !v.getEmail().equalsIgnoreCase(authentication.getName())) {
+                throw new AccessDeniedException("Acceso denegado: no tienes permiso para ver o editar a otros voluntarios.");
+            }
+        }
+    }
+
     @PostMapping
     public ResponseEntity<VoluntarioResponseDTO> registrarVoluntario(@Valid @RequestBody VoluntarioRequestDTO request) {
         Voluntario guardado = voluntarioService.registrarVoluntario(
@@ -41,11 +53,25 @@ public class VoluntarioGestionController {
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<VoluntarioResponseDTO> actualizarVoluntario(@PathVariable Integer id, @Valid @RequestBody VoluntarioRequestDTO request) {
+    public ResponseEntity<VoluntarioResponseDTO> actualizarVoluntario(
+            @PathVariable Integer id, 
+            @Valid @RequestBody VoluntarioRequestDTO request,
+            Authentication authentication) {
+        verificarPermiso(id, authentication);
         return ResponseEntity.ok(mapearADTO(voluntarioService.actualizarVoluntario(id, mapearAEntidad(request))));
     }
 
-    // Nuevo Endpoint para el botón Habilitar Acceso
+    // Solución Error 2: Endpoints para activar/desactivar directamente en el padrón de voluntarios
+    @PutMapping("/{id}/activar")
+    public ResponseEntity<VoluntarioResponseDTO> activarVoluntario(@PathVariable Integer id) {
+        return ResponseEntity.ok(mapearADTO(voluntarioService.cambiarEstado(id, true)));
+    }
+
+    @PutMapping("/{id}/desactivar")
+    public ResponseEntity<VoluntarioResponseDTO> desactivarVoluntario(@PathVariable Integer id) {
+        return ResponseEntity.ok(mapearADTO(voluntarioService.cambiarEstado(id, false)));
+    }
+
     @PostMapping("/{id}/habilitar-acceso")
     public ResponseEntity<VoluntarioResponseDTO> habilitarAcceso(
             @PathVariable Integer id, 
@@ -63,17 +89,20 @@ public class VoluntarioGestionController {
     }
 
     @GetMapping("/{id}/detalle")
-    public ResponseEntity<VoluntarioResponseDTO> obtenerVoluntario(@PathVariable Integer id) {
+    public ResponseEntity<VoluntarioResponseDTO> obtenerVoluntario(@PathVariable Integer id, Authentication authentication) {
+        verificarPermiso(id, authentication);
         return ResponseEntity.ok(mapearADTO(voluntarioService.obtenerVoluntarioPorId(id)));
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<?> obtenerPerfilUsuarioDelVoluntario(@PathVariable Integer id, Authentication authentication) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
+        
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
         Usuario usuario = usuarioOpt.get();
+        
         if (authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_VOLUNTARIO"))) {
             
@@ -99,14 +128,20 @@ public class VoluntarioGestionController {
     private VoluntarioResponseDTO mapearADTO(Voluntario v) {
         VoluntarioResponseDTO dto = new VoluntarioResponseDTO();
         dto.setIdVoluntario(v.getIdVoluntario());
-        // Incluir el id_usuario si lo tiene
         dto.setIdUsuario(v.getUsuario() != null ? v.getUsuario().getIdUsuario() : null);
         dto.setNombre(v.getNombre());
         dto.setApellido(v.getApellido());
         dto.setDocumento(v.getDocumento());
         dto.setEmail(v.getEmail());
         dto.setTelefono(v.getTelefono());
-        dto.setActivo(v.getActivo());
+        
+        // Solución Error 2: El voluntario se marca inactivo visualmente si su usuario lo está
+        boolean esActivo = v.getActivo() != null && v.getActivo();
+        if (v.getUsuario() != null && !v.getUsuario().getActivo()) {
+            esActivo = false;
+        }
+        dto.setActivo(esActivo);
+        
         dto.setFechaCreacion(v.getFechaCreacion());
         dto.setFechaModificacion(v.getFechaModificacion());
         return dto;

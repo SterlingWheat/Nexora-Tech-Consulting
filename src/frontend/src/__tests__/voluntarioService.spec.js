@@ -17,8 +17,8 @@ describe('voluntarioService', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     const creado = await voluntarioService.registrarVoluntario(datos)
-
     const [url, opciones] = fetchMock.mock.calls[0]
+    
     expect(url).toMatch(/\/api\/voluntarios$/)
     expect(opciones.method).toBe('POST')
     expect(JSON.parse(opciones.body)).toEqual(datos)
@@ -27,13 +27,11 @@ describe('voluntarioService', () => {
 
   it('registrarVoluntario propaga el mensaje claro del backend ante duplicado (409)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(false, null, 'Ya existe un voluntario registrado con el documento 123')))
-
     await expect(voluntarioService.registrarVoluntario(datos)).rejects.toThrow('Ya existe un voluntario registrado con el documento 123')
   })
 
   it('usa un mensaje por defecto si el backend no devuelve texto', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(false, null, '')))
-
     await expect(voluntarioService.registrarVoluntario(datos)).rejects.toThrow('Error al registrar el voluntario')
   })
 
@@ -42,8 +40,8 @@ describe('voluntarioService', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await voluntarioService.actualizarVoluntario(7, datos)
-
     const [url, opciones] = fetchMock.mock.calls[0]
+    
     expect(url).toMatch(/\/api\/voluntarios\/7$/)
     expect(opciones.method).toBe('PUT')
   })
@@ -53,13 +51,33 @@ describe('voluntarioService', () => {
     vi.stubGlobal('fetch', fetchMock)
 
     await voluntarioService.obtenerVoluntario(5)
-
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/voluntarios\/5\/detalle$/)
   })
 
   it('obtenerVoluntarios devuelve la lista', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(true, [{ idVoluntario: 1 }])))
-
     expect(await voluntarioService.obtenerVoluntarios()).toHaveLength(1)
+  })
+
+  it('activarVoluntario envía PUT para reactivar', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idVoluntario: 5, activo: true }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await voluntarioService.activarVoluntario(5)
+    const [url, opciones] = fetchMock.mock.calls[0]
+    
+    expect(url).toMatch(/\/api\/voluntarios\/5\/activar$/)
+    expect(opciones.method).toBe('PUT')
+  })
+
+  it('desactivarVoluntario envía PUT para desactivar', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idVoluntario: 5, activo: false }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await voluntarioService.desactivarVoluntario(5)
+    const [url, opciones] = fetchMock.mock.calls[0]
+    
+    expect(url).toMatch(/\/api\/voluntarios\/5\/desactivar$/)
+    expect(opciones.method).toBe('PUT')
   })
 })

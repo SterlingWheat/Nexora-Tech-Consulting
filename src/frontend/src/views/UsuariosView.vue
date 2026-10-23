@@ -38,7 +38,9 @@
             </option>
           </select>
         </label>
+
         <p v-if="error" class="usuarios-error" role="alert">{{ error }}</p>
+
         <div class="usuarios-acciones-formulario">
           <button class="usuarios-boton" type="submit" :disabled="guardando">
             {{ guardando ? 'Guardando...' : 'Guardar' }}
@@ -71,6 +73,7 @@
 
       <p v-if="cargando" class="usuarios-estado">Cargando usuarios...</p>
       <p v-else-if="error && !formularioVisible" class="usuarios-error" role="alert">{{ error }}</p>
+
       <div v-else-if="usuarios.length" class="usuarios-tabla-contenedor">
         <table>
           <thead>
@@ -92,11 +95,21 @@
                 >
                   Desactivar
                 </button>
+                <!-- Solución Error 2: Botón para volver a activar al usuario -->
+                <button
+                  v-else
+                  class="usuarios-enlace"
+                  style="color: #50704B;"
+                  @click="activarUsuario(usuario)"
+                >
+                  Activar
+                </button>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
+
       <p v-else-if="!cargando" class="usuarios-estado">No hay usuarios que coincidan con los filtros.</p>
     </div>
   </section>
@@ -118,8 +131,10 @@ const usuarios = ref([])
 const cargando = ref(true)
 const guardando = ref(false)
 const error = ref('')
+
 const formularioVisible = ref(false)
 const usuarioEditando = ref(null)
+
 const filtros = reactive({ rol: '', activo: '' })
 const formulario = reactive({ nombre: '', email: '', password: '', rol: '' })
 
@@ -171,11 +186,13 @@ const cancelarFormulario = () => {
 const guardarUsuario = async () => {
   guardando.value = true
   error.value = ''
+
   const datos = {
     nombre: formulario.nombre,
     email: formulario.email,
     rol: formulario.rol
   }
+
   if (!usuarioEditando.value || formulario.password) {
     datos.password = formulario.password
   }
@@ -206,6 +223,18 @@ const desactivarUsuario = async (usuario) => {
   }
 }
 
+// Solución Error 2: Función para reactivar cuentas previamente desactivadas
+const activarUsuario = async (usuario) => {
+  if (!window.confirm(`¿Volver a activar la cuenta de ${usuario.nombre}?`)) return
+  error.value = ''
+  try {
+    await usuarioService.activar(usuario.idUsuario)
+    await cargarUsuarios()
+  } catch (exception) {
+    error.value = exception.message || 'No se pudo activar el usuario.'
+  }
+}
+
 onMounted(cargarUsuarios)
 </script>
 
@@ -215,19 +244,16 @@ onMounted(cargarUsuarios)
   padding: 70px 24px;
   background: var(--crema-claro);
 }
-
 .usuarios-contenedor {
   width: min(1100px, 100%);
   margin: auto;
 }
-
 .usuarios-etiqueta {
   color: var(--verde-oscuro);
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 2px;
 }
-
 h1 {
   margin: 14px 0 8px;
   color: var(--texto);
@@ -235,16 +261,13 @@ h1 {
   font-size: 40px;
   font-weight: 400;
 }
-
 h2 {
   margin: 0;
   color: var(--texto);
 }
-
 p {
   color: var(--texto-suave);
 }
-
 .usuarios-boton {
   padding: 11px 17px;
   border: 0;
@@ -255,42 +278,32 @@ p {
   font: inherit;
   font-weight: 600;
 }
-
 .usuarios-boton:disabled {
   cursor: wait;
   opacity: 0.7;
 }
-
 .usuarios-boton.secundario {
   border: 1px solid var(--verde-oscuro);
   background: white;
   color: var(--verde-oscuro);
 }
-
-.usuarios-formulario,
-.usuarios-filtros {
+.usuarios-formulario, .usuarios-filtros {
   display: flex;
   flex-wrap: wrap;
   gap: 16px;
   align-items: end;
   margin-top: 24px;
 }
-
 .usuarios-formulario {
   padding: 22px;
   border: 1px solid var(--crema);
   border-radius: 12px;
   background: white;
 }
-
-.usuarios-formulario h2,
-.usuarios-formulario .usuarios-error,
-.usuarios-acciones-formulario {
+.usuarios-formulario h2, .usuarios-formulario .usuarios-error, .usuarios-acciones-formulario {
   flex-basis: 100%;
 }
-
-.usuarios-formulario label,
-.usuarios-filtros label {
+.usuarios-formulario label, .usuarios-filtros label {
   display: grid;
   flex: 1 1 190px;
   gap: 7px;
@@ -298,9 +311,7 @@ p {
   font-size: 13px;
   font-weight: 600;
 }
-
-input,
-select {
+input, select {
   min-height: 40px;
   padding: 8px 10px;
   border: 1px solid #d9d1c6;
@@ -309,12 +320,10 @@ select {
   color: var(--texto);
   font: inherit;
 }
-
 .usuarios-acciones-formulario {
   display: flex;
   gap: 10px;
 }
-
 .usuarios-tabla-contenedor {
   margin-top: 24px;
   overflow-x: auto;
@@ -322,14 +331,11 @@ select {
   border-radius: 16px;
   background: white;
 }
-
 table {
   width: 100%;
   border-collapse: collapse;
   text-align: left;
 }
-
-th,
 td {
   padding: 16px;
   border-bottom: 1px solid var(--crema);
@@ -337,19 +343,19 @@ td {
   font-size: 13px;
   white-space: nowrap;
 }
-
 th {
+  padding: 16px;
+  border-bottom: 1px solid var(--crema);
   color: var(--texto-suave);
   background: #fcf8f3;
+  font-size: 11px;
+  font-weight: 700;
 }
-
 .usuarios-acciones {
   display: flex;
   gap: 12px;
   align-items: center;
 }
-
-a,
 .usuarios-enlace {
   padding: 0;
   border: 0;
@@ -360,15 +366,12 @@ a,
   font-weight: 600;
   text-decoration: underline;
 }
-
 .usuarios-enlace.peligro {
   color: #a34d41;
 }
-
 .usuarios-error {
   color: #a34d41;
 }
-
 .usuarios-estado {
   padding: 30px 0;
 }

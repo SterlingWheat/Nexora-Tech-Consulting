@@ -57,8 +57,6 @@ const routes = [
     props: true,
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   },
-  
-  // Rutas de Voluntarios y Turnos (de la rama main)
   {
     path: '/voluntarios',
     name: 'voluntarios',
@@ -69,14 +67,14 @@ const routes = [
     path: '/voluntarios/nuevo',
     name: 'nuevo-voluntario',
     component: VoluntarioFormView,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'TI', 'GESTOR_TAREAS'] }
   },
   {
     path: '/voluntarios/editar/:id',
     name: 'editar-voluntario',
     component: VoluntarioFormView,
     props: true,
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'TI', 'GESTOR_TAREAS'] }
   },
   {
     path: '/voluntarios/:id/disponibilidad',
@@ -94,7 +92,7 @@ const routes = [
     path: '/turnos/nuevo',
     name: 'nuevo-turno',
     component: () => import('../views/TurnoFormView.vue'),
-    meta: { requiresAuth: true }
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   }
 ]
 
@@ -111,15 +109,19 @@ const router = createRouter({
 
 router.beforeEach((to) => {
   const authStore = useAuthStore()
+
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
+
   if (to.meta.roles && !to.meta.roles.includes(authStore.rol)) {
     return { name: 'tareas', query: { acceso: 'denegado' } }
   }
+
   if (to.meta.guestOnly && authStore.isAuthenticated) {
     return { name: 'tareas' }
   }
+
   return true
 })
 
