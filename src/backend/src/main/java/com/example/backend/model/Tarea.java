@@ -18,26 +18,27 @@ public class Tarea {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_tarea")
-    private Integer idTarea; /*[cite: 2] */
+    private Integer idTarea;
 
     @Column(nullable = false, length = 200)
-    private String titulo; /*[cite: 2] */
+    private String titulo;
 
-    @Column(columnDefinition = "TEXT")
-    private String descripcion; /*[cite: 2] */
+    // Mapeado explícitamente al error tipográfico "descripcior" de la tabla para evitar fallos SQL[cite: 1, 3]
+    @Column(name = "descripcior", columnDefinition = "TEXT")
+    private String descripcion;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_categoria", nullable = false)
-    private CategoriaTarea categoria; 
+    private CategoriaTarea categoria;
 
     @Column(length = 30)
-    private String estado; /*[cite: 2] */
+    private String estado;
 
     @Column(name = "avance")
-    private Short avance; /*[cite: 2] */
+    private Short avance;
 
     @Column(name = "fecha_creacion", updatable = false)
-    private LocalDateTime fechaCreacion; /*[cite: 2] */
+    private LocalDateTime fechaCreacion;
 
     @PrePersist
     protected void onCreate() {
@@ -45,10 +46,10 @@ public class Tarea {
             this.fechaCreacion = LocalDateTime.now();
         }
         if (this.estado == null || this.estado.isEmpty()) {
-            this.estado = "Pendiente"; /*[cite: 2] */
+            this.estado = "Pendiente";
         }
         if (this.avance == null) {
-            this.avance = 0; /*[cite: 2] */
+            this.avance = 0;
         }
     }
 }

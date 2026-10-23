@@ -7,7 +7,7 @@ export const DIAS = [
   { valor: 'JUEVES', etiqueta: 'Jueves' },
   { valor: 'VIERNES', etiqueta: 'Viernes' },
   { valor: 'SABADO', etiqueta: 'Sábado' },
-  { valor: 'DOMINGO', etiqueta: 'Domingo' },
+  { valor: 'DOMINGO', etiqueta: 'Domingo' }
 ];
 
 export const disponibilidadService = {
@@ -23,5 +23,5 @@ export const disponibilidadService = {
       body: { franjas },
       mensajeError: 'Error al guardar la disponibilidad',
     });
-  },
+  }
 };

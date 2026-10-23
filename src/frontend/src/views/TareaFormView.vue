@@ -4,28 +4,28 @@
       <div class="tarea-formulario-contenedor">
         <span class="tarea-etiqueta">{{ esEdicion ? 'MODIFICAR REGISTRO' : 'NUEVO REGISTRO' }}</span>
         <h1>
-          {{ esEdicion ? 'Editar' : 'Crear' }} 
+          {{ esEdicion ? 'Editar' : 'Crear' }}
           <em>tarea.</em>
         </h1>
         <p class="tarea-descripcion">
           Completa los datos de la tarea operativa. Las tareas nuevas inician en estado Pendiente.
         </p>
-
         <form class="tarea-formulario" @submit.prevent="guardarTarea">
           
           <div class="tarea-campo">
             <label for="titulo">Título de la tarea *</label>
-            <input 
-              id="titulo" 
-              type="text" 
-              v-model="formulario.titulo" 
-              placeholder="Ej: Clasificar alimentos" 
-              required 
-            />
+            <input
+               id="titulo"
+               type="text"
+               v-model="formulario.titulo"
+               placeholder="Ej: Clasificar alimentos"
+               required
+             />
           </div>
-
+          
           <div class="tarea-campo">
             <label for="categoria">Categoría *</label>
+            <!-- Se utiliza v-model.number para garantizar que el ID sea numérico -->
             <select id="categoria" v-model.number="formulario.idCategoria" required class="tarea-select">
               <option value="" disabled>Selecciona una categoría</option>
               <option v-for="cat in categorias" :key="cat.idCategoria" :value="cat.idCategoria">
@@ -33,27 +33,26 @@
               </option>
             </select>
           </div>
-
+          
           <div class="tarea-campo">
             <label for="descripcion">Descripción</label>
-            <textarea 
-              id="descripcion" 
-              v-model="formulario.descripcion" 
-              placeholder="Detalles sobre lo que se debe hacer..."
+            <textarea
+               id="descripcion"
+               v-model="formulario.descripcion"
+               placeholder="Detalles sobre lo que se debe hacer..."
               rows="4"
             ></textarea>
           </div>
-
+          
           <div v-if="error" class="tarea-error" role="alert">
-            <span aria-hidden="true">⚠</span>
+            <span aria-hidden="true">⚠️</span>
             {{ error }}
           </div>
-
+          
           <button type="submit" class="tarea-boton" :disabled="cargando">
             {{ cargando ? 'Guardando...' : (esEdicion ? 'Guardar Cambios' : 'Crear Tarea') }}
           </button>
         </form>
-
         <button class="tarea-volver" @click="volver">
           ← Volver a la lista
         </button>
@@ -78,17 +77,17 @@ const categorias = ref([])
 const formulario = ref({
   titulo: '',
   descripcion: '',
-  idCategoria: ''
+  idCategoria: '' // Inicializado vacío para forzar la selección requerida
 })
 
 onMounted(async () => {
   try {
-    // Criterio 4: Carga del catálogo real desde Neon DB
     categorias.value = await tareaService.obtenerCategorias()
 
     if (esEdicion.value) {
       const tareas = await tareaService.obtenerTareas()
       const tareaAEditar = tareas.find(t => t.idTarea === Number(route.params.id))
+      
       if (tareaAEditar) {
         formulario.value = {
           titulo: tareaAEditar.titulo,
@@ -107,6 +106,7 @@ const guardarTarea = async () => {
   cargando.value = true
 
   try {
+    // Aseguramos que la estructura coincida estrictamente con TareaRequestDTO
     const payload = {
       titulo: formulario.value.titulo.trim(),
       descripcion: formulario.value.descripcion ? formulario.value.descripcion.trim() : '',
@@ -141,7 +141,6 @@ const volver = () => {
   justify-content: center;
   background: var(--crema-claro);
 }
-
 .tarea-contenedor {
   width: min(600px, 100%);
   background: white;
@@ -149,21 +148,18 @@ const volver = () => {
   box-shadow: 0 20px 60px rgba(81, 72, 62, 0.07);
   overflow: hidden;
 }
-
 .tarea-formulario-contenedor {
   padding: 65px min(9%, 75px);
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
-
 .tarea-etiqueta {
   font-size: 10px;
   letter-spacing: 2.5px;
   font-weight: 700;
   color: var(--verde-oscuro);
 }
-
 .tarea-formulario-contenedor h1 {
   margin: 18px 0;
   font-family: "DM Serif Display", serif;
@@ -172,39 +168,31 @@ const volver = () => {
   line-height: 1.2;
   color: var(--texto);
 }
-
 .tarea-formulario-contenedor h1 em {
   color: var(--verde-oscuro);
 }
-
 .tarea-descripcion {
   color: var(--texto-suave);
   font-size: 13px;
   line-height: 1.8;
 }
-
 .tarea-formulario {
   display: flex;
   flex-direction: column;
   gap: 23px;
   margin-top: 35px;
 }
-
 .tarea-campo {
   display: flex;
   flex-direction: column;
   gap: 9px;
 }
-
 .tarea-campo label {
   color: var(--texto);
   font-size: 12px;
   font-weight: 700;
 }
-
-.tarea-campo input,
-.tarea-campo textarea,
-.tarea-select {
+.tarea-campo input, .tarea-campo textarea, .tarea-select {
   width: 100%;
   padding: 15px 17px;
   background: var(--crema-claro);
@@ -217,13 +205,9 @@ const volver = () => {
   transition: border-color 0.2s;
   resize: vertical;
 }
-
-.tarea-campo input:focus,
-.tarea-campo textarea:focus,
-.tarea-select:focus {
+.tarea-campo input:focus, .tarea-campo textarea:focus, .tarea-select:focus {
   border-color: var(--salvia);
 }
-
 .tarea-boton {
   width: 100%;
   padding: 16px 24px;
@@ -236,17 +220,14 @@ const volver = () => {
   cursor: pointer;
   transition: transform 0.2s, background 0.2s;
 }
-
 .tarea-boton:hover {
   transform: translateY(-2px);
   background: var(--salvia);
 }
-
 .tarea-boton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 .tarea-error {
   display: flex;
   align-items: center;
@@ -259,7 +240,6 @@ const volver = () => {
   font-size: 12px;
   line-height: 1.5;
 }
-
 .tarea-volver {
   align-self: center;
   margin-top: 28px;
@@ -269,11 +249,9 @@ const volver = () => {
   font-size: 12px;
   cursor: pointer;
 }
-
 .tarea-volver:hover {
   color: var(--verde-oscuro);
 }
-
 @media (max-width: 750px) {
   .tarea-formulario-contenedor { padding: 42px 28px; }
 }

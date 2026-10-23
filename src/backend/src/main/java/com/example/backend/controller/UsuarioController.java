@@ -3,7 +3,9 @@ package com.example.backend.controller;
 import com.example.backend.dto.UsuarioCreateRequest;
 import com.example.backend.dto.UsuarioResponse;
 import com.example.backend.dto.UsuarioUpdateRequest;
+import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
+import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -18,10 +20,12 @@ import java.util.Optional;
 public class UsuarioController {
 
     private final UsuarioRepository usuarioRepository;
+    private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UsuarioController(UsuarioRepository usuarioRepository, PasswordEncoder passwordEncoder) {
+    public UsuarioController(UsuarioRepository usuarioRepository, RolRepository rolRepository, PasswordEncoder passwordEncoder) {
         this.usuarioRepository = usuarioRepository;
+        this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -34,18 +38,24 @@ public class UsuarioController {
                 || request.rol() == null) {
             return ResponseEntity.badRequest().body("Datos de usuario inválidos.");
         }
+
         String email = normalizarEmail(request.email());
         if (usuarioRepository.existsByEmailIgnoreCase(email)) {
             return ResponseEntity.status(409).body("El correo ya está registrado.");
         }
 
+        String nombreRol = request.rol().name();
+        RolEntity rolEntity = rolRepository.findByNombre(nombreRol)
+                .orElseThrow(() -> new RuntimeException("El rol " + nombreRol + " no existe en la base de datos."));
+
         Usuario usuario = Usuario.builder()
                 .nombre(request.nombre().trim())
                 .email(email)
                 .password(passwordEncoder.encode(request.password()))
-                .rol(request.rol())
-                .activo(true)
+                .rol(rolEntity)
+                .estado("ACTIVO") // <--- Corregido a .estado("ACTIVO")
                 .build();
+
         return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
     }
 
@@ -58,7 +68,7 @@ public class UsuarioController {
 
         if (rol != null && !rol.isEmpty()) {
             usuarios = usuarios.stream()
-                    .filter(u -> u.getRol().name().equalsIgnoreCase(rol))
+                    .filter(u -> u.getRol().getNombre().equalsIgnoreCase(rol))
                     .toList();
         }
 
@@ -83,6 +93,7 @@ public class UsuarioController {
     public ResponseEntity<?> actualizarUsuario(
             @PathVariable Integer id,
             @RequestBody UsuarioUpdateRequest request) {
+
         if (request.nombre() == null || request.nombre().isBlank()
                 || request.email() == null || request.email().isBlank()
                 || (request.password() != null && !request.password().isBlank()
@@ -101,10 +112,15 @@ public class UsuarioController {
             return ResponseEntity.status(409).body("El correo ya está registrado.");
         }
 
+        String nombreRol = request.rol().name();
+        RolEntity rolEntity = rolRepository.findByNombre(nombreRol)
+                .orElseThrow(() -> new RuntimeException("El rol " + nombreRol + " no existe en la base de datos."));
+
         Usuario usuario = usuarioOpt.get();
         usuario.setNombre(request.nombre().trim());
         usuario.setEmail(email);
-        usuario.setRol(request.rol());
+        usuario.setRol(rolEntity);
+
         if (request.password() != null && !request.password().isBlank()) {
             usuario.setPassword(passwordEncoder.encode(request.password()));
         }
@@ -115,7 +131,6 @@ public class UsuarioController {
     @PutMapping("/{id}/desactivar")
     public ResponseEntity<?> desactivarUsuario(@PathVariable Integer id) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
-
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }

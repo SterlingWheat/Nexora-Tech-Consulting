@@ -16,5 +16,5 @@ export const voluntarioService = {
 
   actualizarVoluntario(id, voluntario) {
     return request(`/voluntarios/${id}`, { method: 'PUT', body: voluntario, mensajeError: 'Error al actualizar el voluntario' });
-  },
+  }
 };

@@ -21,5 +21,5 @@ export const turnoService = {
   // Criterio 1 y 2: crea el turno o rechaza fecha pasada / horario inválido
   crearTurno(turno) {
     return request('/turnos', { method: 'POST', body: turno, mensajeError: 'Error al crear el turno' });
-  },
+  }
 };

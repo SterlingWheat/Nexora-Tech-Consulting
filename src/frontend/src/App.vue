@@ -7,17 +7,22 @@
           <strong>Casa Amandita</strong>
           <small>Tareas Operativas</small>
         </RouterLink>
+
         <nav v-if="authStore.isAuthenticated" class="nav-links">
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
           
-          <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
-          
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
           
+          <!-- Enlace correcto para la gestión del padrón de voluntarios -->
+          <RouterLink to="/voluntarios" class="nav-btn">Voluntarios</RouterLink>
+          
+          <!-- Se corrige la etiqueta: esta ruta administra cuentas/roles del sistema -->
           <RouterLink v-if="authStore.rol === 'ADMINISTRADOR'" to="/usuarios" class="nav-btn">
-            Voluntarios
+            Usuarios
           </RouterLink>
           
+          <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
+
           <RouterLink
             v-if="puedeGestionarTareas"
             to="/tareas/nueva"
@@ -31,7 +36,7 @@
       </div>
     </header>
 
-    <!-- Aquí Vue Router renderiza automáticamente TareasView o TareaFormView -->
+    <!-- Aquí Vue Router renderiza automáticamente la vista correspondiente -->
     <main class="app-contenido">
       <RouterView />
     </main>
@@ -40,12 +45,12 @@
 
 <script setup>
 import { computed, onMounted, onUnmounted } from 'vue'
-import { RouterLink, RouterView } from 'vue-router'
-import { useRouter } from 'vue-router'
+import { RouterLink, RouterView, useRouter } from 'vue-router'
 import { useAuthStore } from './stores/authStore'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
 const puedeGestionarTareas = computed(() =>
   ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol)
 )

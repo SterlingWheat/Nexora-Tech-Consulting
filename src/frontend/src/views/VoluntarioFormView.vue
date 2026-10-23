@@ -10,43 +10,42 @@
         <p class="vol-descripcion">
           Completa los datos personales y de contacto. Los voluntarios nuevos quedan registrados como activos.
         </p>
-
         <form class="vol-formulario" novalidate @submit.prevent="guardarVoluntario">
+          
           <div class="vol-campo">
             <label for="nombre">Nombre *</label>
             <input id="nombre" type="text" v-model="formulario.nombre" placeholder="Ej: Ana" maxlength="100" />
           </div>
-
+          
           <div class="vol-campo">
             <label for="apellido">Apellido *</label>
             <input id="apellido" type="text" v-model="formulario.apellido" placeholder="Ej: Quispe" maxlength="100" />
           </div>
-
+          
           <div class="vol-campo">
             <label for="documento">Documento de identidad *</label>
             <input id="documento" type="text" v-model="formulario.documento" placeholder="Ej: 1234567" maxlength="30" />
           </div>
-
+          
           <div class="vol-campo">
             <label for="email">Correo electrónico *</label>
             <input id="email" type="email" v-model="formulario.email" placeholder="ana@correo.com" maxlength="150" />
           </div>
-
+          
           <div class="vol-campo">
             <label for="telefono">Teléfono</label>
             <input id="telefono" type="tel" v-model="formulario.telefono" placeholder="Ej: 70012345" maxlength="20" />
           </div>
-
+          
           <div v-if="error" class="vol-error" role="alert">
-            <span aria-hidden="true">⚠</span>
+            <span aria-hidden="true">⚠️</span>
             {{ error }}
           </div>
-
+          
           <button type="submit" class="vol-boton" :disabled="cargando">
             {{ cargando ? 'Guardando...' : (esEdicion ? 'Guardar Cambios' : 'Registrar Voluntario') }}
           </button>
         </form>
-
         <button type="button" class="vol-volver" @click="volver">← Volver a la lista</button>
       </div>
     </div>
@@ -76,7 +75,6 @@ const formulario = ref({
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const TELEFONO_REGEX = /^[0-9+()\-\s]{6,20}$/
 
-// Criterio 4: validaciones del lado del cliente (el backend vuelve a validar)
 const validar = () => {
   const f = formulario.value
   if (!f.nombre.trim()) return 'El nombre es obligatorio'
@@ -90,6 +88,7 @@ const validar = () => {
 
 onMounted(async () => {
   if (!esEdicion.value) return
+  
   try {
     const v = await voluntarioService.obtenerVoluntario(route.params.id)
     formulario.value = {
@@ -107,8 +106,9 @@ onMounted(async () => {
 const guardarVoluntario = async () => {
   error.value = validar()
   if (error.value) return
-
+  
   cargando.value = true
+  
   try {
     const payload = {
       nombre: formulario.value.nombre.trim(),
@@ -123,10 +123,8 @@ const guardarVoluntario = async () => {
     } else {
       await voluntarioService.registrarVoluntario(payload)
     }
-
     router.push('/voluntarios')
   } catch (err) {
-    // Criterio 2: mensaje claro ante documento o correo duplicado
     error.value = err.message
   } finally {
     cargando.value = false
@@ -147,7 +145,6 @@ const volver = () => {
   justify-content: center;
   background: var(--crema-claro);
 }
-
 .vol-contenedor {
   width: min(600px, 100%);
   background: white;
@@ -155,21 +152,18 @@ const volver = () => {
   box-shadow: 0 20px 60px rgba(81, 72, 62, 0.07);
   overflow: hidden;
 }
-
 .vol-formulario-contenedor {
   padding: 65px min(9%, 75px);
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
-
 .vol-etiqueta {
   font-size: 10px;
   letter-spacing: 2.5px;
   font-weight: 700;
   color: var(--verde-oscuro);
 }
-
 .vol-formulario-contenedor h1 {
   margin: 18px 0;
   font-family: "DM Serif Display", serif;
@@ -178,36 +172,30 @@ const volver = () => {
   line-height: 1.2;
   color: var(--texto);
 }
-
 .vol-formulario-contenedor h1 em {
   color: var(--verde-oscuro);
 }
-
 .vol-descripcion {
   color: var(--texto-suave);
   font-size: 13px;
   line-height: 1.8;
 }
-
 .vol-formulario {
   display: flex;
   flex-direction: column;
   gap: 23px;
   margin-top: 35px;
 }
-
 .vol-campo {
   display: flex;
   flex-direction: column;
   gap: 9px;
 }
-
 .vol-campo label {
   color: var(--texto);
   font-size: 12px;
   font-weight: 700;
 }
-
 .vol-campo input {
   width: 100%;
   box-sizing: border-box;
@@ -221,11 +209,9 @@ const volver = () => {
   font-family: inherit;
   transition: border-color 0.2s;
 }
-
 .vol-campo input:focus {
   border-color: var(--salvia);
 }
-
 .vol-boton {
   width: 100%;
   padding: 16px 24px;
@@ -238,17 +224,14 @@ const volver = () => {
   cursor: pointer;
   transition: transform 0.2s, background 0.2s;
 }
-
 .vol-boton:hover {
   transform: translateY(-2px);
   background: var(--salvia);
 }
-
 .vol-boton:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-
 .vol-error {
   display: flex;
   align-items: center;
@@ -261,7 +244,6 @@ const volver = () => {
   font-size: 12px;
   line-height: 1.5;
 }
-
 .vol-volver {
   align-self: center;
   margin-top: 28px;
@@ -271,11 +253,9 @@ const volver = () => {
   font-size: 12px;
   cursor: pointer;
 }
-
 .vol-volver:hover {
   color: var(--verde-oscuro);
 }
-
 @media (max-width: 750px) {
   .vol-formulario-contenedor { padding: 42px 28px; }
 }

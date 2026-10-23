@@ -23,19 +23,21 @@ public class Usuario {
     @Column(nullable = false, length = 100)
     private String nombre;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(name = "correo", nullable = false, unique = true, length = 150)
     private String email;
 
-    @Column(nullable = false)
-    private String password; 
+    // Corregido al nombre exacto de la base de datos: password_hash
+    @Column(name = "password_hash", nullable = false)
+    private String password;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 30)
-    private Rol rol;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "id_rol", nullable = false)
+    private RolEntity rol;
 
-    @Column(nullable = false)
-    @Builder.Default 
-    private Boolean activo = true;
+    // Mapeado como String porque en PostgreSQL la columna estado es character varying
+    @Column(name = "estado", length = 30)
+    @Builder.Default
+    private String estado = "ACTIVO";
 
     @Column(name = "fecha_creacion", updatable = false)
     private LocalDateTime fechaCreacion;
@@ -45,5 +47,17 @@ public class Usuario {
         if (this.fechaCreacion == null) {
             this.fechaCreacion = LocalDateTime.now();
         }
+        if (this.estado == null || this.estado.isBlank()) {
+            this.estado = "ACTIVO";
+        }
+    }
+
+    // Métodos de compatibilidad para que el resto del sistema siga usando booleanos
+    public Boolean getActivo() {
+        return "ACTIVO".equalsIgnoreCase(this.estado) || "TRUE".equalsIgnoreCase(this.estado);
+    }
+
+    public void setActivo(Boolean activo) {
+        this.estado = (activo != null && activo) ? "ACTIVO" : "INACTIVO";
     }
 }
