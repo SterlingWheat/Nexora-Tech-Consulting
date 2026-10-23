@@ -9,7 +9,8 @@ import lombok.ToString;
 import java.time.LocalTime;
 
 @Entity
-@Table(name = "disponibilidad", indexes = @Index(name = "idx_disponibilidad_voluntario", columnList = "id_voluntario"))
+// Tabla ya existente en el esquema del equipo (dia_semana smallint 1-7, CHECK hora_inicio < hora_fin)
+@Table(name = "disponibilidad_horaria")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,8 +27,8 @@ public class Disponibilidad {
     @JoinColumn(name = "id_voluntario", nullable = false)
     private Voluntario voluntario;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "dia_semana", nullable = false, length = 15)
+    @Convert(converter = DiaSemanaConverter.class)
+    @Column(name = "dia_semana", nullable = false)
     private DiaSemana diaSemana;
 
     @Column(name = "hora_inicio", nullable = false)

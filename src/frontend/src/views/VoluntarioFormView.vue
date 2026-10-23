@@ -34,7 +34,7 @@
 
           <div class="vol-campo">
             <label for="telefono">Teléfono</label>
-            <input id="telefono" type="tel" v-model="formulario.telefono" placeholder="Ej: 70012345" maxlength="30" />
+            <input id="telefono" type="tel" v-model="formulario.telefono" placeholder="Ej: 70012345" maxlength="20" />
           </div>
 
           <div v-if="error" class="vol-error" role="alert">
@@ -74,7 +74,7 @@ const formulario = ref({
 })
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const TELEFONO_REGEX = /^[0-9+()\-\s]{6,30}$/
+const TELEFONO_REGEX = /^[0-9+()\-\s]{6,20}$/
 
 // Criterio 4: validaciones del lado del cliente (el backend vuelve a validar)
 const validar = () => {

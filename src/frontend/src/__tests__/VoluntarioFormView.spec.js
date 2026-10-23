@@ -96,6 +96,12 @@ describe('VoluntarioFormView', () => {
     expect(voluntarioService.registrarVoluntario).toHaveBeenCalledTimes(1)
   })
 
+  it('limita el teléfono a 20 caracteres', () => {
+    const wrapper = mount(VoluntarioFormView)
+
+    expect(wrapper.find('#telefono').attributes('maxlength')).toBe('20')
+  })
+
   it('en edición carga los datos y actualiza en lugar de registrar (criterio 3)', async () => {
     route.params = { id: '5' }
     voluntarioService.obtenerVoluntario.mockResolvedValue({ ...validos, idVoluntario: 5 })
