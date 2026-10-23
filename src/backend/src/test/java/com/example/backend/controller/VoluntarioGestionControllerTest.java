@@ -25,7 +25,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
-class VoluntarioControllerTest {
+class VoluntarioGestionControllerTest {
 
     private static final String VALIDO = """
             {"nombre":"Ana","apellido":"Quispe","documento":"1234567","email":"ana@correo.com","telefono":"70012345"}
@@ -38,7 +38,7 @@ class VoluntarioControllerTest {
 
     @BeforeEach
     void setUp() {
-        mvc = MockMvcBuilders.standaloneSetup(new VoluntarioController(service))
+        mvc = MockMvcBuilders.standaloneSetup(new VoluntarioGestionController(service))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
 
@@ -165,6 +165,6 @@ class VoluntarioControllerTest {
     void get_porIdInexistente_devuelve404() throws Exception {
         when(service.obtenerVoluntarioPorId(99)).thenThrow(new ResourceNotFoundException("no existe"));
 
-        mvc.perform(get("/api/voluntarios/99")).andExpect(status().isNotFound());
+        mvc.perform(get("/api/voluntarios/99/detalle")).andExpect(status().isNotFound());
     }
 }

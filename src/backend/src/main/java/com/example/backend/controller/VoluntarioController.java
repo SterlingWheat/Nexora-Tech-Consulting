@@ -1,73 +1,42 @@
 package com.example.backend.controller;
 
-import com.example.backend.dto.VoluntarioRequestDTO;
-import com.example.backend.dto.VoluntarioResponseDTO;
-import com.example.backend.model.Voluntario;
-import com.example.backend.service.VoluntarioService;
-import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
+import com.example.backend.model.Usuario;
+import com.example.backend.repository.UsuarioRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/voluntarios")
-@CrossOrigin(origins = "*")
 public class VoluntarioController {
 
-    private final VoluntarioService voluntarioService;
-
-    public VoluntarioController(VoluntarioService voluntarioService) {
-        this.voluntarioService = voluntarioService;
-    }
-
-    @PostMapping
-    public ResponseEntity<VoluntarioResponseDTO> registrarVoluntario(@Valid @RequestBody VoluntarioRequestDTO request) {
-        Voluntario guardado = voluntarioService.registrarVoluntario(mapearAEntidad(request));
-        return new ResponseEntity<>(mapearADTO(guardado), HttpStatus.CREATED);
-    }
-
-    @PutMapping("/{id}")
-    public ResponseEntity<VoluntarioResponseDTO> actualizarVoluntario(@PathVariable Integer id, @Valid @RequestBody VoluntarioRequestDTO request) {
-        return ResponseEntity.ok(mapearADTO(voluntarioService.actualizarVoluntario(id, mapearAEntidad(request))));
-    }
-
-    @GetMapping
-    public ResponseEntity<List<VoluntarioResponseDTO>> listarVoluntarios() {
-        List<VoluntarioResponseDTO> voluntarios = voluntarioService.listarVoluntarios().stream()
-                .map(this::mapearADTO)
-                .collect(Collectors.toList());
-        return ResponseEntity.ok(voluntarios);
-    }
+    @Autowired
+    private UsuarioRepository usuarioRepository;
 
     @GetMapping("/{id}")
-    public ResponseEntity<VoluntarioResponseDTO> obtenerVoluntario(@PathVariable Integer id) {
-        return ResponseEntity.ok(mapearADTO(voluntarioService.obtenerVoluntarioPorId(id)));
-    }
+    public ResponseEntity<?> obtenerPerfil(@PathVariable Integer id, Authentication authentication) {
+        Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
 
-    private Voluntario mapearAEntidad(VoluntarioRequestDTO request) {
-        Voluntario v = new Voluntario();
-        v.setNombre(request.getNombre());
-        v.setApellido(request.getApellido());
-        v.setDocumento(request.getDocumento());
-        v.setEmail(request.getEmail());
-        v.setTelefono(request.getTelefono());
-        return v;
-    }
+        if (usuarioOpt.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
 
-    private VoluntarioResponseDTO mapearADTO(Voluntario v) {
-        VoluntarioResponseDTO dto = new VoluntarioResponseDTO();
-        dto.setIdVoluntario(v.getIdVoluntario());
-        dto.setNombre(v.getNombre());
-        dto.setApellido(v.getApellido());
-        dto.setDocumento(v.getDocumento());
-        dto.setEmail(v.getEmail());
-        dto.setTelefono(v.getTelefono());
-        dto.setActivo(v.getActivo());
-        dto.setFechaCreacion(v.getFechaCreacion());
-        dto.setFechaModificacion(v.getFechaModificacion());
-        return dto;
+        Usuario usuario = usuarioOpt.get();
+
+        if (authentication != null && authentication.getAuthorities().stream()
+                .anyMatch(a -> a.getAuthority().equals("ROLE_VOLUNTARIO"))) {
+            
+
+            String usernameAutenticado = authentication.getName();
+            
+            if (!usuario.getEmail().equals(usernameAutenticado)) {
+                return ResponseEntity.status(403).body("Acceso denegado: no puedes ver el perfil de otro voluntario.");
+            }
+        }
+
+        return ResponseEntity.ok(usuario);
     }
 }

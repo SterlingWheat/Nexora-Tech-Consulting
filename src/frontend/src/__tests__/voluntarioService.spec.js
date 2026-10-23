@@ -48,6 +48,15 @@ describe('voluntarioService', () => {
     expect(opciones.method).toBe('PUT')
   })
 
+  it('obtenerVoluntario usa /detalle porque /{id} pertenece al perfil de usuario (KAN-16)', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idVoluntario: 5 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await voluntarioService.obtenerVoluntario(5)
+
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/voluntarios\/5\/detalle$/)
+  })
+
   it('obtenerVoluntarios devuelve la lista', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(true, [{ idVoluntario: 1 }])))
 

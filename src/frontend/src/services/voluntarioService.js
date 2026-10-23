@@ -6,7 +6,7 @@ export const voluntarioService = {
   },
 
   obtenerVoluntario(id) {
-    return request(`/voluntarios/${id}`, { mensajeError: 'Error al obtener el voluntario' });
+    return request(`/voluntarios/${id}/detalle`, { mensajeError: 'Error al obtener el voluntario' });
   },
 
   // Registrar voluntario (activo por defecto, rechaza documento o correo duplicado)
