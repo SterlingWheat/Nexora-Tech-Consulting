@@ -11,6 +11,6 @@ describe('App', () => {
 
     expect(wrapper.text()).toContain('Casa Amandita')
     const destinos = wrapper.findAllComponents(RouterLinkStub).map((l) => l.props('to'))
-    expect(destinos).toEqual(expect.arrayContaining(['/tareas', '/voluntarios']))
+    expect(destinos).toEqual(expect.arrayContaining(['/tareas', '/voluntarios', '/turnos']))
   })
 })

@@ -10,6 +10,7 @@
         <nav class="nav-links">
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
           <RouterLink to="/voluntarios" class="nav-btn">Voluntarios</RouterLink>
+          <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
           <RouterLink to="/tareas/nueva" class="nav-btn-nuevo">+ Nueva Tarea</RouterLink>
         </nav>
       </div>

@@ -56,6 +56,18 @@ const routes = [
     path: '/voluntarios/:id/disponibilidad',
     name: 'disponibilidad-voluntario',
     component: () => import('../views/DisponibilidadView.vue')
+  },
+
+  // Turnos (KAN-21)
+  {
+    path: '/turnos',
+    name: 'turnos',
+    component: () => import('../views/TurnosView.vue')
+  },
+  {
+    path: '/turnos/nuevo',
+    name: 'nuevo-turno',
+    component: () => import('../views/TurnoFormView.vue')
   }
 ]
 
