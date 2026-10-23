@@ -20,19 +20,21 @@ public class Voluntario {
     @Column(name = "id_voluntario")
     private Integer idVoluntario;
 
-    @Column(nullable = false, length = 100)
+    // Columnas del esquema original del equipo (nombres / apellidos)
+    @Column(name = "nombres", nullable = false, length = 100)
     private String nombre;
 
-    @Column(nullable = false, length = 100)
+    @Column(name = "apellidos", nullable = false, length = 100)
     private String apellido;
 
-    @Column(nullable = false, unique = true, length = 30)
+    // Agregadas por KAN-14; opcionales en la BD para no romper inserts de otras historias (el API las exige)
+    @Column(unique = true, length = 30)
     private String documento;
 
-    @Column(nullable = false, unique = true, length = 150)
+    @Column(unique = true, length = 150)
     private String email;
 
-    @Column(length = 30)
+    @Column(length = 20)
     private String telefono;
 
     @Column(nullable = false)

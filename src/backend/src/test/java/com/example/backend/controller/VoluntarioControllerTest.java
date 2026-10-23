@@ -98,6 +98,26 @@ class VoluntarioControllerTest {
                 .andExpect(content().string(containsString("teléfono")));
     }
 
+    // El teléfono admite como máximo 20 caracteres (columna varchar(20))
+    @Test
+    void post_telefonoDeMasDe20Caracteres_devuelve400() throws Exception {
+        String invalido = VALIDO.replace("70012345", "1234567890123456789012");
+
+        mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(invalido))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().string(containsString("teléfono")));
+        verify(service, never()).registrarVoluntario(any());
+    }
+
+    @Test
+    void post_telefonoDeExactamente20Caracteres_esValido() throws Exception {
+        when(service.registrarVoluntario(any())).thenReturn(guardado());
+        String limite = VALIDO.replace("70012345", "12345678901234567890");
+
+        mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(limite))
+                .andExpect(status().isCreated());
+    }
+
     // Criterio 3
     @Test
     void put_valido_devuelve200ConFechaModificacion() throws Exception {

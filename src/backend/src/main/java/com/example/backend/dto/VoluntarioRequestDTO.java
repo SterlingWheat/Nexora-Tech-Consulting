@@ -26,6 +26,6 @@ public class VoluntarioRequestDTO {
     @Size(max = 150, message = "El correo no puede superar los 150 caracteres")
     private String email;
 
-    @Pattern(regexp = "^$|^[0-9+()\\-\\s]{6,30}$", message = "El teléfono no tiene un formato válido")
+    @Pattern(regexp = "^$|^[0-9+()\\-\\s]{6,20}$", message = "El teléfono no tiene un formato válido")
     private String telefono;
 }
