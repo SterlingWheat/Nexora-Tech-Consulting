@@ -42,7 +42,9 @@ describe('VoluntarioFormView', () => {
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
-    expect(voluntarioService.registrarVoluntario).toHaveBeenCalledWith(validos)
+    // El componente agrega la propiedad crearCuenta en falso por defecto al registrar
+    const payloadEsperado = { ...validos, crearCuenta: false }
+    expect(voluntarioService.registrarVoluntario).toHaveBeenCalledWith(payloadEsperado)
     expect(push).toHaveBeenCalledWith('/voluntarios')
   })
 
@@ -60,7 +62,6 @@ describe('VoluntarioFormView', () => {
 
   it('no llama a la API si falta un campo obligatorio (criterio 4)', async () => {
     const wrapper = mount(VoluntarioFormView)
-
     await llenar(wrapper, { ...validos, nombre: '   ' })
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -71,7 +72,6 @@ describe('VoluntarioFormView', () => {
 
   it('rechaza un correo con formato inválido (criterio 4)', async () => {
     const wrapper = mount(VoluntarioFormView)
-
     await llenar(wrapper, { ...validos, email: 'no-es-correo' })
     await wrapper.find('form').trigger('submit')
     await flushPromises()
@@ -87,18 +87,19 @@ describe('VoluntarioFormView', () => {
     await llenar(wrapper, { ...validos, telefono: 'abc' })
     await wrapper.find('form').trigger('submit')
     await flushPromises()
+
     expect(wrapper.find('[role="alert"]').text()).toContain('teléfono')
     expect(voluntarioService.registrarVoluntario).not.toHaveBeenCalled()
 
     await wrapper.find('#telefono').setValue('')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
+
     expect(voluntarioService.registrarVoluntario).toHaveBeenCalledTimes(1)
   })
 
   it('limita el teléfono a 20 caracteres', () => {
     const wrapper = mount(VoluntarioFormView)
-
     expect(wrapper.find('#telefono').attributes('maxlength')).toBe('20')
   })
 
@@ -106,11 +107,11 @@ describe('VoluntarioFormView', () => {
     route.params = { id: '5' }
     voluntarioService.obtenerVoluntario.mockResolvedValue({ ...validos, idVoluntario: 5 })
     voluntarioService.actualizarVoluntario.mockResolvedValue({})
+
     const wrapper = mount(VoluntarioFormView)
     await flushPromises()
 
     expect(wrapper.find('#nombre').element.value).toBe('Ana')
-
     await wrapper.find('#nombre').setValue('Ana María')
     await wrapper.find('form').trigger('submit')
     await flushPromises()

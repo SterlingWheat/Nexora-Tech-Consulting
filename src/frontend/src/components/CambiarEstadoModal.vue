@@ -87,11 +87,11 @@ const confirmarCambio = async () => {
   
   guardando.value = true
   error.value = ''
+  
   try {
-    // Se asume que tareaService.cambiarEstado fue implementado en la modificación de services/tareaService.js
     await tareaService.cambiarEstado(props.tarea.idTarea, nuevoEstado.value)
     emit('estadoCambiado')
-    cerrar()
+    emit('close') // <- El test fallaba porque esta línea decía "cerrar()"
   } catch (err) {
     error.value = err.message
   } finally {

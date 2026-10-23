@@ -2,16 +2,15 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import { usuarioService } from '../services/usuarioService'
 import { authService } from '../services/authService'
 
-const respuesta = (ok, cuerpo, texto = '') => ({
+const respuesta = (ok, cuerpo, texto = cuerpo ? JSON.stringify(cuerpo) : '') => ({
   ok,
   status: ok ? 200 : 400,
   json: async () => cuerpo,
-  text: async () => texto || JSON.stringify(cuerpo)
+  text: async () => texto
 })
 
 describe('usuarioService', () => {
   beforeEach(() => {
-    // Simulamos que el usuario está autenticado para que añada las cabeceras
     vi.spyOn(authService, 'getAuthorizationHeader').mockReturnValue({ Authorization: 'Bearer token-de-prueba' })
   })
 
@@ -23,7 +22,6 @@ describe('usuarioService', () => {
   it('listar envía GET con parámetros de consulta correctos', async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta(true, [{ idUsuario: 1, nombre: 'Admin' }]))
     vi.stubGlobal('fetch', fetchMock)
-
     await usuarioService.listar({ rol: 'ADMINISTRADOR', activo: 'true' })
     const [url, opciones] = fetchMock.mock.calls[0]
     
@@ -35,7 +33,6 @@ describe('usuarioService', () => {
   it('listar no incluye parámetros vacíos en la URL', async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta(true, []))
     vi.stubGlobal('fetch', fetchMock)
-
     await usuarioService.listar({ rol: '', activo: '' })
     const [url] = fetchMock.mock.calls[0]
     
@@ -99,7 +96,13 @@ describe('usuarioService', () => {
   })
 
   it('usa un mensaje de error por defecto si el backend no responde con un mensaje claro', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(respuesta(false, null, ''))
+    // Aquí forzamos estrictamente texto vacío para emular que el servidor no envió nada
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => null,
+      text: async () => ''
+    })
     vi.stubGlobal('fetch', fetchMock)
     
     await expect(usuarioService.crear({})).rejects.toThrow('No se pudo completar la operación de usuario.')
