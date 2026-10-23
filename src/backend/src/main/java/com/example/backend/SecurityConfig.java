@@ -44,6 +44,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/error").permitAll()
+
+                        .requestMatchers("/openapi.yaml", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         
                         // Perfil
                         .requestMatchers("/api/perfil/me").authenticated()

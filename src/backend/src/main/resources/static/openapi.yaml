@@ -1,0 +1,735 @@
+openapi: 3.0.3
+info:
+  title: Casa Amandita API
+  description: API para la gestión de voluntarios, tareas operativas, turnos y usuarios del sistema Casa Amandita.
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: Servidor Local
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+    LoginResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        rol:
+          type: string
+    UsuarioResponse:
+      type: object
+      properties:
+        idUsuario: { type: integer }
+        nombre: { type: string }
+        email: { type: string }
+        rol: { type: string }
+        activo: { type: boolean }
+        fechaCreacion: { type: string, format: date-time }
+    UsuarioCreateRequest:
+      type: object
+      required: [nombre, email, password, rol]
+      properties:
+        nombre: { type: string }
+        email: { type: string }
+        password: { type: string }
+        rol: { type: string }
+    UsuarioUpdateRequest:
+      type: object
+      properties:
+        nombre: { type: string }
+        email: { type: string }
+        password: { type: string }
+        rol: { type: string }
+    VoluntarioRequestDTO:
+      type: object
+      required: [nombre, apellido, documento, email]
+      properties:
+        nombre: { type: string }
+        apellido: { type: string }
+        documento: { type: string }
+        email: { type: string }
+        telefono: { type: string }
+        crearCuenta: { type: boolean }
+        password: { type: string }
+    VoluntarioResponseDTO:
+      type: object
+      properties:
+        idVoluntario: { type: integer }
+        idUsuario: { type: integer }
+        nombre: { type: string }
+        apellido: { type: string }
+        documento: { type: string }
+        email: { type: string }
+        telefono: { type: string }
+        activo: { type: boolean }
+        fechaCreacion: { type: string, format: date-time }
+        fechaModificacion: { type: string, format: date-time }
+    HabilitarAccesoRequestDTO:
+      type: object
+      required: [password]
+      properties:
+        password: { type: string }
+    FranjaDTO:
+      type: object
+      required: [diaSemana, horaInicio, horaFin]
+      properties:
+        diaSemana: { type: string, enum: [LUNES, MARTES, MIERCOLES, JUEVES, VIERNES, SABADO, DOMINGO] }
+        horaInicio: { type: string, format: time, example: "08:00:00" }
+        horaFin: { type: string, format: time, example: "12:00:00" }
+    DisponibilidadRequestDTO:
+      type: object
+      required: [franjas]
+      properties:
+        franjas:
+          type: array
+          items:
+            $ref: '#/components/schemas/FranjaDTO'
+    DisponibilidadResponseDTO:
+      type: object
+      properties:
+        idVoluntario: { type: integer }
+        franjas:
+          type: array
+          items:
+            $ref: '#/components/schemas/FranjaDTO'
+        advertencias:
+          type: array
+          items:
+            type: string
+    TurnoRequestDTO:
+      type: object
+      required: [fecha, horaInicio, horaFin, actividad, cuposTotales]
+      properties:
+        fecha: { type: string, format: date }
+        horaInicio: { type: string, format: time }
+        horaFin: { type: string, format: time }
+        actividad: { type: string }
+        cuposTotales: { type: integer }
+    TurnoResponseDTO:
+      type: object
+      properties:
+        idTurno: { type: integer }
+        fecha: { type: string, format: date }
+        horaInicio: { type: string, format: time }
+        horaFin: { type: string, format: time }
+        actividad: { type: string }
+        cuposTotales: { type: integer }
+        cuposOcupados: { type: integer }
+        cuposLibres: { type: integer }
+        fechaCreacion: { type: string, format: date-time }
+    TareaRequestDTO:
+      type: object
+      required: [titulo, idCategoria]
+      properties:
+        titulo: { type: string }
+        descripcion: { type: string }
+        idCategoria: { type: integer }
+    TareaResponseDTO:
+      type: object
+      properties:
+        idTarea: { type: integer }
+        titulo: { type: string }
+        descripcion: { type: string }
+        idCategoria: { type: integer }
+        nombreCategoria: { type: string }
+        estado: { type: string }
+        avance: { type: integer }
+        fechaCreacion: { type: string, format: date-time }
+    CambioEstadoRequestDTO:
+      type: object
+      required: [nuevoEstado]
+      properties:
+        nuevoEstado: { type: string }
+    AsignacionRequestDTO:
+      type: object
+      required: [idVoluntarios]
+      properties:
+        idVoluntarios:
+          type: array
+          items:
+            type: integer
+    AsignacionResponseDTO:
+      type: object
+      properties:
+        idAsignacion: { type: integer }
+        idTarea: { type: integer }
+        idVoluntario: { type: integer }
+        nombreVoluntario: { type: string }
+        estadoRespuesta: { type: string }
+        fechaAsignacion: { type: string, format: date-time }
+    HistorialTareaResponseDTO:
+      type: object
+      properties:
+        idHistorial: { type: integer }
+        idTarea: { type: integer }
+        idUsuario: { type: integer }
+        nombreUsuario: { type: string }
+        detalle: { type: string }
+        fechaRegistro: { type: string, format: date-time }
+    CategoriaTarea:
+      type: object
+      properties:
+        idCategoria: { type: integer }
+        nombre: { type: string }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Iniciar sesión
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login exitoso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Credenciales inválidas
+        '403':
+          description: Usuario Inactivo
+
+  /api/perfil/me:
+    get:
+      tags: [Perfil]
+      summary: Obtener el perfil del usuario autenticado
+      responses:
+        '200':
+          description: Perfil devuelto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+        '404':
+          description: No encontrado
+
+  /api/usuarios:
+    get:
+      tags: [Usuarios]
+      summary: Listar usuarios
+      parameters:
+        - name: rol
+          in: query
+          schema:
+            type: string
+        - name: activo
+          in: query
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: Lista de usuarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/UsuarioResponse'
+    post:
+      tags: [Usuarios]
+      summary: Crear un nuevo usuario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioCreateRequest'
+      responses:
+        '200':
+          description: Usuario creado exitosamente
+        '400':
+          description: Datos inválidos
+        '409':
+          description: Conflicto (Correo ya registrado)
+
+  /api/usuarios/{id}:
+    get:
+      tags: [Usuarios]
+      summary: Obtener usuario por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Usuario encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UsuarioResponse'
+    put:
+      tags: [Usuarios]
+      summary: Actualizar usuario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UsuarioUpdateRequest'
+      responses:
+        '200':
+          description: Usuario actualizado exitosamente
+
+  /api/usuarios/{id}/desactivar:
+    put:
+      tags: [Usuarios]
+      summary: Desactivar cuenta de usuario (y su voluntario si aplica)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Usuario desactivado
+
+  /api/usuarios/{id}/activar:
+    put:
+      tags: [Usuarios]
+      summary: Activar cuenta de usuario (y su voluntario si aplica)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Usuario activado
+
+  /api/voluntarios:
+    get:
+      tags: [Voluntarios]
+      summary: Listar voluntarios
+      responses:
+        '200':
+          description: Lista de voluntarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/VoluntarioResponseDTO'
+    post:
+      tags: [Voluntarios]
+      summary: Registrar un nuevo voluntario
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoluntarioRequestDTO'
+      responses:
+        '201':
+          description: Voluntario registrado
+        '400':
+          description: Datos inválidos
+        '409':
+          description: Conflicto (Documento o correo duplicado)
+
+  /api/voluntarios/{id}:
+    get:
+      tags: [Voluntarios]
+      summary: Obtener perfil de sistema asociado a un voluntario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Perfil devuelto
+    put:
+      tags: [Voluntarios]
+      summary: Actualizar voluntario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VoluntarioRequestDTO'
+      responses:
+        '200':
+          description: Voluntario actualizado
+
+  /api/voluntarios/{id}/detalle:
+    get:
+      tags: [Voluntarios]
+      summary: Obtener detalles del voluntario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Detalle devuelto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VoluntarioResponseDTO'
+
+  /api/voluntarios/{id}/habilitar-acceso:
+    post:
+      tags: [Voluntarios]
+      summary: Crear cuenta de acceso al sistema para un voluntario existente
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabilitarAccesoRequestDTO'
+      responses:
+        '200':
+          description: Acceso habilitado exitosamente
+
+  /api/voluntarios/{id}/activar:
+    put:
+      tags: [Voluntarios]
+      summary: Activar voluntario (y su cuenta de usuario si tiene)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Voluntario activado exitosamente
+
+  /api/voluntarios/{id}/desactivar:
+    put:
+      tags: [Voluntarios]
+      summary: Desactivar voluntario (y su cuenta de usuario si tiene)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Voluntario desactivado exitosamente
+
+  /api/voluntarios/{idVoluntario}/disponibilidad:
+    get:
+      tags: [Disponibilidad]
+      summary: Obtener disponibilidad horaria de un voluntario
+      parameters:
+        - name: idVoluntario
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Disponibilidad devuelta
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisponibilidadResponseDTO'
+    put:
+      tags: [Disponibilidad]
+      summary: Reemplazar disponibilidad horaria de un voluntario
+      parameters:
+        - name: idVoluntario
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DisponibilidadRequestDTO'
+      responses:
+        '200':
+          description: Disponibilidad guardada
+
+  /api/voluntarios/{idVoluntario}/turnos/{idTurno}/validacion-cruce:
+    get:
+      tags: [Turnos]
+      summary: Validar si un voluntario tiene cruces de horario con un turno
+      parameters:
+        - name: idVoluntario
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: idTurno
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Sin cruces (permitido)
+        '409':
+          description: Hay cruce de horarios
+
+  /api/turnos:
+    get:
+      tags: [Turnos]
+      summary: Listar turnos
+      responses:
+        '200':
+          description: Lista de turnos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TurnoResponseDTO'
+    post:
+      tags: [Turnos]
+      summary: Crear turno
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnoRequestDTO'
+      responses:
+        '201':
+          description: Turno creado
+
+  /api/turnos/{id}:
+    get:
+      tags: [Turnos]
+      summary: Obtener turno por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Turno encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnoResponseDTO'
+
+  /api/tareas:
+    get:
+      tags: [Tareas]
+      summary: Listar todas las tareas (Original)
+      responses:
+        '200':
+          description: Lista de tareas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TareaResponseDTO'
+    post:
+      tags: [Tareas]
+      summary: Crear nueva tarea
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TareaRequestDTO'
+      responses:
+        '201':
+          description: Tarea creada
+
+  /api/tareas/filtrar:
+    get:
+      tags: [Tareas]
+      summary: Filtrar tareas con paginación
+      parameters:
+        - name: estado
+          in: query
+          schema: { type: string }
+        - name: idCategoria
+          in: query
+          schema: { type: integer }
+        - name: idResponsable
+          in: query
+          schema: { type: integer }
+        - name: fechaInicio
+          in: query
+          schema: { type: string, format: date }
+        - name: fechaFin
+          in: query
+          schema: { type: string, format: date }
+        - name: page
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: sortBy
+          in: query
+          schema: { type: string, default: "fechaCreacion" }
+        - name: sortDir
+          in: query
+          schema: { type: string, default: "desc" }
+      responses:
+        '200':
+          description: Página de tareas devuelta
+
+  /api/tareas/categorias:
+    get:
+      tags: [Tareas]
+      summary: Listar categorías de tareas
+      responses:
+        '200':
+          description: Categorías listadas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CategoriaTarea'
+
+  /api/tareas/{id}:
+    put:
+      tags: [Tareas]
+      summary: Editar tarea
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TareaRequestDTO'
+      responses:
+        '200':
+          description: Tarea actualizada exitosamente
+
+  /api/tareas/{id}/estado:
+    patch:
+      tags: [Tareas]
+      summary: Cambiar estado de la tarea
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CambioEstadoRequestDTO'
+      responses:
+        '200':
+          description: Estado actualizado
+
+  /api/tareas/{idTarea}/asignaciones:
+    get:
+      tags: [Asignaciones]
+      summary: Obtener asignaciones de voluntarios de una tarea
+      parameters:
+        - name: idTarea
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Asignaciones devueltas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AsignacionResponseDTO'
+    post:
+      tags: [Asignaciones]
+      summary: Asignar voluntarios a una tarea
+      parameters:
+        - name: idTarea
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignacionRequestDTO'
+      responses:
+        '201':
+          description: Voluntarios asignados correctamente
+
+  /api/tareas/{idTarea}/historial:
+    get:
+      tags: [Historial]
+      summary: Listar historial de cambios de una tarea
+      parameters:
+        - name: idTarea
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Historial devuelto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistorialTareaResponseDTO'
