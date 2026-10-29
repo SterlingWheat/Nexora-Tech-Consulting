@@ -98,6 +98,15 @@
                     >
                       Estado
                     </button>
+                    <!-- HU: Registrar Avance -->
+                    <button 
+                      class="tareas-boton-accion btn-avance" 
+                      :disabled="tarea.estado !== 'En progreso'"
+                      @click="abrirRegistrarAvance(tarea)"
+                      title="Registrar Avance"
+                    >
+                      Avance
+                    </button>
                   </div>
                 </td>
               </tr>
@@ -114,21 +123,25 @@
       </div>
     </div>
 
-    <!-- Modales para HU2 y HU3 -->
+    <!-- Modales para HU2, HU3 y Avance -->
     <AsignarVoluntarioModal 
       :visible="mostrarModalAsignar"
       :tarea="tareaSeleccionada"
       @close="mostrarModalAsignar = false"
       @asignado="onAccionCompletada"
     />
-
     <CambiarEstadoModal 
       :visible="mostrarModalEstado"
       :tarea="tareaSeleccionada"
       @close="mostrarModalEstado = false"
       @estadoCambiado="onAccionCompletada"
     />
-
+    <RegistrarAvanceModal
+      :visible="mostrarModalAvance"
+      :tarea="tareaSeleccionada"
+      @close="mostrarModalAvance = false"
+      @avanceRegistrado="onAccionCompletada"
+    />
   </section>
 </template>
 
@@ -138,11 +151,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import { tareaService } from '../services/tareaService'
 import { voluntarioService } from '../services/voluntarioService'
-
 import FiltrosTarea from '../components/FiltrosTarea.vue'
 import Paginacion from '../components/Paginacion.vue'
 import AsignarVoluntarioModal from '../components/AsignarVoluntarioModal.vue'
 import CambiarEstadoModal from '../components/CambiarEstadoModal.vue'
+import RegistrarAvanceModal from '../components/RegistrarAvanceModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -168,6 +181,7 @@ const filtrosActuales = ref({})
 // Estado de Modales
 const mostrarModalAsignar = ref(false)
 const mostrarModalEstado = ref(false)
+const mostrarModalAvance = ref(false)
 const tareaSeleccionada = ref(null)
 
 const cargarDependencias = async () => {
@@ -234,8 +248,13 @@ const abrirCambiarEstado = (tarea) => {
   mostrarModalEstado.value = true
 }
 
+const abrirRegistrarAvance = (tarea) => {
+  tareaSeleccionada.value = tarea
+  mostrarModalAvance.value = true
+}
+
 const onAccionCompletada = () => {
-  // Refrescar los datos después de una asignación o cambio de estado
+  // Refrescar los datos después de una asignación, cambio de estado o avance
   cargarTareas(paginaActual.value)
 }
 </script>
@@ -352,7 +371,7 @@ const onAccionCompletada = () => {
 .tareas-tabla th:first-child { border-radius: 10px 0 0 10px; }
 .tareas-tabla th:last-child { border-radius: 0 10px 10px 0; }
 .th-acciones {
-  min-width: 220px;
+  min-width: 280px;
 }
 .tareas-tabla td {
   padding: 22px 16px;
@@ -389,6 +408,7 @@ const onAccionCompletada = () => {
 .badge-en-progreso { background: #E3E9D7; color: #596B43; }
 .badge-finalizada { background: #E8F2E5; color: #50704B; }
 .badge-cancelada { background: #FFF0EB; color: #A34D41; }
+
 .acciones-grid {
   display: flex;
   gap: 6px;
@@ -422,6 +442,13 @@ const onAccionCompletada = () => {
 .btn-estado:hover:not(:disabled) {
   background: #FFF7EE;
 }
+.btn-avance {
+  border-color: #A5AA94;
+  color: #596B43;
+}
+.btn-avance:hover:not(:disabled) {
+  background: #E3E9D7;
+}
 .tareas-boton-accion:disabled {
   opacity: 0.4;
   cursor: not-allowed;
@@ -431,6 +458,6 @@ const onAccionCompletada = () => {
   .tareas-pagina { padding: 50px 15px; }
   .tareas-tarjeta { padding: 17px; }
   .tareas-tarjeta-encabezado { flex-direction: column; align-items: flex-start; }
-  .tareas-tabla { min-width: 780px; }
+  .tareas-tabla { min-width: 860px; }
 }
 </style>

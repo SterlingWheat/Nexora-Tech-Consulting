@@ -26,6 +26,7 @@ export const tareaService = {
   // HU1: Paginación y Filtrado de tareas
   async filtrarTareas(filtros = {}, page = 0, size = 10) {
     const query = new URLSearchParams({ page, size })
+    
     if (filtros.estado) query.set('estado', filtros.estado)
     if (filtros.idCategoria) query.set('idCategoria', filtros.idCategoria)
     if (filtros.idResponsable) query.set('idResponsable', filtros.idResponsable)
@@ -37,14 +38,14 @@ export const tareaService = {
     })
     return comprobarRespuesta(respuesta, 'Error al filtrar las tareas')
   },
-
+  
   async obtenerCategorias() {
     const respuesta = await fetch(`${TASK_API_URL}/categorias`, {
       headers: headersAutenticados()
     })
     return comprobarRespuesta(respuesta, 'Error al obtener las categorías')
   },
-
+  
   async crearTarea(tarea) {
     const respuesta = await fetch(TASK_API_URL, {
       method: 'POST',
@@ -55,7 +56,7 @@ export const tareaService = {
     })
     return comprobarRespuesta(respuesta, 'Error al crear la tarea')
   },
-
+  
   async editarTarea(id, tarea) {
     const respuesta = await fetch(`${TASK_API_URL}/${id}`, {
       method: 'PUT',
@@ -66,7 +67,7 @@ export const tareaService = {
     })
     return comprobarRespuesta(respuesta, 'Error al editar la tarea')
   },
-
+  
   // HU3: Cambiar estado de tarea
   async cambiarEstado(id, nuevoEstado) {
     const respuesta = await fetch(`${TASK_API_URL}/${id}/estado`, {
@@ -77,5 +78,17 @@ export const tareaService = {
       body: JSON.stringify({ nuevoEstado })
     })
     return comprobarRespuesta(respuesta, 'Error al cambiar el estado de la tarea')
+  },
+
+  // HU: Registrar Avance de tarea
+  async registrarAvance(id, avanceData) {
+    const respuesta = await fetch(`${TASK_API_URL}/${id}/avance`, {
+      method: 'PATCH',
+      headers: headersAutenticados({
+        'Content-Type': 'application/json',
+      }),
+      body: JSON.stringify(avanceData)
+    })
+    return comprobarRespuesta(respuesta, 'Error al registrar el avance de la tarea')
   }
 }

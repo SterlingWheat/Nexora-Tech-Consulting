@@ -30,6 +30,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
@@ -61,7 +62,6 @@ class TaskRoleAccessTest {
     @Test
     void voluntarioPuedeConsultarTareas() throws Exception {
         when(tareaService.listarTareas()).thenReturn(List.of());
-
         mockMvc.perform(get("/api/tareas").with(user("voluntario").roles("VOLUNTARIO")))
                 .andExpect(status().isOk());
     }
@@ -69,7 +69,6 @@ class TaskRoleAccessTest {
     @Test
     void tiPuedeConsultarTareas() throws Exception {
         when(tareaService.listarTareas()).thenReturn(List.of());
-
         mockMvc.perform(get("/api/tareas").with(user("ti").roles("TI")))
                 .andExpect(status().isOk());
     }
@@ -144,6 +143,31 @@ class TaskRoleAccessTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {"titulo":"Actividad","descripcion":"Detalle","idCategoria":1}
+                                """))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void gestorPuedeRegistrarAvance() throws Exception {
+        when(usuarioRepository.findByEmail("gestor")).thenReturn(java.util.Optional.of(usuario(2, "gestor", new RolEntity(3, "GESTOR_TAREAS"))));
+        when(tareaService.registrarAvance(any(), any(), any())).thenReturn(new Tarea());
+
+        mockMvc.perform(patch("/api/tareas/1/avance")
+                        .with(user("gestor").roles("GESTOR_TAREAS"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"avance":50, "observacion":"Todo correcto"}
+                                """))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    void voluntarioRecibe403AlRegistrarAvance() throws Exception {
+        mockMvc.perform(patch("/api/tareas/1/avance")
+                        .with(user("voluntario").roles("VOLUNTARIO"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"avance":50, "observacion":"Todo correcto"}
                                 """))
                 .andExpect(status().isForbidden());
     }

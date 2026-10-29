@@ -1,5 +1,6 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.RegistroAvanceRequestDTO;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.model.CategoriaTarea;
 import com.example.backend.model.Tarea;
@@ -17,6 +18,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -91,5 +93,46 @@ class TareaServiceImplTest {
         assertEquals("En progreso", resultado.getEstado());
         verify(tareaRepository).save(tarea);
         verify(historialTareaService).registrarAccion(eq(2), eq(10), contains("En progreso"));
+    }
+
+    @Test
+    void registrarAvance_ActualizaAvanceYRegistraHistorialSiEstaEnProgreso() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(3);
+        tarea.setEstado("En progreso");
+        tarea.setAvance((short) 10);
+
+        RegistroAvanceRequestDTO request = new RegistroAvanceRequestDTO();
+        request.setAvance((short) 60);
+        request.setObservacion("Lote clasificado");
+
+        when(tareaRepository.findById(3)).thenReturn(Optional.of(tarea));
+        when(tareaRepository.save(any(Tarea.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Tarea resultado = tareaService.registrarAvance(3, request, 10);
+
+        assertEquals((short) 60, resultado.getAvance());
+        verify(tareaRepository).save(tarea);
+        verify(historialTareaService).registrarAccion(eq(3), eq(10), contains("60%"));
+        verify(historialTareaService).registrarAccion(eq(3), eq(10), contains("Lote clasificado"));
+    }
+
+    @Test
+    void registrarAvance_LanzaExcepcionSiNoEstaEnProgreso() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(4);
+        tarea.setEstado("Pendiente");
+
+        RegistroAvanceRequestDTO request = new RegistroAvanceRequestDTO();
+        request.setAvance((short) 50);
+
+        when(tareaRepository.findById(4)).thenReturn(Optional.of(tarea));
+
+        BusinessValidationException ex = assertThrows(BusinessValidationException.class, () -> {
+            tareaService.registrarAvance(4, request, 10);
+        });
+
+        assertTrue(ex.getMessage().contains("Solo se puede registrar avance en tareas que están 'En progreso'"));
+        verify(historialTareaService, never()).registrarAccion(any(), any(), any());
     }
 }

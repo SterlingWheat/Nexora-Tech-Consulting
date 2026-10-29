@@ -1,5 +1,6 @@
 package com.example.backend.service.impl;
 
+import com.example.backend.dto.RegistroAvanceRequestDTO;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.CategoriaTarea;
@@ -84,7 +85,7 @@ public class TareaServiceImpl implements TareaService {
 
     @Override
     @Transactional(readOnly = true)
-    public Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable, 
+    public Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable,
                                      LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
         // HU1 Criterio 1 y 2: Filtrado en la base de datos
         return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, pageable);
@@ -113,6 +114,35 @@ public class TareaServiceImpl implements TareaService {
         // HU3 Criterio 2: Registrar en el historial la fecha, usuario y cambio de estado
         String detalle = "El estado cambió de '" + estadoActual + "' a '" + nuevoEstado + "'.";
         historialTareaService.registrarAccion(idTarea, idUsuario, detalle);
+
+        return tareaGuardada;
+    }
+
+    @Override
+    @Transactional
+    public Tarea registrarAvance(Integer idTarea, RegistroAvanceRequestDTO request, Integer idUsuario) {
+        Tarea tarea = obtenerTareaPorId(idTarea);
+
+        // HU Criterio 1: Solo tareas "En progreso"
+        if (!"En progreso".equalsIgnoreCase(tarea.getEstado())) {
+            throw new BusinessValidationException("Solo se puede registrar avance en tareas que están 'En progreso'.");
+        }
+
+        Short avanceAnterior = tarea.getAvance();
+        tarea.setAvance(request.getAvance());
+        Tarea tareaGuardada = tareaRepository.save(tarea);
+
+        // Crear detalle para el historial detallando el cambio de avance y la observación
+        StringBuilder detalleBuilder = new StringBuilder();
+        detalleBuilder.append("Se actualizó el avance de ").append(avanceAnterior != null ? avanceAnterior : 0)
+                      .append("% a ").append(request.getAvance()).append("%.");
+
+        // HU Criterio 2: Registrar observación con autor (el autor ya lo maneja HistorialTareaService)
+        if (request.getObservacion() != null && !request.getObservacion().trim().isEmpty()) {
+            detalleBuilder.append(" Observación: ").append(request.getObservacion().trim());
+        }
+
+        historialTareaService.registrarAccion(idTarea, idUsuario, detalleBuilder.toString());
 
         return tareaGuardada;
     }

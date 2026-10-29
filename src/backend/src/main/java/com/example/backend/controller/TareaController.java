@@ -1,6 +1,7 @@
 package com.example.backend.controller;
 
 import com.example.backend.dto.CambioEstadoRequestDTO;
+import com.example.backend.dto.RegistroAvanceRequestDTO;
 import com.example.backend.dto.TareaRequestDTO;
 import com.example.backend.dto.TareaResponseDTO;
 import com.example.backend.model.CategoriaTarea;
@@ -113,6 +114,21 @@ public class TareaController {
                 .orElseThrow(() -> new IllegalStateException("Usuario no encontrado para registrar el historial."));
         
         Tarea tarea = tareaService.cambiarEstado(id, request.getNuevoEstado(), usuario.getIdUsuario());
+        return ResponseEntity.ok(mapearADTO(tarea));
+    }
+
+    // HU: Registrar Avance y Observaciones
+    @PatchMapping("/{id}/avance")
+    public ResponseEntity<TareaResponseDTO> registrarAvance(
+            @PathVariable Integer id,
+            @Valid @RequestBody RegistroAvanceRequestDTO request,
+            Authentication authentication) {
+
+        String email = authentication.getName();
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalStateException("Usuario no encontrado para registrar el avance."));
+
+        Tarea tarea = tareaService.registrarAvance(id, request, usuario.getIdUsuario());
         return ResponseEntity.ok(mapearADTO(tarea));
     }
 

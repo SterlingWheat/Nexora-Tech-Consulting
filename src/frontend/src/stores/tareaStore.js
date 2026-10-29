@@ -36,7 +36,6 @@ export const useTareaStore = defineStore('tarea', {
       this.error = null;
       try {
         const response = await tareaService.filtrarTareas(filtros, page, size);
-        // Spring Data JPA Page format
         this.tareas = response.content;
         this.paginaActual = response.number;
         this.totalPaginas = response.totalPages;
@@ -95,6 +94,25 @@ export const useTareaStore = defineStore('tarea', {
       this.error = null;
       try {
         const tareaActualizada = await tareaService.cambiarEstado(id, nuevoEstado);
+        const index = this.tareas.findIndex(t => t.idTarea === Number(id));
+        if (index !== -1) {
+          this.tareas[index] = tareaActualizada;
+        }
+        return { exito: true };
+      } catch (err) {
+        this.error = err.message;
+        return { exito: false, mensaje: err.message }; 
+      } finally {
+        this.cargando = false;
+      }
+    },
+
+    // HU: Registrar Avance en el store
+    async registrarAvanceTarea(id, avanceData) {
+      this.cargando = true;
+      this.error = null;
+      try {
+        const tareaActualizada = await tareaService.registrarAvance(id, avanceData);
         const index = this.tareas.findIndex(t => t.idTarea === Number(id));
         if (index !== -1) {
           this.tareas[index] = tareaActualizada;
