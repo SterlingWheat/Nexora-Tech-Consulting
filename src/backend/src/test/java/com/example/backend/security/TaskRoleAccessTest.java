@@ -3,6 +3,7 @@ package com.example.backend.security;
 import com.example.backend.controller.TareaController;
 import com.example.backend.controller.PerfilController;
 import com.example.backend.controller.UsuarioController;
+import com.example.backend.controller.EmailTestController;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Usuario;
@@ -11,6 +12,7 @@ import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.JwtService;
 import com.example.backend.service.TareaService;
+import com.example.backend.service.SmtpEmailService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -34,7 +36,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
-@WebMvcTest({TareaController.class, PerfilController.class, UsuarioController.class})
+@WebMvcTest({TareaController.class, PerfilController.class, UsuarioController.class, EmailTestController.class})
 @Import({com.example.backend.SecurityConfig.class, JwtAuthenticationFilter.class})
 class TaskRoleAccessTest {
 
@@ -58,6 +60,9 @@ class TaskRoleAccessTest {
 
     @MockitoBean
     private PasswordEncoder passwordEncoder;
+
+    @MockitoBean
+    private SmtpEmailService smtpEmailService;
 
     @Test
     void voluntarioPuedeConsultarTareas() throws Exception {
@@ -182,6 +187,32 @@ class TaskRoleAccessTest {
     void peticionSinAutenticacionRecibe401() throws Exception {
         mockMvc.perform(get("/api/tareas"))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void administradorPuedeEnviarCorreoDePrueba() throws Exception {
+        mockMvc.perform(post("/api/admin/email/test")
+                        .with(user("admin").roles("ADMINISTRADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"recipient":"destinatario@example.com"}
+                                """))
+                .andExpect(status().isOk());
+
+        verify(smtpEmailService).sendEmail(any(), any(), any(), any());
+    }
+
+    @Test
+    void usuarioNoAdministradorNoPuedeEnviarCorreoDePrueba() throws Exception {
+        mockMvc.perform(post("/api/admin/email/test")
+                        .with(user("voluntario").roles("VOLUNTARIO"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"recipient":"destinatario@example.com"}
+                                """))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(smtpEmailService);
     }
 
     @Test

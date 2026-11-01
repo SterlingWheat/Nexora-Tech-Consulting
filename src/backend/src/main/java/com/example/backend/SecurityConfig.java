@@ -46,6 +46,9 @@ public class SecurityConfig {
                         .requestMatchers("/error").permitAll()
 
                         .requestMatchers("/openapi.yaml", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+
+                        // Pruebas de configuración SMTP disponibles solo para administradores
+                        .requestMatchers("/api/admin/email/**").hasRole("ADMINISTRADOR")
                         
                         // Perfil
                         .requestMatchers("/api/perfil/me").authenticated()
