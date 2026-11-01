@@ -7,6 +7,7 @@ import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.impl.VoluntarioServiceImpl;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -31,12 +32,14 @@ class VoluntarioServiceImplTest {
     private RolRepository rolRepository;
     @Mock
     private PasswordEncoder passwordEncoder;
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     private VoluntarioServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new VoluntarioServiceImpl(repository, usuarioRepository, rolRepository, passwordEncoder);
+        service = new VoluntarioServiceImpl(repository, usuarioRepository, rolRepository, passwordEncoder, eventPublisher);
     }
 
     private Voluntario nuevo() {

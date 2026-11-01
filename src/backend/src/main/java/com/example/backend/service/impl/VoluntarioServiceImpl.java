@@ -6,10 +6,12 @@ import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
 import com.example.backend.model.Voluntario;
+import com.example.backend.notification.AccountEmailNotificationEvent;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.VoluntarioService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,15 +25,18 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     private final UsuarioRepository usuarioRepository;
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
+    private final ApplicationEventPublisher eventPublisher;
 
     public VoluntarioServiceImpl(VoluntarioRepository voluntarioRepository,
                                  UsuarioRepository usuarioRepository,
                                  RolRepository rolRepository,
-                                 PasswordEncoder passwordEncoder) {
+                                 PasswordEncoder passwordEncoder,
+                                 ApplicationEventPublisher eventPublisher) {
         this.voluntarioRepository = voluntarioRepository;
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -52,7 +57,11 @@ public class VoluntarioServiceImpl implements VoluntarioService {
             crearCuentaAcceso(voluntario, password);
         }
 
-        return voluntarioRepository.save(voluntario);
+        Voluntario guardado = voluntarioRepository.save(voluntario);
+        if (Boolean.TRUE.equals(crearCuenta)) {
+            publicarBienvenida(guardado.getUsuario());
+        }
+        return guardado;
     }
 
     @Override
@@ -88,7 +97,9 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         }
         
         crearCuentaAcceso(voluntario, password);
-        return voluntarioRepository.save(voluntario);
+        Voluntario actualizado = voluntarioRepository.save(voluntario);
+        publicarBienvenida(actualizado.getUsuario());
+        return actualizado;
     }
 
     // Solución Error 2: Mantiene la consistencia de acceso entre el Voluntario y su Usuario si lo posee
@@ -102,9 +113,24 @@ public class VoluntarioServiceImpl implements VoluntarioService {
             Usuario usuario = voluntario.getUsuario();
             usuario.setActivo(activo);
             usuarioRepository.save(usuario);
+            eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                    AccountEmailNotificationEvent.Kind.ACCOUNT_CHANGE,
+                    usuario.getEmail(),
+                    usuario.getNombre(),
+                    activo
+                            ? "El acceso a tu cuenta fue activado por un administrador."
+                            : "El acceso a tu cuenta fue desactivado por un administrador."));
         }
         
         return voluntarioRepository.save(voluntario);
+    }
+
+    private void publicarBienvenida(Usuario usuario) {
+        eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                AccountEmailNotificationEvent.Kind.WELCOME,
+                usuario.getEmail(),
+                usuario.getNombre(),
+                "Tu cuenta de acceso ha sido creada."));
     }
 
     private void crearCuentaAcceso(Voluntario voluntario, String password) {

@@ -41,6 +41,7 @@ Configura estas variables en el entorno donde se inicia el backend (por ejemplo,
 | `SMTP_USER` | Sí | La cuenta Gmail autorizada |
 | `SMTP_PASS` | Sí | Contraseña de aplicación de Google |
 | `SMTP_FROM` | Sí | Dirección remitente autorizada |
+| `APP_MAIL_SYSTEM_NAME` | No | Nombre que aparece en las plantillas; predeterminado: `Nexora Tech Consulting` |
 
 `SMTP_PORT` y `SMTP_SECURE` tienen valores predeterminados `465` y `true`. Para 587, usa `SMTP_PORT=587` y `SMTP_SECURE=false`. Nunca guardes credenciales reales en `.env.example`, código fuente o archivos versionados.
 
@@ -67,3 +68,11 @@ Respuestas esperadas:
 - `401` / `403`: token ausente o usuario sin permisos de Administrador.
 - `503`: configuración SMTP incompleta.
 - `502`: falla de autenticación, conexión o envío; la respuesta no incluye detalles internos ni credenciales.
+
+## Plantillas de notificación por correo (KAN-33 / RF-32)
+
+Las notificaciones reutilizan `SmtpEmailService` y la configuración SMTP anterior; no crean otro transporte ni requieren nuevas credenciales. Las plantillas incluyen versión HTML adaptable y alternativa de texto plano, escapan los datos dinámicos en HTML y validan el destinatario en el servicio SMTP existente.
+
+Están disponibles las plantillas de bienvenida, recuperación de contraseña, confirmación de restablecimiento, notificación administrativa, cambios de cuenta y confirmación de operación. Los flujos actuales envían bienvenida al crear una cuenta de usuario o habilitar acceso a un voluntario, y notifican cambios de perfil, cambio administrativo de contraseña y activación o desactivación de acceso. Los avisos se procesan después del commit cuando la operación usa una transacción; si SMTP falla, se registra únicamente el tipo de notificación y la categoría segura del error.
+
+La plantilla de recuperación está lista para reutilizarse, pero el sistema todavía no tiene un flujo de recuperación de extremo a extremo. No se generan ni persisten tokens, no existe un endpoint de recuperación y no se envían enlaces de recuperación desde la aplicación. Cuando ese flujo se implemente, debe proporcionar un enlace HTTPS con token de expiración; no envíes contraseñas ni tokens mediante logs.

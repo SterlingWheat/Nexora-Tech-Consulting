@@ -2,6 +2,8 @@ package com.example.backend.controller;
 
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
+import com.example.backend.notification.AccountEmailNotificationEvent;
+import org.springframework.context.ApplicationEventPublisher;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
@@ -31,6 +33,7 @@ class UsuarioControllerTest {
     private RolRepository rolRepository;
     private PasswordEncoder passwordEncoder;
     private VoluntarioRepository voluntarioRepository;
+    private ApplicationEventPublisher eventPublisher;
     private MockMvc mockMvc;
 
     @BeforeEach
@@ -39,11 +42,13 @@ class UsuarioControllerTest {
         rolRepository = mock(RolRepository.class);
         passwordEncoder = mock(PasswordEncoder.class);
         voluntarioRepository = mock(VoluntarioRepository.class);
+        eventPublisher = mock(ApplicationEventPublisher.class);
 
         when(rolRepository.findByNombre(anyString())).thenAnswer(inv -> 
                 Optional.of(new RolEntity(1, inv.getArgument(0))));
 
-        mockMvc = standaloneSetup(new UsuarioController(usuarioRepository, rolRepository, passwordEncoder, voluntarioRepository)).build();
+        mockMvc = standaloneSetup(new UsuarioController(
+                usuarioRepository, rolRepository, passwordEncoder, voluntarioRepository, eventPublisher)).build();
     }
 
     @Test
@@ -76,6 +81,11 @@ class UsuarioControllerTest {
 
         verify(passwordEncoder).encode("password-seguro");
         verify(usuarioRepository).save(any(Usuario.class));
+        verify(eventPublisher).publishEvent(new AccountEmailNotificationEvent(
+                AccountEmailNotificationEvent.Kind.WELCOME,
+                "persona@example.com",
+                "Persona",
+                "Tu cuenta de acceso ha sido creada."));
     }
 
     @Test

@@ -5,16 +5,20 @@ import com.example.backend.dto.UsuarioResponse;
 import com.example.backend.dto.UsuarioUpdateRequest;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
+import com.example.backend.notification.AccountEmailNotificationEvent;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.ArrayList;
 
 @RestController
 @RequestMapping("/api/usuarios")
@@ -24,15 +28,18 @@ public class UsuarioController {
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
     private final VoluntarioRepository voluntarioRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     public UsuarioController(UsuarioRepository usuarioRepository, 
                              RolRepository rolRepository, 
                              PasswordEncoder passwordEncoder,
-                             VoluntarioRepository voluntarioRepository) {
+                             VoluntarioRepository voluntarioRepository,
+                             ApplicationEventPublisher eventPublisher) {
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
         this.voluntarioRepository = voluntarioRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     @PostMapping
@@ -62,7 +69,13 @@ public class UsuarioController {
                 .estado("ACTIVO")
                 .build();
 
-        return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
+        Usuario guardado = usuarioRepository.save(usuario);
+        eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                AccountEmailNotificationEvent.Kind.WELCOME,
+                guardado.getEmail(),
+                guardado.getNombre(),
+                "Tu cuenta de acceso ha sido creada."));
+        return ResponseEntity.ok(UsuarioResponse.from(guardado));
     }
 
     @GetMapping
@@ -121,15 +134,44 @@ public class UsuarioController {
                 .orElseThrow(() -> new RuntimeException("El rol " + nombreRol + " no existe en la base de datos."));
 
         Usuario usuario = usuarioOpt.get();
+        String emailAnterior = usuario.getEmail();
+        String nombreAnterior = usuario.getNombre();
+        String rolAnterior = usuario.getRol() == null ? null : usuario.getRol().getNombre();
+        boolean cambioContrasena = request.password() != null && !request.password().isBlank();
+        List<String> cambios = new ArrayList<>();
+        if (!Objects.equals(nombreAnterior, request.nombre().trim())) {
+            cambios.add("Se actualizó el nombre asociado a tu cuenta.");
+        }
+        if (emailAnterior == null || !emailAnterior.equalsIgnoreCase(email)) {
+            cambios.add("Se actualizó el correo asociado a tu cuenta.");
+        }
+        if (rolAnterior == null || !rolAnterior.equals(nombreRol)) {
+            cambios.add("Se actualizó el rol de tu cuenta.");
+        }
+
         usuario.setNombre(request.nombre().trim());
         usuario.setEmail(email);
         usuario.setRol(rolEntity);
 
-        if (request.password() != null && !request.password().isBlank()) {
+        if (cambioContrasena) {
             usuario.setPassword(passwordEncoder.encode(request.password()));
         }
 
-        return ResponseEntity.ok(UsuarioResponse.from(usuarioRepository.save(usuario)));
+        Usuario actualizado = usuarioRepository.save(usuario);
+        if (cambioContrasena) {
+            eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                    AccountEmailNotificationEvent.Kind.PASSWORD_RESET,
+                    actualizado.getEmail(),
+                    actualizado.getNombre(),
+                    "La contraseña de tu cuenta fue actualizada por un administrador."));
+        } else if (!cambios.isEmpty()) {
+            eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                    AccountEmailNotificationEvent.Kind.ACCOUNT_CHANGE,
+                    actualizado.getEmail(),
+                    actualizado.getNombre(),
+                    String.join(" ", cambios)));
+        }
+        return ResponseEntity.ok(UsuarioResponse.from(actualizado));
     }
 
     // Solución Error 2: Sincronizar desactivación de cuenta de usuario con la entidad Voluntario
@@ -149,6 +191,11 @@ public class UsuarioController {
             voluntarioRepository.save(vol);
         });
 
+        eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                AccountEmailNotificationEvent.Kind.ACCOUNT_CHANGE,
+                usuario.getEmail(),
+                usuario.getNombre(),
+                "El acceso a tu cuenta fue desactivado por un administrador."));
         return ResponseEntity.ok("Usuario desactivado correctamente.");
     }
     
@@ -169,6 +216,11 @@ public class UsuarioController {
             voluntarioRepository.save(vol);
         });
 
+        eventPublisher.publishEvent(new AccountEmailNotificationEvent(
+                AccountEmailNotificationEvent.Kind.ACCOUNT_CHANGE,
+                usuario.getEmail(),
+                usuario.getNombre(),
+                "El acceso a tu cuenta fue activado por un administrador."));
         return ResponseEntity.ok("Usuario activado correctamente.");
     }
 
