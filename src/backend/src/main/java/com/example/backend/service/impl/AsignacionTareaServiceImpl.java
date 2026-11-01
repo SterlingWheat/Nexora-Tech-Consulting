@@ -2,17 +2,22 @@ package com.example.backend.service.impl;
 
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.mail.NotificationTemplateType;
 import com.example.backend.model.AsignacionTarea;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Voluntario;
+import com.example.backend.notification.ActivityEmailNotificationEvent;
 import com.example.backend.repository.AsignacionTareaRepository;
 import com.example.backend.repository.TareaRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.AsignacionTareaService;
 import com.example.backend.service.HistorialTareaService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -23,15 +28,20 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
     private final TareaRepository tareaRepository;
     private final VoluntarioRepository voluntarioRepository;
     private final HistorialTareaService historialTareaService;
+    private final ApplicationEventPublisher eventPublisher;
+    private static final DateTimeFormatter ASSIGNMENT_DATE_FORMAT =
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public AsignacionTareaServiceImpl(AsignacionTareaRepository asignacionTareaRepository,
                                       TareaRepository tareaRepository,
                                       VoluntarioRepository voluntarioRepository,
-                                      HistorialTareaService historialTareaService) {
+                                      HistorialTareaService historialTareaService,
+                                      ApplicationEventPublisher eventPublisher) {
         this.asignacionTareaRepository = asignacionTareaRepository;
         this.tareaRepository = tareaRepository;
         this.voluntarioRepository = voluntarioRepository;
         this.historialTareaService = historialTareaService;
+        this.eventPublisher = eventPublisher;
     }
 
     @Override
@@ -70,6 +80,14 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
 
         if (!nuevasAsignaciones.isEmpty()) {
             asignacionTareaRepository.saveAll(nuevasAsignaciones);
+            nuevasAsignaciones.forEach(asignacion -> eventPublisher.publishEvent(
+                    new ActivityEmailNotificationEvent(
+                            NotificationTemplateType.ASIGNACION,
+                            asignacion.getVoluntario().getEmail(),
+                            (asignacion.getVoluntario().getNombre() + " "
+                                    + asignacion.getVoluntario().getApellido()).trim(),
+                            tarea.getTitulo(),
+                            assignmentDate(asignacion))));
             
             // HU2 Criterio 1: La tarea pasa a Asignada si estaba Pendiente
             if ("Pendiente".equalsIgnoreCase(tarea.getEstado())) {
@@ -83,6 +101,13 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
         }
 
         return nuevasAsignaciones;
+    }
+
+    private String assignmentDate(AsignacionTarea assignment) {
+        LocalDateTime assignedAt = assignment.getFechaAsignacion() == null
+                ? LocalDateTime.now()
+                : assignment.getFechaAsignacion();
+        return assignedAt.format(ASSIGNMENT_DATE_FORMAT);
     }
 
     @Override

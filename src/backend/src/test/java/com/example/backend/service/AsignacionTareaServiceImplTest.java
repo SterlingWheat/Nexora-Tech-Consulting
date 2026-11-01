@@ -4,6 +4,8 @@ import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.model.AsignacionTarea;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Voluntario;
+import com.example.backend.mail.NotificationTemplateType;
+import com.example.backend.notification.ActivityEmailNotificationEvent;
 import com.example.backend.repository.AsignacionTareaRepository;
 import com.example.backend.repository.TareaRepository;
 import com.example.backend.repository.VoluntarioRepository;
@@ -13,6 +15,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 import java.util.Collections;
 import java.util.List;
@@ -22,6 +25,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.argThat;
 
 @ExtendWith(MockitoExtension.class)
 class AsignacionTareaServiceImplTest {
@@ -38,6 +42,9 @@ class AsignacionTareaServiceImplTest {
     @Mock
     private HistorialTareaService historialTareaService;
 
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
+
     @InjectMocks
     private AsignacionTareaServiceImpl asignacionService;
 
@@ -46,12 +53,14 @@ class AsignacionTareaServiceImplTest {
         Tarea tarea = new Tarea();
         tarea.setIdTarea(10);
         tarea.setEstado("Pendiente");
+        tarea.setTitulo("Limpieza de sala");
 
         Voluntario voluntario = Voluntario.builder()
                 .idVoluntario(5)
                 .activo(true)
                 .nombre("Ana")
                 .apellido("Quispe")
+                .email("ana@example.com")
                 .build();
 
         when(tareaRepository.findById(10)).thenReturn(Optional.of(tarea));
@@ -65,6 +74,13 @@ class AsignacionTareaServiceImplTest {
         assertEquals("Asignada", tarea.getEstado());
         verify(tareaRepository).save(tarea);
         verify(historialTareaService).registrarAccion(eq(10), eq(1), contains("Ana Quispe"));
+        verify(eventPublisher).publishEvent(org.mockito.ArgumentMatchers.<Object>argThat(event ->
+                event instanceof ActivityEmailNotificationEvent notification
+                        && notification.templateType() == NotificationTemplateType.ASIGNACION
+                        && notification.recipient().equals("ana@example.com")
+                        && notification.name().equals("Ana Quispe")
+                        && notification.activity().equals("Limpieza de sala")
+                        && !notification.date().isBlank()));
     }
 
     @Test

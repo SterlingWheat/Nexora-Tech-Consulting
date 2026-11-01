@@ -4,6 +4,10 @@ import com.example.backend.controller.TareaController;
 import com.example.backend.controller.PerfilController;
 import com.example.backend.controller.UsuarioController;
 import com.example.backend.controller.EmailTestController;
+import com.example.backend.controller.NotificationTemplateController;
+import com.example.backend.dto.NotificationEmailRequest;
+import com.example.backend.dto.NotificationTemplateResponse;
+import com.example.backend.dto.NotificationTemplateUpdateRequest;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Usuario;
@@ -13,6 +17,8 @@ import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.JwtService;
 import com.example.backend.service.TareaService;
 import com.example.backend.service.SmtpEmailService;
+import com.example.backend.mail.NotificationTemplateService;
+import com.example.backend.mail.NotificationTemplateType;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -25,6 +31,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -36,7 +43,13 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
-@WebMvcTest({TareaController.class, PerfilController.class, UsuarioController.class, EmailTestController.class})
+@WebMvcTest({
+        TareaController.class,
+        PerfilController.class,
+        UsuarioController.class,
+        EmailTestController.class,
+        NotificationTemplateController.class
+})
 @Import({com.example.backend.SecurityConfig.class, JwtAuthenticationFilter.class})
 class TaskRoleAccessTest {
 
@@ -63,6 +76,9 @@ class TaskRoleAccessTest {
 
     @MockitoBean
     private SmtpEmailService smtpEmailService;
+
+    @MockitoBean
+    private NotificationTemplateService notificationTemplateService;
 
     @Test
     void voluntarioPuedeConsultarTareas() throws Exception {
@@ -213,6 +229,85 @@ class TaskRoleAccessTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(smtpEmailService);
+    }
+
+    @Test
+    void administradorPuedeConsultarPlantillasYUsuarioSinRolAdminRecibe403() throws Exception {
+        when(notificationTemplateService.list()).thenReturn(List.of());
+        mockMvc.perform(get("/api/admin/email-templates")
+                        .with(user("admin").roles("ADMINISTRADOR")))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/admin/email-templates")
+                        .with(user("voluntario").roles("VOLUNTARIO")))
+                .andExpect(status().isForbidden());
+
+        verify(notificationTemplateService).list();
+    }
+
+    @Test
+    void usuarioSinRolAdminNoPuedeEditarPlantillas() throws Exception {
+        mockMvc.perform(put("/api/admin/email-templates/ASIGNACION")
+                        .with(user("gestor").roles("GESTOR_TAREAS"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "subject":"Asignación {{actividad}}",
+                                  "htmlBody":"<p>{{nombre}} {{actividad}} {{fecha}}</p>",
+                                  "textBody":"{{nombre}} {{actividad}} {{fecha}}",
+                                  "active":true
+                                }
+                                """))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(notificationTemplateService);
+    }
+
+    @Test
+    void administradorPuedeEditarYEnviarUnaPlantilla() throws Exception {
+        NotificationTemplateResponse updated = new NotificationTemplateResponse(
+                "ASIGNACION",
+                "Asignación",
+                "Nueva actividad: {{actividad}}",
+                "<p>{{nombre}} {{actividad}} {{fecha}}</p>",
+                "{{nombre}} {{actividad}} {{fecha}}",
+                true,
+                java.time.LocalDateTime.now());
+        when(notificationTemplateService.update(
+                eq(NotificationTemplateType.ASIGNACION), any(NotificationTemplateUpdateRequest.class)))
+                .thenReturn(updated);
+
+        mockMvc.perform(put("/api/admin/email-templates/ASIGNACION")
+                        .with(user("admin").roles("ADMINISTRADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "subject":"Nueva actividad: {{actividad}}",
+                                  "htmlBody":"<p>{{nombre}} {{actividad}} {{fecha}}</p>",
+                                  "textBody":"{{nombre}} {{actividad}} {{fecha}}",
+                                  "active":true
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.subject").value("Nueva actividad: {{actividad}}"));
+
+        mockMvc.perform(post("/api/admin/email-templates/ASIGNACION/send")
+                        .with(user("admin").roles("ADMINISTRADOR"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "recipient":"ana@example.com",
+                                  "name":"Ana",
+                                  "activity":"Limpieza",
+                                  "date":"20/12/2026"
+                                }
+                                """))
+                .andExpect(status().isNoContent());
+
+        verify(notificationTemplateService).update(
+                eq(NotificationTemplateType.ASIGNACION), any(NotificationTemplateUpdateRequest.class));
+        verify(notificationTemplateService).send(
+                eq(NotificationTemplateType.ASIGNACION), any(NotificationEmailRequest.class));
     }
 
     @Test

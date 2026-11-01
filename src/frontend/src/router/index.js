@@ -38,6 +38,12 @@ const routes = [
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
   },
   {
+    path: '/plantillas-notificacion',
+    name: 'plantillas-notificacion',
+    component: () => import('../views/NotificationTemplatesView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
+  },
+  {
     path: '/usuarios/:id/perfil',
     name: 'perfil-voluntario',
     component: PerfilView,

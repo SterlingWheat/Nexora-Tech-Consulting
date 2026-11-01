@@ -69,7 +69,26 @@ Respuestas esperadas:
 - `503`: configuración SMTP incompleta.
 - `502`: falla de autenticación, conexión o envío; la respuesta no incluye detalles internos ni credenciales.
 
-## Plantillas de notificación por correo (KAN-33 / RF-32)
+## Plantillas editables de actividad (KAN-33 / RF-32)
+
+Las plantillas de **Asignación**, **Recordatorio** y **Cambio de turno** se guardan en la tabla `notification_template` de PostgreSQL. El proyecto ya usa Hibernate con `spring.jpa.hibernate.ddl-auto=update`; al iniciar el backend se crea la tabla si hace falta y se insertan las tres plantillas iniciales solo cuando no existen. Los cambios guardados no se reemplazan en reinicios. No se añadió un sistema de versiones separado.
+
+La administración se realiza desde **Plantillas de correo** en el panel, disponible solo para `ADMINISTRADOR`. El backend también protege estos endpoints con Spring Security:
+
+| Método | Endpoint | Uso |
+| --- | --- | --- |
+| `GET` | `/api/admin/email-templates` | Consultar las plantillas y su contenido |
+| `GET` | `/api/admin/email-templates/{tipo}` | Consultar una plantilla (`ASIGNACION`, `RECORDATORIO`, `CAMBIO_TURNO`) |
+| `PUT` | `/api/admin/email-templates/{tipo}` | Guardar asunto, HTML, texto plano y estado activo |
+| `POST` | `/api/admin/email-templates/{tipo}/send` | Renderizar la versión persistida y enviar por el SMTP existente |
+
+El envío recibe `recipient`, `name`, `activity` y `date`; las variables `{{nombre}}`, `{{actividad}}` y `{{fecha}}` se sustituyen en asunto, HTML y texto plano. El backend rechaza plantillas con variables desconocidas o datos requeridos ausentes, y escapa los valores dinámicos insertados en HTML. No permite enviar una plantilla inactiva.
+
+La asignación de tareas existente publica la notificación de asignación tras confirmar la transacción; utiliza el correo y nombre del voluntario, el título de la tarea y la fecha/hora de asignación. Para recordatorios y cambios de turno, el panel permite enviar la plantilla con datos proporcionados por el administrador. No hay un scheduler ni un flujo actual que modifique/asigne turnos con destinatarios en el backend, y el modelo `Tarea` no contiene fecha de vencimiento; por eso no se inventó un envío automático ni un campo de fecha nuevo. La interfaz informa cuando SMTP acepta el mensaje, no garantiza que llegue a la bandeja.
+
+La tabla nueva se crea por el `ddl-auto=update` existente al arrancar la aplicación con conexión a la base de datos configurada; no se necesita una migración manual. Para aplicar el cambio en Neon, inicia el backend con las variables de conexión habituales. Las pruebas automatizadas no envían correos reales.
+
+## Plantillas adicionales de correo de cuenta
 
 Las notificaciones reutilizan `SmtpEmailService` y la configuración SMTP anterior; no crean otro transporte ni requieren nuevas credenciales. Las plantillas incluyen versión HTML adaptable y alternativa de texto plano, escapan los datos dinámicos en HTML y validan el destinatario en el servicio SMTP existente.
 

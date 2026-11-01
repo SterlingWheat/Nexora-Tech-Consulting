@@ -49,6 +49,7 @@ public class SecurityConfig {
 
                         // Pruebas de configuración SMTP disponibles solo para administradores
                         .requestMatchers("/api/admin/email/**").hasRole("ADMINISTRADOR")
+                        .requestMatchers("/api/admin/email-templates/**").hasRole("ADMINISTRADOR")
                         
                         // Perfil
                         .requestMatchers("/api/perfil/me").authenticated()

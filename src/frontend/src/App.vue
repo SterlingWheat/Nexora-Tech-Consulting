@@ -20,6 +20,14 @@
           <RouterLink v-if="authStore.rol === 'ADMINISTRADOR'" to="/usuarios" class="nav-btn">
             Usuarios
           </RouterLink>
+
+          <RouterLink
+            v-if="authStore.rol === 'ADMINISTRADOR'"
+            to="/plantillas-notificacion"
+            class="nav-btn"
+          >
+            Plantillas de correo
+          </RouterLink>
           
           <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
 

@@ -47,6 +47,9 @@ describe('router authentication guard', () => {
     await router.push('/tareas/nueva')
     expect(router.currentRoute.value.name).toBe('nueva-tarea')
 
+    await router.push('/plantillas-notificacion')
+    expect(router.currentRoute.value.name).toBe('plantillas-notificacion')
+
     await router.push('/voluntarios/nuevo')
     expect(router.currentRoute.value.name).toBe('nuevo-voluntario')
 
@@ -78,6 +81,13 @@ describe('router authentication guard', () => {
     authStore.rol = 'ADMINISTRADOR'
     await router.push('/usuarios/7/perfil')
     expect(router.currentRoute.value.name).toBe('perfil-voluntario')
+
+    for (const rol of ['TI', 'GESTOR_TAREAS', 'VOLUNTARIO']) {
+      authStore.rol = rol
+      await router.push('/plantillas-notificacion')
+      expect(router.currentRoute.value.name).toBe('tareas')
+      expect(router.currentRoute.value.query.acceso).toBe('denegado')
+    }
 
     authStore.logout()
     await router.push('/')
