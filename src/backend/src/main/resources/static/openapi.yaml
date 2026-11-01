@@ -191,6 +191,43 @@ security:
   - bearerAuth: []
 
 paths:
+  /api/admin/email/test:
+    post:
+      summary: Enviar correo de prueba
+      description: Envía un mensaje de prueba a un destinatario. Disponible solo para Administradores.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [recipient]
+              properties:
+                recipient:
+                  type: string
+                  format: email
+                  example: destinatario@example.com
+      responses:
+        '200':
+          description: El servidor SMTP aceptó el mensaje para envío.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message: { type: string }
+        '400':
+          description: Dirección destinataria inválida.
+        '401':
+          description: No autenticado.
+        '403':
+          description: El usuario no tiene rol de Administrador.
+        '502':
+          description: Fallo al enviar el correo.
+        '503':
+          description: Configuración SMTP incompleta.
   /api/auth/login:
     post:
       tags: [Auth]
