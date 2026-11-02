@@ -38,7 +38,7 @@ public class Turno {
     @Column(nullable = false, length = 200)
     private String actividad;
 
-    @Column(nullable = false, length = 20)
+    @Column(nullable = false, length = 20, columnDefinition = "varchar(20) default 'ACTIVO'")
     private String estado;
 
     // Columna "cupos" del esquema original del equipo
