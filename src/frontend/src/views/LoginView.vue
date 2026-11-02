@@ -31,6 +31,9 @@
       <button type="submit" :disabled="cargando">
         {{ cargando ? 'Ingresando...' : 'Iniciar sesión' }}
       </button>
+      <RouterLink class="login-recuperar" to="/recuperar-contrasena">
+        ¿Olvidaste tu contraseña?
+      </RouterLink>
     </form>
   </section>
 </template>
@@ -147,6 +150,12 @@ button {
 button:disabled {
   cursor: wait;
   opacity: 0.7;
+}
+
+.login-recuperar {
+  color: var(--verde-oscuro);
+  font-size: 13px;
+  text-align: center;
 }
 
 @media (max-width: 480px) {

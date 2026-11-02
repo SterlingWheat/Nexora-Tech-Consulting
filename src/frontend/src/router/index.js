@@ -1,5 +1,7 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import LoginView from '../views/LoginView.vue'
+import PasswordRecoveryView from '../views/PasswordRecoveryView.vue'
+import PasswordResetView from '../views/PasswordResetView.vue'
 import PerfilView from '../views/PerfilView.vue'
 import TareasView from '../views/TareasView.vue'
 import TareaFormView from '../views/TareaFormView.vue'
@@ -18,6 +20,16 @@ const routes = [
     name: 'login',
     component: LoginView,
     meta: { guestOnly: true }
+  },
+  {
+    path: '/recuperar-contrasena',
+    name: 'recuperar-contrasena',
+    component: PasswordRecoveryView
+  },
+  {
+    path: '/restablecer-contrasena',
+    name: 'restablecer-contrasena',
+    component: PasswordResetView
   },
   {
     path: '/tareas',

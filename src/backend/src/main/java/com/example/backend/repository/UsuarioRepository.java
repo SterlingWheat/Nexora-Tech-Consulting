@@ -13,6 +13,8 @@ public interface UsuarioRepository extends JpaRepository<Usuario, Integer> {
     // en Usuario.java el atributo se llama "email", por lo que 
     // Spring Data JPA sigue usando "findByEmail" correctamente[cite: 1].
     Optional<Usuario> findByEmail(String email);
+
+    Optional<Usuario> findByEmailIgnoreCase(String email);
     
     Boolean existsByEmail(String email);
 
