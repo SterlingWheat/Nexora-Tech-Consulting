@@ -19,6 +19,29 @@ El frontend usa `http://localhost:8080/api` como API predeterminada. Si el backe
 
 Los tokens usan la clave de `JWT_SECRET` y expiran según `JWT_EXPIRATION`. El endpoint administrativo de creación de usuarios almacena las contraseñas con BCrypt y las respuestas de usuario no incluyen el campo de contraseña. Para facilitar la transición de cuentas existentes, una contraseña guardada en texto plano se convierte a un hash BCrypt al iniciar sesión correctamente.
 
+## Recuperación de contraseña (RF-03 / KAN-4 / KAN-25)
+
+La recuperación está disponible desde **¿Olvidaste tu contraseña?** en el inicio de sesión. El backend genera un token criptográficamente aleatorio de un solo uso, guarda solo su hash SHA-256, lo vincula con la cuenta y lo invalida al cambiar la contraseña. La consulta de restablecimiento usa bloqueo de fila para que dos solicitudes concurrentes no puedan consumir el mismo token. Las solicitudes para correos desconocidos, inactivos o con límite temporal alcanzado devuelven el mismo mensaje genérico. El SMTP se invoca de forma asíncrona después de confirmar la transacción para reducir diferencias de tiempo entre direcciones registradas y no registradas.
+
+Endpoints públicos:
+
+| Método | Endpoint | Uso |
+| --- | --- | --- |
+| `POST` | `/api/auth/password-reset/request` | Solicitar enlace con `{ "email": "persona@example.com" }` |
+| `POST` | `/api/auth/password-reset/validate` | Validar enlace con `{ "token": "..." }` |
+| `POST` | `/api/auth/password-reset/confirm` | Cambiar contraseña con `{ "token": "...", "newPassword": "...", "confirmPassword": "..." }` |
+
+El enlace dirige al frontend configurado y lleva el token en el fragmento URL (`#token=...`), que no se envía al servidor web como parte de la petición. El correo usa el `SmtpEmailService` existente. La política de contraseña reutiliza la regla vigente de mínimo 8 caracteres; también se rechazan contraseñas que superen 72 bytes UTF-8 para evitar truncamiento de BCrypt.
+
+| Variable | Predeterminado | Uso |
+| --- | --- | --- |
+| `FRONTEND_URL` | `FRONTEND_ORIGIN` | URL base del frontend para construir el enlace; en producción debe apuntar al dominio desplegado. |
+| `PASSWORD_RESET_TOKEN_TTL` | `PT30M` | Vigencia del token como duración ISO-8601. |
+| `PASSWORD_RESET_REQUEST_COOLDOWN` | `PT1M` | Intervalo mínimo por correo entre solicitudes, aplicado de forma atómica en PostgreSQL. |
+| `PASSWORD_RESET_FINGERPRINT_SECRET` | `JWT_SECRET` | Clave para generar el HMAC del correo usado por el limitador; en producción configura una clave aleatoria independiente. |
+
+`PasswordResetToken` y `PasswordResetRateLimit` crean sus tablas con `spring.jpa.hibernate.ddl-auto=update`. Si se administran cambios de esquema manualmente, se puede aplicar `src/main/resources/db/migration/V3__create_password_reset_tables.sql` desde la carpeta `src/backend`. El límite temporal almacena una huella HMAC, no el correo plano. Los errores SMTP se registran sin incluir token, contraseña ni correo en los logs; la API conserva el mensaje genérico para no revelar si una cuenta existe. Si la entrega falla, se debe revisar SMTP; el token no se expone al usuario y expira según la duración configurada. Una solicitud posterior permitida invalida los enlaces anteriores de esa cuenta.
+
 ## Perfiles de voluntarios
 
 `GET /api/perfil/me` devuelve el perfil asociado al correo del token del solicitante autenticado. `GET /api/usuarios/{id}` y `GET /api/usuarios` están limitados al Administrador. Ambos exponen solo los campos del DTO de usuario; la contraseña no se devuelve nunca. Un voluntario que intente acceder a `/api/usuarios/{id}` recibe `403`.

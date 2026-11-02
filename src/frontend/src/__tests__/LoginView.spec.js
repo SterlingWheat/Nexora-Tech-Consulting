@@ -21,5 +21,6 @@ describe('LoginView', () => {
     expect(wrapper.get('input[name="email"]').attributes('type')).toBe('email')
     expect(wrapper.get('input[name="password"]').element.required).toBe(true)
     expect(wrapper.get('input[name="password"]').attributes('type')).toBe('password')
+    expect(wrapper.get('a[href="/recuperar-contrasena"]').text()).toContain('¿Olvidaste tu contraseña?')
   })
 })
