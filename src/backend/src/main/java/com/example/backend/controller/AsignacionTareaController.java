@@ -60,6 +60,18 @@ public class AsignacionTareaController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/{idAsignacion}/cancelar")
+    public ResponseEntity<Void> cancelarAsignacion(
+            @PathVariable Integer idTarea,
+            @PathVariable Integer idAsignacion,
+            Authentication authentication) {
+        Usuario usuarioGestor = usuarioRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new IllegalStateException("Usuario autenticado no encontrado en el sistema"));
+        asignacionTareaService.cancelarAsignacion(
+                idTarea, idAsignacion, usuarioGestor.getIdUsuario());
+        return ResponseEntity.noContent().build();
+    }
+
     private AsignacionResponseDTO mapearADTO(AsignacionTarea asignacion) {
         AsignacionResponseDTO dto = new AsignacionResponseDTO();
         dto.setIdAsignacion(asignacion.getIdAsignacion());

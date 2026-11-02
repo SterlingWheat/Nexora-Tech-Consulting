@@ -16,5 +16,12 @@ export const asignacionTareaService = {
     return request(`/tareas/${idTarea}/asignaciones`, {
       mensajeError: 'Error al cargar las asignaciones de la tarea.'
     });
+  },
+
+  cancelarAsignacion(idTarea, idAsignacion) {
+    return request(`/tareas/${idTarea}/asignaciones/${idAsignacion}/cancelar`, {
+      method: 'POST',
+      mensajeError: 'Error al cancelar la asignación de la tarea.'
+    });
   }
 };

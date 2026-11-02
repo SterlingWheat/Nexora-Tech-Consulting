@@ -1,18 +1,18 @@
 package com.example.backend.service.impl;
 
 import com.example.backend.exception.BusinessValidationException;
+import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.mail.NotificationTemplateType;
 import com.example.backend.model.AsignacionTarea;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Voluntario;
-import com.example.backend.notification.ActivityEmailNotificationEvent;
+import com.example.backend.notification.NotificationOutboxService;
 import com.example.backend.repository.AsignacionTareaRepository;
 import com.example.backend.repository.TareaRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.AsignacionTareaService;
 import com.example.backend.service.HistorialTareaService;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,7 +28,7 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
     private final TareaRepository tareaRepository;
     private final VoluntarioRepository voluntarioRepository;
     private final HistorialTareaService historialTareaService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final NotificationOutboxService notificationOutboxService;
     private static final DateTimeFormatter ASSIGNMENT_DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
@@ -36,12 +36,12 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
                                       TareaRepository tareaRepository,
                                       VoluntarioRepository voluntarioRepository,
                                       HistorialTareaService historialTareaService,
-                                      ApplicationEventPublisher eventPublisher) {
+                                      NotificationOutboxService notificationOutboxService) {
         this.asignacionTareaRepository = asignacionTareaRepository;
         this.tareaRepository = tareaRepository;
         this.voluntarioRepository = voluntarioRepository;
         this.historialTareaService = historialTareaService;
-        this.eventPublisher = eventPublisher;
+        this.notificationOutboxService = notificationOutboxService;
     }
 
     @Override
@@ -67,27 +67,34 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
             }
 
             // Evitar duplicidades
-            if (!asignacionTareaRepository.existsByTareaIdTareaAndVoluntarioIdVoluntario(idTarea, idVoluntario)) {
+            if (!asignacionTareaRepository.existsActiveByTareaAndVoluntario(idTarea, idVoluntario)) {
+                String nombreCompleto = (voluntario.getNombre() + " "
+                        + voluntario.getApellido()).trim();
+                if (voluntario.getEmail() == null || voluntario.getEmail().isBlank()
+                        || nombreCompleto.isBlank()) {
+                    throw new BusinessValidationException(
+                            "El voluntario debe tener nombre y correo para recibir la notificación.");
+                }
                 AsignacionTarea asignacion = AsignacionTarea.builder()
                         .tarea(tarea)
                         .voluntario(voluntario)
                         .estadoRespuesta("Asignado")
                         .build();
                 nuevasAsignaciones.add(asignacion);
-                nombresVoluntarios.add(voluntario.getNombre() + " " + voluntario.getApellido());
+                nombresVoluntarios.add(nombreCompleto);
             }
         }
 
         if (!nuevasAsignaciones.isEmpty()) {
-            asignacionTareaRepository.saveAll(nuevasAsignaciones);
-            nuevasAsignaciones.forEach(asignacion -> eventPublisher.publishEvent(
-                    new ActivityEmailNotificationEvent(
+            List<AsignacionTarea> asignacionesGuardadas = asignacionTareaRepository.saveAll(nuevasAsignaciones);
+            asignacionesGuardadas.forEach(asignacion -> notificationOutboxService.enqueue(
+                            "task-assignment:" + asignacion.getIdAsignacion(),
                             NotificationTemplateType.ASIGNACION,
                             asignacion.getVoluntario().getEmail(),
                             (asignacion.getVoluntario().getNombre() + " "
                                     + asignacion.getVoluntario().getApellido()).trim(),
                             tarea.getTitulo(),
-                            assignmentDate(asignacion))));
+                            assignmentDate(asignacion)));
             
             // HU2 Criterio 1: La tarea pasa a Asignada si estaba Pendiente
             if ("Pendiente".equalsIgnoreCase(tarea.getEstado())) {
@@ -114,5 +121,51 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
     @Transactional(readOnly = true)
     public List<AsignacionTarea> obtenerAsignacionesPorTarea(Integer idTarea) {
         return asignacionTareaRepository.findByTareaIdTarea(idTarea);
+    }
+
+    @Override
+    @Transactional
+    public void cancelarAsignacion(Integer idTarea, Integer idAsignacion, Integer idUsuarioGestor) {
+        Tarea tarea = tareaRepository.findById(idTarea)
+                .orElseThrow(() -> new ResourceNotFoundException("Tarea no encontrada con ID: " + idTarea));
+        AsignacionTarea asignacion = asignacionTareaRepository.findById(idAsignacion)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "Asignación no encontrada con ID: " + idAsignacion));
+
+        if (!idTarea.equals(asignacion.getTarea().getIdTarea())) {
+            throw new ResourceNotFoundException("Asignación no encontrada para la tarea indicada.");
+        }
+        if ("Cancelada".equalsIgnoreCase(asignacion.getEstadoRespuesta())
+                || "Rechazada".equalsIgnoreCase(asignacion.getEstadoRespuesta())) {
+            throw new ConflictException("La asignación ya está cancelada o rechazada.");
+        }
+
+        Voluntario voluntario = asignacion.getVoluntario();
+        String nombreCompleto = (voluntario.getNombre() + " " + voluntario.getApellido()).trim();
+        if (voluntario.getEmail() == null || voluntario.getEmail().isBlank()
+                || nombreCompleto.isBlank()) {
+            throw new BusinessValidationException(
+                    "El voluntario debe tener nombre y correo para recibir la notificación de cancelación.");
+        }
+
+        asignacion.setEstadoRespuesta("Cancelada");
+        asignacionTareaRepository.save(asignacion);
+        notificationOutboxService.enqueue(
+                "task-assignment-cancellation:" + idAsignacion,
+                NotificationTemplateType.CANCELACION_ASIGNACION,
+                voluntario.getEmail(),
+                nombreCompleto,
+                tarea.getTitulo(),
+                LocalDateTime.now().format(ASSIGNMENT_DATE_FORMAT));
+        historialTareaService.registrarAccion(
+                idTarea,
+                idUsuarioGestor,
+                "Se canceló la asignación de " + nombreCompleto + ".");
+
+        if ("Asignada".equalsIgnoreCase(tarea.getEstado())
+                && asignacionTareaRepository.countActiveByTareaId(idTarea) == 0) {
+            tarea.setEstado("Pendiente");
+            tareaRepository.save(tarea);
+        }
     }
 }

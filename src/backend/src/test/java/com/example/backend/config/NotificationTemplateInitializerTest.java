@@ -23,12 +23,13 @@ class NotificationTemplateInitializerTest {
         when(repository.findByTemplateType("ASIGNACION")).thenReturn(Optional.of(edited));
         when(repository.findByTemplateType("RECORDATORIO")).thenReturn(Optional.empty());
         when(repository.findByTemplateType("CAMBIO_TURNO")).thenReturn(Optional.empty());
+        when(repository.findByTemplateType("CANCELACION_ASIGNACION")).thenReturn(Optional.empty());
 
         new NotificationTemplateInitializer()
                 .initializeNotificationTemplates(repository)
                 .run(new DefaultApplicationArguments(new String[0]));
 
         verify(repository, never()).save(edited);
-        verify(repository, org.mockito.Mockito.times(2)).save(any(NotificationTemplate.class));
+        verify(repository, org.mockito.Mockito.times(3)).save(any(NotificationTemplate.class));
     }
 }

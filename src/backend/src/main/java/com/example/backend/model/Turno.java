@@ -18,6 +18,9 @@ import java.time.LocalTime;
 @Builder
 public class Turno {
 
+    public static final String ESTADO_ACTIVO = "ACTIVO";
+    public static final String ESTADO_CANCELADO = "CANCELADO";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "id_turno")
@@ -35,6 +38,9 @@ public class Turno {
     @Column(nullable = false, length = 200)
     private String actividad;
 
+    @Column(nullable = false, length = 20)
+    private String estado;
+
     // Columna "cupos" del esquema original del equipo
     @Column(name = "cupos", nullable = false)
     private Integer cuposTotales;
@@ -51,6 +57,9 @@ public class Turno {
     protected void onCreate() {
         if (this.fechaCreacion == null) {
             this.fechaCreacion = LocalDateTime.now();
+        }
+        if (this.estado == null || this.estado.isBlank()) {
+            this.estado = ESTADO_ACTIVO;
         }
     }
 

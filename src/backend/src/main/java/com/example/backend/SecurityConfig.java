@@ -72,6 +72,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.PUT, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.DELETE, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
+                        .requestMatchers(HttpMethod.GET, "/api/turnos/*/asignaciones")
+                            .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.GET, "/api/turnos/**").authenticated()
                         
                         // Gestión de Voluntarios (Solución Error 1 - Restricción general por roles)

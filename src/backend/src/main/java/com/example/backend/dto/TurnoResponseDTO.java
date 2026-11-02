@@ -13,6 +13,7 @@ public class TurnoResponseDTO {
     private LocalTime horaInicio;
     private LocalTime horaFin;
     private String actividad;
+    private String estado;
     private Integer cuposTotales;
     private Integer cuposOcupados;
     private Integer cuposLibres;

@@ -5,17 +5,24 @@ import com.example.backend.controller.PerfilController;
 import com.example.backend.controller.UsuarioController;
 import com.example.backend.controller.EmailTestController;
 import com.example.backend.controller.NotificationTemplateController;
+import com.example.backend.controller.AsignacionTurnoController;
+import com.example.backend.controller.AsignacionTareaController;
+import com.example.backend.controller.TurnoController;
 import com.example.backend.dto.NotificationEmailRequest;
 import com.example.backend.dto.NotificationTemplateResponse;
 import com.example.backend.dto.NotificationTemplateUpdateRequest;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Tarea;
+import com.example.backend.model.TurnoAssignmentRecord;
 import com.example.backend.model.Usuario;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.JwtService;
 import com.example.backend.service.TareaService;
+import com.example.backend.service.TurnoService;
+import com.example.backend.service.AsignacionTurnoService;
+import com.example.backend.service.AsignacionTareaService;
 import com.example.backend.service.SmtpEmailService;
 import com.example.backend.mail.NotificationTemplateService;
 import com.example.backend.mail.NotificationTemplateType;
@@ -38,8 +45,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 
@@ -48,7 +55,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         PerfilController.class,
         UsuarioController.class,
         EmailTestController.class,
-        NotificationTemplateController.class
+        NotificationTemplateController.class,
+        TurnoController.class,
+        AsignacionTurnoController.class,
+        AsignacionTareaController.class
 })
 @Import({com.example.backend.SecurityConfig.class, JwtAuthenticationFilter.class})
 class TaskRoleAccessTest {
@@ -79,6 +89,15 @@ class TaskRoleAccessTest {
 
     @MockitoBean
     private NotificationTemplateService notificationTemplateService;
+
+    @MockitoBean
+    private TurnoService turnoService;
+
+    @MockitoBean
+    private AsignacionTurnoService asignacionTurnoService;
+
+    @MockitoBean
+    private AsignacionTareaService asignacionTareaService;
 
     @Test
     void voluntarioPuedeConsultarTareas() throws Exception {
@@ -131,6 +150,62 @@ class TaskRoleAccessTest {
                                 {"titulo":"Actividad","descripcion":"Detalle","idCategoria":1}
                                 """))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void voluntarioNoPuedeAsignarTurnos() throws Exception {
+        mockMvc.perform(post("/api/turnos/8/asignaciones")
+                        .with(user("voluntario").roles("VOLUNTARIO"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idVoluntarios\":[5]}"))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(asignacionTurnoService);
+    }
+
+    @Test
+    void gestorPuedeAsignarTurnos() throws Exception {
+        when(asignacionTurnoService.asignarVoluntarios(8, List.of(5))).thenReturn(List.of(
+                new TurnoAssignmentRecord(40L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")));
+
+        mockMvc.perform(post("/api/turnos/8/asignaciones")
+                        .with(user("gestor").roles("GESTOR_TAREAS"))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idVoluntarios\":[5]}"))
+                .andExpect(status().isCreated());
+
+        verify(asignacionTurnoService).asignarVoluntarios(8, List.of(5));
+    }
+
+    @Test
+    void voluntarioNoPuedeConsultarHistorialDeAsignacionesDeTurnos() throws Exception {
+        mockMvc.perform(get("/api/turnos/8/asignaciones")
+                        .with(user("voluntario").roles("VOLUNTARIO")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(asignacionTurnoService);
+    }
+
+    @Test
+    void voluntarioNoPuedeCancelarAsignacionDeTarea() throws Exception {
+        mockMvc.perform(post("/api/tareas/10/asignaciones/101/cancelar")
+                        .with(user("voluntario").roles("VOLUNTARIO")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(asignacionTareaService);
+    }
+
+    @Test
+    void gestorPuedeCancelarAsignacionDeTarea() throws Exception {
+        when(usuarioRepository.findByEmail("gestor"))
+                .thenReturn(java.util.Optional.of(
+                        usuario(2, "gestor", new RolEntity(3, "GESTOR_TAREAS"))));
+
+        mockMvc.perform(post("/api/tareas/10/asignaciones/101/cancelar")
+                        .with(user("gestor").roles("GESTOR_TAREAS")))
+                .andExpect(status().isNoContent());
+
+        verify(asignacionTareaService).cancelarAsignacion(10, 101, 2);
     }
 
     @Test

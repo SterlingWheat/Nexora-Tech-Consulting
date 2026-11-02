@@ -2,13 +2,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
 const push = vi.fn()
+const mockRoute = vi.hoisted(() => ({ params: {} }))
 
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
+  useRoute: () => mockRoute,
 }))
 
 vi.mock('../services/turnoService', () => ({
-  turnoService: { crearTurno: vi.fn() },
+  turnoService: {
+    crearTurno: vi.fn(),
+    obtenerTurno: vi.fn(),
+    actualizarTurno: vi.fn(),
+  },
 }))
 
 import TurnoFormView from '../views/TurnoFormView.vue'
@@ -34,7 +40,10 @@ async function enviar(wrapper) {
 }
 
 describe('TurnoFormView', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockRoute.params = {}
+  })
 
   it('con datos válidos crea el turno y vuelve a la lista (criterio 1)', async () => {
     turnoService.crearTurno.mockResolvedValue({ idTurno: 1 })
@@ -93,5 +102,32 @@ describe('TurnoFormView', () => {
 
     expect(wrapper.find('[role="alert"]').text()).toContain('El horario del turno ya terminó')
     expect(push).not.toHaveBeenCalled()
+  })
+
+  it('carga y actualiza un turno existente', async () => {
+    mockRoute.params = { id: '7' }
+    turnoService.obtenerTurno.mockResolvedValue({
+      fecha: manana(),
+      horaInicio: '08:00:00',
+      horaFin: '12:00:00',
+      actividad: 'Clasificar alimentos',
+      cuposTotales: 5,
+    })
+    turnoService.actualizarTurno.mockResolvedValue({ idTurno: 7 })
+
+    const wrapper = mount(TurnoFormView)
+    await flushPromises()
+    await wrapper.find('#horaInicio').setValue('09:00')
+    await enviar(wrapper)
+
+    expect(turnoService.obtenerTurno).toHaveBeenCalledWith('7')
+    expect(turnoService.actualizarTurno).toHaveBeenCalledWith('7', {
+      fecha: manana(),
+      horaInicio: '09:00',
+      horaFin: '12:00',
+      actividad: 'Clasificar alimentos',
+      cuposTotales: 5,
+    })
+    expect(push).toHaveBeenCalledWith('/turnos')
   })
 })

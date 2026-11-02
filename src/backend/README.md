@@ -71,22 +71,49 @@ Respuestas esperadas:
 
 ## Plantillas editables de actividad (KAN-33 / RF-32)
 
-Las plantillas de **Asignación**, **Recordatorio** y **Cambio de turno** se guardan en la tabla `notification_template` de PostgreSQL. El proyecto ya usa Hibernate con `spring.jpa.hibernate.ddl-auto=update`; al iniciar el backend se crea la tabla si hace falta y se insertan las tres plantillas iniciales solo cuando no existen. Los cambios guardados no se reemplazan en reinicios. No se añadió un sistema de versiones separado.
+Las plantillas de **Asignación**, **Recordatorio** y **Cambio de turno** se guardan en la tabla `notification_template` de PostgreSQL. El proyecto ya usa Hibernate con `spring.jpa.hibernate.ddl-auto=update`; al iniciar el backend se crea la tabla si hace falta y se insertan las plantillas iniciales solo cuando no existen. También se agrega **Cancelación de asignación** para avisar cuando se cancela una asignación de tarea. Los cambios guardados no se reemplazan en reinicios. No se añadió un sistema de versiones separado.
 
 La administración se realiza desde **Plantillas de correo** en el panel, disponible solo para `ADMINISTRADOR`. El backend también protege estos endpoints con Spring Security:
 
 | Método | Endpoint | Uso |
 | --- | --- | --- |
 | `GET` | `/api/admin/email-templates` | Consultar las plantillas y su contenido |
-| `GET` | `/api/admin/email-templates/{tipo}` | Consultar una plantilla (`ASIGNACION`, `RECORDATORIO`, `CAMBIO_TURNO`) |
+| `GET` | `/api/admin/email-templates/{tipo}` | Consultar una plantilla (`ASIGNACION`, `RECORDATORIO`, `CAMBIO_TURNO`, `CANCELACION_ASIGNACION`) |
 | `PUT` | `/api/admin/email-templates/{tipo}` | Guardar asunto, HTML, texto plano y estado activo |
 | `POST` | `/api/admin/email-templates/{tipo}/send` | Renderizar la versión persistida y enviar por el SMTP existente |
 
 El envío recibe `recipient`, `name`, `activity` y `date`; las variables `{{nombre}}`, `{{actividad}}` y `{{fecha}}` se sustituyen en asunto, HTML y texto plano. El backend rechaza plantillas con variables desconocidas o datos requeridos ausentes, y escapa los valores dinámicos insertados en HTML. No permite enviar una plantilla inactiva.
 
-La asignación de tareas existente publica la notificación de asignación tras confirmar la transacción; utiliza el correo y nombre del voluntario, el título de la tarea y la fecha/hora de asignación. Para recordatorios y cambios de turno, el panel permite enviar la plantilla con datos proporcionados por el administrador. No hay un scheduler ni un flujo actual que modifique/asigne turnos con destinatarios en el backend, y el modelo `Tarea` no contiene fecha de vencimiento; por eso no se inventó un envío automático ni un campo de fecha nuevo. La interfaz informa cuando SMTP acepta el mensaje, no garantiza que llegue a la bandeja.
+Las notificaciones automáticas usan la tabla persistente `notification_outbox`; el registro se crea en la misma transacción que la asignación/cambio/cancelación y conserva los datos dinámicos sin guardar el correo ya renderizado. El worker programado reclama lotes con `FOR UPDATE SKIP LOCKED`, usa la plantilla vigente y el `SmtpEmailService` existente, aplica reintentos exponenciales e idempotencia, y recupera leases vencidos. La solicitud del gestor no espera la respuesta SMTP.
 
-La tabla nueva se crea por el `ddl-auto=update` existente al arrancar la aplicación con conexión a la base de datos configurada; no se necesita una migración manual. Para aplicar el cambio en Neon, inicia el backend con las variables de conexión habituales. Las pruebas automatizadas no envían correos reales.
+La asignación de tareas y de turnos encola `ASIGNACION`. Al cancelar una asignación de tarea, se conserva su fila con estado `Cancelada`, se registra la acción en el historial y se encola `CANCELACION_ASIGNACION`; el administrador/gestor puede consultar y cancelar desde el modal de asignación. Si era la última asignación activa de una tarea en estado `Asignada`, la tarea vuelve a `Pendiente`. Al cancelar una asignación de turno o un turno se conserva el historial y se encola `CAMBIO_TURNO`; los turnos cancelados mantienen su fila con estado `CANCELADO`. El historial de asignaciones de turnos puede consultarse por turno.
+
+Cada 15 minutos se revisan asignaciones vigentes de turnos que comienzan dentro de las próximas 24 horas y se encola un `RECORDATORIO` por turno, voluntario y fecha. Las asignaciones `Cancelada` o `Rechazada` y los turnos `CANCELADO` se excluyen. La fecha límite de tareas no existe en el modelo, así que no se genera un recordatorio de vencimiento de tareas.
+
+Endpoints de gestión de tareas y turnos (solo `ADMINISTRADOR` o `GESTOR_TAREAS` para escribir; el historial de asignaciones de turnos también se limita a esos roles):
+
+| Método | Endpoint | Uso |
+| --- | --- | --- |
+| `PUT` | `/api/turnos/{id}` | Editar fecha, horario, actividad o cupos; valida cruces y notifica cambios de agenda. |
+| `POST` | `/api/turnos/{id}/cancelar` | Cambiar estado a `CANCELADO`, conservar el turno y cancelar sus asignaciones vigentes. |
+| `POST` | `/api/turnos/{id}/asignaciones` | Crear asignaciones sin sobrescribir registros anteriores; valida cupos y cruces. |
+| `GET` | `/api/turnos/{id}/asignaciones` | Consultar todas las asignaciones, incluidas las canceladas. |
+| `POST` | `/api/turnos/{id}/asignaciones/{idAsignacion}/cancelar` | Cancelar una asignación conservando su fila histórica. |
+| `POST` | `/api/tareas/{idTarea}/asignaciones/{idAsignacion}/cancelar` | Cancelar una asignación de tarea, guardar su historial y encolar el correo de cancelación. |
+
+`src/backend/src/main/resources/db/migration/V1__create_notification_outbox.sql` define la cola. `V2__preserve_turn_assignments_and_add_cancellation.sql` agrega el estado y reemplaza la restricción única por pareja con unicidad solo para asignaciones vigentes; es necesaria para poder reasignar sin borrar el historial. El proyecto no ejecuta Flyway/Liquibase: Hibernate crea columnas/tablas nuevas con `ddl-auto=update`, pero la migración V2 debe ejecutarse manualmente en Neon antes de habilitar reasignaciones. No se ha aplicado SQL directamente a Neon desde este cambio. SMTP real y Neon no se validan en las pruebas unitarias.
+
+Propiedades del worker (valores predeterminados):
+
+| Propiedad | Predeterminado | Uso |
+| --- | --- | --- |
+| `app.notification.outbox.poll-interval-ms` | `5000` | Intervalo de consulta del worker. |
+| `app.notification.outbox.batch-size` | `20` | Máximo de mensajes por lote. |
+| `app.notification.outbox.max-attempts` | `5` | Intentos máximos de entrega. |
+| `app.notification.outbox.lease-seconds` | `300` | Tiempo tras el cual se recupera un trabajo abandonado. |
+| `app.notification.outbox.retry-base-seconds` | `30` | Base del backoff exponencial, con tope de una hora. |
+| `app.notification.reminders.poll-interval-ms` | `900000` | Frecuencia de búsqueda de turnos próximos. |
+| `app.notification.reminders.window-hours` | `24` | Anticipación máxima del recordatorio de turno. |
 
 ## Plantillas adicionales de correo de cuenta
 

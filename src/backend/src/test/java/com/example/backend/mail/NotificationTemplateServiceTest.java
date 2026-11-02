@@ -41,7 +41,7 @@ class NotificationTemplateServiceTest {
             service.send(type, new NotificationEmailRequest(
                     "ana@example.com", "<Ana>", "Limpieza <salón>", "20/12/2026"));
         }
-        verify(smtpEmailService, org.mockito.Mockito.times(3)).sendEmail(
+        verify(smtpEmailService, org.mockito.Mockito.times(NotificationTemplateType.values().length)).sendEmail(
                 "ana@example.com",
                 "Actividad: <Ana> / Limpieza <salón> / 20/12/2026",
                 "<p>&lt;Ana&gt; - Limpieza &lt;sal&oacute;n&gt; - 20/12/2026</p>",

@@ -43,6 +43,18 @@ public class NotificationTemplateInitializer {
                                     + "<p>Nueva fecha: {{fecha}}</p></body></html>",
                             "Cambio de turno\nHola {{nombre}},\nHay una actualización para el turno de {{actividad}}.\n"
                                     + "Nueva fecha: {{fecha}"));
+            if (repository.findByTemplateType("CANCELACION_ASIGNACION").isEmpty()) {
+                repository.save(new NotificationTemplate(
+                        "CANCELACION_ASIGNACION",
+                        "Cancelación de asignación",
+                        "Se canceló tu asignación: {{actividad}}",
+                        "<!doctype html><html lang=\"es\"><body style=\"font-family:Arial,sans-serif;line-height:1.6\">"
+                                + "<h1>Cancelación de asignación</h1><p>Hola {{nombre}},</p>"
+                                + "<p>Tu asignación para <strong>{{actividad}}</strong> fue cancelada.</p>"
+                                + "<p>Fecha de cancelación: {{fecha}}</p></body></html>",
+                        "Cancelación de asignación\nHola {{nombre}},\n"
+                                + "Tu asignación para {{actividad}} fue cancelada.\nFecha de cancelación: {{fecha}}"));
+            }
             for (NotificationTemplate template : defaults) {
                 if (repository.findByTemplateType(template.getTemplateType()).isEmpty()) {
                     repository.save(template);

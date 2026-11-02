@@ -99,6 +99,12 @@ const routes = [
     name: 'nuevo-turno',
     component: () => import('../views/TurnoFormView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
+  },
+  {
+    path: '/turnos/:id/editar',
+    name: 'editar-turno',
+    component: () => import('../views/TurnoFormView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   }
 ]
 
