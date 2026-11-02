@@ -9,6 +9,10 @@ public interface TurnoService {
     // Criterio 1 y 2: crea el turno con sus cupos; rechaza fecha pasada u horario inválido
     Turno crearTurno(Turno turno);
 
+    Turno actualizarTurno(Integer idTurno, Turno turno);
+
+    Turno cancelarTurno(Integer idTurno);
+
     // Criterio 3: los turnos exponen cupos ocupados y libres
     List<Turno> listarTurnos();
 

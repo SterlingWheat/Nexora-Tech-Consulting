@@ -7,7 +7,8 @@ import java.util.Locale;
 public enum NotificationTemplateType {
     ASIGNACION("Asignación"),
     RECORDATORIO("Recordatorio"),
-    CAMBIO_TURNO("Cambio de turno");
+    CAMBIO_TURNO("Cambio de turno"),
+    CANCELACION_ASIGNACION("Cancelación de asignación");
 
     private final String displayName;
 

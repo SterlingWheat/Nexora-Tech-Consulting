@@ -10,6 +10,32 @@
         Selecciona los voluntarios activos que se harán cargo de la tarea <strong>{{ tarea?.titulo }}</strong>.
       </p>
 
+      <section class="asignaciones-historial" aria-label="Asignaciones actuales e historial">
+        <h3>Asignaciones actuales e historial</h3>
+        <p v-if="cargandoAsignaciones" class="modal-mensaje">Cargando asignaciones...</p>
+        <p v-else-if="errorAsignaciones" class="modal-error" role="alert">{{ errorAsignaciones }}</p>
+        <p v-else-if="asignaciones.length === 0" class="modal-mensaje">
+          Todavía no hay voluntarios asignados.
+        </p>
+        <ul v-else class="lista-asignaciones">
+          <li v-for="asignacion in asignaciones" :key="asignacion.idAsignacion">
+            <div class="asignacion-info">
+              <strong>{{ asignacion.nombreVoluntario }}</strong>
+              <span>{{ asignacion.estadoRespuesta || 'Asignado' }}</span>
+            </div>
+            <button
+              v-if="esCancelable(asignacion)"
+              class="btn-cancelar-asignacion"
+              type="button"
+              :disabled="cancelandoId === asignacion.idAsignacion"
+              @click="cancelarAsignacion(asignacion)"
+            >
+              {{ cancelandoId === asignacion.idAsignacion ? 'Cancelando...' : 'Cancelar asignación' }}
+            </button>
+          </li>
+        </ul>
+      </section>
+
       <div v-if="cargando" class="modal-mensaje">Cargando voluntarios...</div>
       <div v-else-if="error" class="modal-error">{{ error }}</div>
       <div v-else-if="voluntariosActivos.length === 0" class="modal-mensaje">
@@ -36,7 +62,7 @@
       </div>
 
       <div class="modal-acciones">
-        <button class="btn-cancelar" @click="cerrar" :disabled="guardando">Cancelar</button>
+        <button class="btn-cancelar" @click="cerrar" :disabled="guardando || cancelandoId !== null">Cerrar</button>
         <button 
           class="btn-guardar" 
           @click="confirmarAsignacion" 
@@ -68,10 +94,14 @@ const props = defineProps({
 const emit = defineEmits(['close', 'asignado'])
 
 const voluntarios = ref([])
+const asignaciones = ref([])
 const seleccionados = ref([])
 const cargando = ref(false)
+const cargandoAsignaciones = ref(false)
 const guardando = ref(false)
+const cancelandoId = ref(null)
 const error = ref('')
+const errorAsignaciones = ref('')
 
 const voluntariosActivos = computed(() => {
   return voluntarios.value.filter(v => v.activo)
@@ -81,7 +111,7 @@ watch(() => props.visible, async (isVisible) => {
   if (isVisible) {
     seleccionados.value = []
     error.value = ''
-    await cargarVoluntarios()
+    await Promise.all([cargarVoluntarios(), cargarAsignaciones()])
   }
 })
 
@@ -96,9 +126,42 @@ const cargarVoluntarios = async () => {
   }
 }
 
+const cargarAsignaciones = async () => {
+  cargandoAsignaciones.value = true
+  errorAsignaciones.value = ''
+  try {
+    asignaciones.value = await asignacionTareaService.obtenerAsignaciones(props.tarea.idTarea)
+  } catch (err) {
+    errorAsignaciones.value = err.message || 'Error al cargar las asignaciones de la tarea.'
+  } finally {
+    cargandoAsignaciones.value = false
+  }
+}
+
+const esCancelable = (asignacion) => {
+  return !['cancelada', 'rechazada'].includes((asignacion.estadoRespuesta || '').toLowerCase())
+}
+
 const cerrar = () => {
-  if (!guardando.value) {
+  if (!guardando.value && cancelandoId.value === null) {
     emit('close')
+  }
+}
+
+const cancelarAsignacion = async (asignacion) => {
+  const confirmar = window.confirm(`¿Cancelar la asignación de ${asignacion.nombreVoluntario}?`)
+  if (!confirmar) return
+
+  cancelandoId.value = asignacion.idAsignacion
+  errorAsignaciones.value = ''
+  try {
+    await asignacionTareaService.cancelarAsignacion(props.tarea.idTarea, asignacion.idAsignacion)
+    await cargarAsignaciones()
+    emit('asignado')
+  } catch (err) {
+    errorAsignaciones.value = err.message || 'Error al cancelar la asignación de la tarea.'
+  } finally {
+    cancelandoId.value = null
   }
 }
 
@@ -180,6 +243,58 @@ const confirmarAsignacion = async () => {
   max-height: 350px;
   padding-right: 5px;
   margin-bottom: 20px;
+}
+.asignaciones-historial {
+  margin-bottom: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--crema);
+}
+.asignaciones-historial h3 {
+  margin: 0 0 10px;
+  color: var(--texto);
+  font-size: 15px;
+}
+.lista-asignaciones {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 180px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lista-asignaciones li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--crema);
+  border-radius: 10px;
+}
+.asignacion-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: var(--texto);
+  font-size: 12px;
+}
+.asignacion-info span {
+  color: var(--texto-suave);
+  font-size: 11px;
+}
+.btn-cancelar-asignacion {
+  border: none;
+  background: transparent;
+  color: #a34d41;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.btn-cancelar-asignacion:disabled {
+  opacity: 0.6;
+  cursor: wait;
 }
 .voluntario-opcion {
   display: flex;

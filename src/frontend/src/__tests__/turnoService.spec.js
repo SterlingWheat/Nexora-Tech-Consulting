@@ -39,6 +39,31 @@ describe('turnoService', () => {
     await expect(turnoService.validarCruce(5, 2)).rejects.toThrow('Clasificar')
   })
 
+  it('actualizarTurno usa PUT para persistir cambios de horario', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idTurno: 1 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await turnoService.actualizarTurno(1, turno)
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/turnos\/1$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('PUT')
+  })
+
+  it('asignarVoluntarios conserva la lista seleccionada en el request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, [{ idAsignacion: 10 }]))
+    vi.stubGlobal('fetch', fetchMock)
+    await turnoService.asignarVoluntarios(1, [5, 6])
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/turnos\/1\/asignaciones$/)
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toEqual({ idVoluntarios: [5, 6] })
+  })
+
+  it('cancelarTurno persiste el estado y no elimina el turno', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idTurno: 1, estado: 'CANCELADO' }))
+    vi.stubGlobal('fetch', fetchMock)
+    const resultado = await turnoService.cancelarTurno(1)
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/turnos\/1\/cancelar$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+    expect(resultado.estado).toBe('CANCELADO')
+  })
+
   it('obtenerTurnos devuelve la lista con cupos (criterio 3)', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(true, [{ idTurno: 1, cuposOcupados: 2, cuposLibres: 3 }])))
     const turnos = await turnoService.obtenerTurnos()

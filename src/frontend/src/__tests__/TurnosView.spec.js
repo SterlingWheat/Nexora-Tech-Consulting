@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
+import { createPinia, setActivePinia } from 'pinia'
+import { useAuthStore } from '../stores/authStore'
 
 const push = vi.fn()
 
@@ -8,19 +10,37 @@ vi.mock('vue-router', () => ({
 }))
 
 vi.mock('../services/turnoService', () => ({
-  turnoService: { obtenerTurnos: vi.fn() },
+  turnoService: {
+    obtenerTurnos: vi.fn(),
+    cancelarTurno: vi.fn(),
+    obtenerAsignaciones: vi.fn(),
+    asignarVoluntarios: vi.fn(),
+    cancelarAsignacion: vi.fn(),
+  },
+}))
+
+vi.mock('../services/voluntarioService', () => ({
+  voluntarioService: { obtenerVoluntarios: vi.fn() },
 }))
 
 import TurnosView from '../views/TurnosView.vue'
 import { turnoService } from '../services/turnoService'
+import { voluntarioService } from '../services/voluntarioService'
 
 const turno = (extra = {}) => ({
   idTurno: 1, fecha: '2026-10-25', horaInicio: '08:00:00', horaFin: '12:00:00',
-  actividad: 'Clasificar alimentos', cuposTotales: 5, cuposOcupados: 2, cuposLibres: 3, ...extra,
+  actividad: 'Clasificar alimentos', estado: 'ACTIVO',
+  cuposTotales: 5, cuposOcupados: 2, cuposLibres: 3, ...extra,
 })
 
 describe('TurnosView', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    setActivePinia(createPinia())
+    useAuthStore().rol = 'GESTOR_TAREAS'
+    vi.clearAllMocks()
+    turnoService.obtenerAsignaciones.mockResolvedValue([])
+    voluntarioService.obtenerVoluntarios.mockResolvedValue([])
+  })
 
   it('muestra horario, actividad y cupos ocupados y libres (criterio 3)', async () => {
     turnoService.obtenerTurnos.mockResolvedValue([turno()])
@@ -65,5 +85,42 @@ describe('TurnosView', () => {
     await wrapper.find('.turnos-boton-nuevo').trigger('click')
 
     expect(push).toHaveBeenCalledWith('/turnos/nuevo')
+  })
+
+  it('navega a editar un turno', async () => {
+    turnoService.obtenerTurnos.mockResolvedValue([turno()])
+    const wrapper = mount(TurnosView)
+    await flushPromises()
+
+    const button = wrapper.findAll('.turnos-acciones button')
+      .find(candidate => candidate.text() === 'Editar')
+    await button.trigger('click')
+
+    expect(push).toHaveBeenCalledWith('/turnos/1/editar')
+  })
+
+  it('cancela el turno mediante el endpoint y actualiza la lista', async () => {
+    turnoService.obtenerTurnos.mockResolvedValue([turno()])
+    turnoService.cancelarTurno.mockResolvedValue({ estado: 'CANCELADO' })
+    vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = mount(TurnosView)
+    await flushPromises()
+
+    await wrapper.find('.accion-cancelar').trigger('click')
+    await flushPromises()
+
+    expect(turnoService.cancelarTurno).toHaveBeenCalledWith(1)
+    expect(turnoService.obtenerTurnos).toHaveBeenCalledTimes(2)
+    vi.restoreAllMocks()
+  })
+
+  it('oculta las acciones de gestión a voluntarios', async () => {
+    useAuthStore().rol = 'VOLUNTARIO'
+    turnoService.obtenerTurnos.mockResolvedValue([turno()])
+    const wrapper = mount(TurnosView)
+    await flushPromises()
+
+    expect(wrapper.find('.turnos-boton-nuevo').exists()).toBe(false)
+    expect(wrapper.find('.turnos-acciones').exists()).toBe(false)
   })
 })

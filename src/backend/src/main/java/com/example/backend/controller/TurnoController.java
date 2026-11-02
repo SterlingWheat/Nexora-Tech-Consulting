@@ -25,14 +25,19 @@ public class TurnoController {
 
     @PostMapping
     public ResponseEntity<TurnoResponseDTO> crearTurno(@Valid @RequestBody TurnoRequestDTO request) {
-        Turno turno = Turno.builder()
-                .fecha(request.getFecha())
-                .horaInicio(request.getHoraInicio())
-                .horaFin(request.getHoraFin())
-                .actividad(request.getActividad())
-                .cuposTotales(request.getCuposTotales())
-                .build();
-        return new ResponseEntity<>(aDTO(turnoService.crearTurno(turno)), HttpStatus.CREATED);
+        return new ResponseEntity<>(aDTO(turnoService.crearTurno(aEntidad(request))), HttpStatus.CREATED);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<TurnoResponseDTO> actualizarTurno(
+            @PathVariable Integer id,
+            @Valid @RequestBody TurnoRequestDTO request) {
+        return ResponseEntity.ok(aDTO(turnoService.actualizarTurno(id, aEntidad(request))));
+    }
+
+    @PostMapping("/{id}/cancelar")
+    public ResponseEntity<TurnoResponseDTO> cancelarTurno(@PathVariable Integer id) {
+        return ResponseEntity.ok(aDTO(turnoService.cancelarTurno(id)));
     }
 
     @GetMapping
@@ -52,10 +57,21 @@ public class TurnoController {
         dto.setHoraInicio(t.getHoraInicio());
         dto.setHoraFin(t.getHoraFin());
         dto.setActividad(t.getActividad());
+        dto.setEstado(t.getEstado());
         dto.setCuposTotales(t.getCuposTotales());
         dto.setCuposOcupados(t.getCuposOcupados());
         dto.setCuposLibres(t.getCuposLibres());
         dto.setFechaCreacion(t.getFechaCreacion());
         return dto;
+    }
+
+    private Turno aEntidad(TurnoRequestDTO request) {
+        return Turno.builder()
+                .fecha(request.getFecha())
+                .horaInicio(request.getHoraInicio())
+                .horaFin(request.getHoraFin())
+                .actividad(request.getActividad())
+                .cuposTotales(request.getCuposTotales())
+                .build();
     }
 }

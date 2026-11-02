@@ -13,7 +13,7 @@
             <h2>Listado de turnos</h2>
             <p>Ordenados por fecha y hora de inicio.</p>
           </div>
-          <button class="turnos-boton-nuevo" @click="irANuevo">Crear Turno</button>
+          <button v-if="puedeGestionar" class="turnos-boton-nuevo" @click="irANuevo">Crear Turno</button>
         </div>
 
         <div v-if="cargando" class="turnos-mensaje">Cargando turnos...</div>
@@ -30,6 +30,8 @@
                 <th>Horario</th>
                 <th>Actividad</th>
                 <th>Cupos</th>
+                <th>Estado</th>
+                <th v-if="puedeGestionar">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -43,26 +45,78 @@
                   </span>
                   <small class="turnos-total">de {{ t.cuposTotales }}</small>
                 </td>
+                <td>
+                  <span :class="['estado-turno', t.estado === 'CANCELADO' ? 'estado-cancelado' : 'estado-activo']">
+                    {{ t.estado || 'ACTIVO' }}
+                  </span>
+                </td>
+                <td v-if="puedeGestionar" class="turnos-acciones">
+                  <button
+                    v-if="t.estado !== 'CANCELADO'"
+                    type="button"
+                    @click="editarTurno(t)"
+                  >
+                    Editar
+                  </button>
+                  <button
+                    v-if="t.estado !== 'CANCELADO'"
+                    type="button"
+                    @click="abrirAsignaciones(t)"
+                  >
+                    Asignaciones
+                  </button>
+                  <button
+                    v-if="t.estado !== 'CANCELADO'"
+                    type="button"
+                    class="accion-cancelar"
+                    @click="cancelarTurno(t)"
+                  >
+                    Cancelar turno
+                  </button>
+                  <button
+                    v-else
+                    type="button"
+                    @click="abrirAsignaciones(t)"
+                  >
+                    Ver historial
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
     </div>
+    <AsignacionesTurnoModal
+      :visible="mostrarAsignaciones"
+      :turno="turnoSeleccionado"
+      @close="mostrarAsignaciones = false"
+      @updated="cargarTurnos"
+    />
   </section>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuthStore } from '../stores/authStore'
 import { turnoService } from '../services/turnoService'
+import AsignacionesTurnoModal from '../components/AsignacionesTurnoModal.vue'
 
 const router = useRouter()
+const authStore = useAuthStore()
+const puedeGestionar = computed(() => ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol))
 const turnos = ref([])
 const cargando = ref(true)
 const error = ref('')
+const mostrarAsignaciones = ref(false)
+const turnoSeleccionado = ref(null)
 
-onMounted(async () => {
+onMounted(cargarTurnos)
+
+async function cargarTurnos() {
+  cargando.value = true
+  error.value = ''
   try {
     turnos.value = await turnoService.obtenerTurnos()
   } catch (err) {
@@ -70,7 +124,7 @@ onMounted(async () => {
   } finally {
     cargando.value = false
   }
-})
+}
 
 // El backend devuelve HH:mm:ss
 const recortar = (hora) => (hora ? hora.slice(0, 5) : '')
@@ -83,6 +137,24 @@ const formatearFecha = (fecha) => {
 }
 
 const irANuevo = () => router.push('/turnos/nuevo')
+
+const editarTurno = (turno) => router.push(`/turnos/${turno.idTurno}/editar`)
+
+const abrirAsignaciones = (turno) => {
+  turnoSeleccionado.value = turno
+  mostrarAsignaciones.value = true
+}
+
+const cancelarTurno = async (turno) => {
+  if (!window.confirm(`¿Cancelar el turno "${turno.actividad}"?`)) return
+  error.value = ''
+  try {
+    await turnoService.cancelarTurno(turno.idTurno)
+    await cargarTurnos()
+  } catch (err) {
+    error.value = err.message
+  }
+}
 </script>
 
 <style scoped>
@@ -196,6 +268,20 @@ const irANuevo = () => router.push('/turnos/nuevo')
 .badge-disponible { background: #E8F2E5; color: #50704B; }
 .badge-lleno { background: #FFF0EB; color: #A34D41; }
 .turnos-total { margin-left: 8px; color: var(--texto-suave); }
+.estado-turno { display: inline-flex; padding: 7px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+.estado-activo { background: #E8F2E5; color: #50704B; }
+.estado-cancelado { background: #FFF0EB; color: #A34D41; }
+.turnos-acciones { white-space: nowrap; }
+.turnos-acciones button {
+  margin: 3px;
+  padding: 7px 10px;
+  border: 1px solid var(--crema);
+  border-radius: 18px;
+  background: white;
+  color: var(--verde-oscuro);
+  cursor: pointer;
+}
+.turnos-acciones button.accion-cancelar { color: #A34D41; }
 
 @media (max-width: 600px) {
   .turnos-pagina { padding: 50px 15px; }

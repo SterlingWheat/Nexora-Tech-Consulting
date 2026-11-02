@@ -10,6 +10,42 @@ export const turnoService = {
     return request(`/turnos/${id}`, { mensajeError: 'Error al obtener el turno' });
   },
 
+  actualizarTurno(id, turno) {
+    return request(`/turnos/${id}`, {
+      method: 'PUT',
+      body: turno,
+      mensajeError: 'Error al actualizar el turno',
+    });
+  },
+
+  cancelarTurno(id) {
+    return request(`/turnos/${id}/cancelar`, {
+      method: 'POST',
+      mensajeError: 'Error al cancelar el turno',
+    });
+  },
+
+  asignarVoluntarios(idTurno, idVoluntarios) {
+    return request(`/turnos/${idTurno}/asignaciones`, {
+      method: 'POST',
+      body: { idVoluntarios },
+      mensajeError: 'Error al asignar los voluntarios al turno',
+    });
+  },
+
+  obtenerAsignaciones(idTurno) {
+    return request(`/turnos/${idTurno}/asignaciones`, {
+      mensajeError: 'Error al consultar el historial de asignaciones',
+    });
+  },
+
+  cancelarAsignacion(idTurno, idAsignacion) {
+    return request(`/turnos/${idTurno}/asignaciones/${idAsignacion}/cancelar`, {
+      method: 'POST',
+      mensajeError: 'Error al cancelar la asignación',
+    });
+  },
+
   // KAN-22: resuelve si el voluntario puede ser asignado al turno; si se cruza con otro turno suyo
   // lanza un Error cuyo mensaje indica con qué turno choca (para la pantalla de asignación, KAN-31)
   validarCruce(idVoluntario, idTurno) {

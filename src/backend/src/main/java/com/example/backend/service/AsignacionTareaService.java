@@ -10,4 +10,6 @@ public interface AsignacionTareaService {
     List<AsignacionTarea> asignarVoluntarios(Integer idTarea, List<Integer> idVoluntarios, Integer idUsuarioAsignador);
 
     List<AsignacionTarea> obtenerAsignacionesPorTarea(Integer idTarea);
+
+    void cancelarAsignacion(Integer idTarea, Integer idAsignacion, Integer idUsuarioGestor);
 }

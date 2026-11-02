@@ -20,9 +20,11 @@ import java.util.List;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,7 +46,8 @@ class TurnoControllerTest {
 
     private Turno turno(int ocupados) {
         return Turno.builder().idTurno(1).fecha(LocalDate.of(2026, 10, 25)).horaInicio(LocalTime.of(8, 0))
-                .horaFin(LocalTime.of(12, 0)).actividad("Clasificar alimentos").cuposTotales(5).cuposOcupados(ocupados).build();
+                .horaFin(LocalTime.of(12, 0)).actividad("Clasificar alimentos").estado(Turno.ESTADO_ACTIVO)
+                .cuposTotales(5).cuposOcupados(ocupados).build();
     }
 
     // Criterio 1
@@ -126,5 +129,27 @@ class TurnoControllerTest {
         when(service.obtenerTurnoPorId(9)).thenThrow(new ResourceNotFoundException("Turno no encontrado con ID: 9"));
 
         mvc.perform(get("/api/turnos/9")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void put_actualizaHorarioYDevuelveEstado() throws Exception {
+        when(service.actualizarTurno(eq(1), any())).thenReturn(turno(1));
+
+        mvc.perform(put("/api/turnos/1").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.estado").value("ACTIVO"))
+                .andExpect(jsonPath("$.cuposOcupados").value(1));
+    }
+
+    @Test
+    void post_cancelarConservaElTurnoYExponeEstadoCancelado() throws Exception {
+        Turno cancelado = turno(0);
+        cancelado.setEstado(Turno.ESTADO_CANCELADO);
+        when(service.cancelarTurno(1)).thenReturn(cancelado);
+
+        mvc.perform(post("/api/turnos/1/cancelar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idTurno").value(1))
+                .andExpect(jsonPath("$.estado").value("CANCELADO"));
     }
 }

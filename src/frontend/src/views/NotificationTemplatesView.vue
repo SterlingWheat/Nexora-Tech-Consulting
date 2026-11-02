@@ -4,7 +4,7 @@
       <span class="plantillas-etiqueta">ADMINISTRACIÓN</span>
       <h1>Plantillas de <em>notificación.</em></h1>
       <p class="plantillas-intro">
-        Edita las plantillas persistidas que usa el sistema para asignaciones, recordatorios y cambios de turno.
+        Edita las plantillas persistidas que usa el sistema para asignaciones, recordatorios, cambios de turno y cancelaciones.
         Variables disponibles: <code v-text="'{{nombre}}'"></code>, <code v-text="'{{actividad}}'"></code> y
         <code v-text="'{{fecha}}'"></code>.
       </p>

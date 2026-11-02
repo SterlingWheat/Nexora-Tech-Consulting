@@ -1,8 +1,8 @@
 <template>
   <section class="turno-form">
     <div class="turno-contenedor">
-      <span class="turno-etiqueta">NUEVO TURNO</span>
-      <h1>Crear <em>turno.</em></h1>
+      <span class="turno-etiqueta">{{ editando ? 'EDITAR TURNO' : 'NUEVO TURNO' }}</span>
+      <h1>{{ editando ? 'Editar' : 'Crear' }} <em>turno.</em></h1>
       <p class="turno-descripcion">
         Define la fecha, el horario, la actividad y los cupos para planificar la cobertura.
       </p>
@@ -39,7 +39,7 @@
         </div>
 
         <button type="submit" class="turno-boton" :disabled="cargando">
-          {{ cargando ? 'Guardando...' : 'Crear Turno' }}
+          {{ cargando ? 'Guardando...' : editando ? 'Guardar cambios' : 'Crear Turno' }}
         </button>
       </form>
 
@@ -49,11 +49,14 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { turnoService } from '../services/turnoService'
 
 const router = useRouter()
+const route = useRoute()
+const idTurno = route.params.id
+const editando = Boolean(idTurno)
 
 const cargando = ref(false)
 const error = ref('')
@@ -69,6 +72,25 @@ const formulario = ref({
   horaFin: '',
   actividad: '',
   cuposTotales: 1
+})
+
+onMounted(async () => {
+  if (!editando) return
+  cargando.value = true
+  try {
+    const turno = await turnoService.obtenerTurno(idTurno)
+    formulario.value = {
+      fecha: turno.fecha,
+      horaInicio: turno.horaInicio.slice(0, 5),
+      horaFin: turno.horaFin.slice(0, 5),
+      actividad: turno.actividad,
+      cuposTotales: turno.cuposTotales
+    }
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    cargando.value = false
+  }
 })
 
 // Criterio 2: validaciones del lado del cliente (el backend vuelve a validar)
@@ -91,13 +113,18 @@ const guardarTurno = async () => {
 
   cargando.value = true
   try {
-    await turnoService.crearTurno({
+    const turno = {
       fecha: formulario.value.fecha,
       horaInicio: formulario.value.horaInicio,
       horaFin: formulario.value.horaFin,
       actividad: formulario.value.actividad.trim(),
       cuposTotales: formulario.value.cuposTotales
-    })
+    }
+    if (editando) {
+      await turnoService.actualizarTurno(idTurno, turno)
+    } else {
+      await turnoService.crearTurno(turno)
+    }
     router.push('/turnos')
   } catch (err) {
     error.value = err.message
