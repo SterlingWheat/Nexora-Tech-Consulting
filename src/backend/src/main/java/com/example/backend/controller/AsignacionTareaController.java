@@ -13,6 +13,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
@@ -57,6 +58,7 @@ public class AsignacionTareaController {
         List<AsignacionResponseDTO> response = asignacionTareaService.obtenerAsignacionesPorTarea(idTarea).stream()
                 .map(this::mapearADTO)
                 .collect(Collectors.toList());
+
         return ResponseEntity.ok(response);
     }
 
@@ -65,11 +67,35 @@ public class AsignacionTareaController {
             @PathVariable Integer idTarea,
             @PathVariable Integer idAsignacion,
             Authentication authentication) {
+
         Usuario usuarioGestor = usuarioRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new IllegalStateException("Usuario autenticado no encontrado en el sistema"));
+
         asignacionTareaService.cancelarAsignacion(
                 idTarea, idAsignacion, usuarioGestor.getIdUsuario());
+
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{idAsignacion}/reemplazar")
+    public ResponseEntity<AsignacionResponseDTO> reemplazarVoluntario(
+            @PathVariable Integer idTarea,
+            @PathVariable Integer idAsignacion,
+            @RequestBody Map<String, Integer> request,
+            Authentication authentication) {
+
+        Integer idNuevoVoluntario = request.get("idNuevoVoluntario");
+        if (idNuevoVoluntario == null) {
+            throw new IllegalArgumentException("Debe proporcionar idNuevoVoluntario en el cuerpo de la solicitud.");
+        }
+
+        Usuario usuarioGestor = usuarioRepository.findByEmail(authentication.getName())
+                .orElseThrow(() -> new IllegalStateException("Usuario autenticado no encontrado en el sistema"));
+
+        AsignacionTarea nuevaAsignacion = asignacionTareaService.reemplazarVoluntario(
+                idTarea, idAsignacion, idNuevoVoluntario, usuarioGestor.getIdUsuario());
+
+        return new ResponseEntity<>(mapearADTO(nuevaAsignacion), HttpStatus.CREATED);
     }
 
     private AsignacionResponseDTO mapearADTO(AsignacionTarea asignacion) {
@@ -83,6 +109,7 @@ public class AsignacionTareaController {
         
         dto.setEstadoRespuesta(asignacion.getEstadoRespuesta());
         dto.setFechaAsignacion(asignacion.getFechaAsignacion());
+        
         return dto;
     }
 }
