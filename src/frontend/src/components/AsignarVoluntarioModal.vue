@@ -7,53 +7,70 @@
       </div>
       
       <p class="modal-descripcion">
-        Selecciona los voluntarios activos que se harán cargo de la tarea <strong>{{ tarea?.titulo }}</strong>.
+        Gestiona los voluntarios a cargo de la tarea <strong>{{ tarea?.titulo }}</strong>.
       </p>
 
       <section class="asignaciones-historial" aria-label="Asignaciones actuales e historial">
         <h3>Asignaciones actuales e historial</h3>
+        
         <p v-if="cargandoAsignaciones" class="modal-mensaje">Cargando asignaciones...</p>
         <p v-else-if="errorAsignaciones" class="modal-error" role="alert">{{ errorAsignaciones }}</p>
         <p v-else-if="asignaciones.length === 0" class="modal-mensaje">
           Todavía no hay voluntarios asignados.
         </p>
+        
         <ul v-else class="lista-asignaciones">
-          <li v-for="asignacion in asignaciones" :key="asignacion.idAsignacion">
+          <li v-for="asignacion in asignaciones" :key="asignacion.idAsignacion" :class="{ 'item-reemplazando': reemplazandoAsignacion?.idAsignacion === asignacion.idAsignacion }">
             <div class="asignacion-info">
               <strong>{{ asignacion.nombreVoluntario }}</strong>
               <span>{{ asignacion.estadoRespuesta || 'Asignado' }}</span>
             </div>
-            <button
-              v-if="esCancelable(asignacion)"
-              class="btn-cancelar-asignacion"
-              type="button"
-              :disabled="cancelandoId === asignacion.idAsignacion"
-              @click="cancelarAsignacion(asignacion)"
-            >
-              {{ cancelandoId === asignacion.idAsignacion ? 'Cancelando...' : 'Cancelar asignación' }}
-            </button>
+            <div class="acciones-asignacion" v-if="esCancelable(asignacion)">
+              <button
+                class="btn-reemplazar"
+                type="button"
+                :disabled="cancelandoId === asignacion.idAsignacion || reemplazandoAsignacion !== null"
+                @click="iniciarReemplazo(asignacion)"
+              >
+                Reemplazar
+              </button>
+              <button
+                class="btn-cancelar-asignacion"
+                type="button"
+                :disabled="cancelandoId === asignacion.idAsignacion || reemplazandoAsignacion !== null"
+                @click="cancelarAsignacion(asignacion)"
+              >
+                {{ cancelandoId === asignacion.idAsignacion ? 'Cancelando...' : 'Cancelar' }}
+              </button>
+            </div>
           </li>
         </ul>
       </section>
 
+      <div v-if="reemplazandoAsignacion" class="modo-reemplazo-banner" role="alert">
+        <p>Selecciona un voluntario activo para reemplazar a <strong>{{ reemplazandoAsignacion.nombreVoluntario }}</strong>.</p>
+        <button @click="cancelarReemplazo" class="btn-link-cancelar">Cancelar reemplazo</button>
+      </div>
+
       <div v-if="cargando" class="modal-mensaje">Cargando voluntarios...</div>
       <div v-else-if="error" class="modal-error">{{ error }}</div>
       <div v-else-if="voluntariosActivos.length === 0" class="modal-mensaje">
-        No hay voluntarios activos disponibles para asignar.
+        No hay voluntarios activos disponibles.
       </div>
       
-      <div v-else class="lista-voluntarios">
+      <div v-else class="lista-voluntarios" :class="{ 'seleccion-unica': reemplazandoAsignacion }">
         <label 
-          v-for="vol in voluntariosActivos" 
-          :key="vol.idVoluntario" 
-          class="voluntario-opcion"
-          :class="{ seleccionado: seleccionados.includes(vol.idVoluntario) }"
+           v-for="vol in voluntariosActivos" 
+           :key="vol.idVoluntario" 
+           class="voluntario-opcion"
+           :class="{ seleccionado: seleccionados.includes(vol.idVoluntario), deshabilitado: esOpcionDeshabilitada(vol.idVoluntario) }"
         >
           <input 
-            type="checkbox" 
-            :value="vol.idVoluntario" 
-            v-model="seleccionados" 
-          />
+             type="checkbox" 
+             :value="vol.idVoluntario" 
+             v-model="seleccionados" 
+             :disabled="esOpcionDeshabilitada(vol.idVoluntario)"
+           />
           <div class="voluntario-info">
             <span class="nombre">{{ vol.nombre }} {{ vol.apellido }}</span>
             <span class="doc">Doc: {{ vol.documento }}</span>
@@ -63,10 +80,19 @@
 
       <div class="modal-acciones">
         <button class="btn-cancelar" @click="cerrar" :disabled="guardando || cancelandoId !== null">Cerrar</button>
-        <button 
-          class="btn-guardar" 
-          @click="confirmarAsignacion" 
-          :disabled="guardando || seleccionados.length === 0"
+        
+        <button v-if="reemplazandoAsignacion"
+           class="btn-guardar btn-confirmar-reemplazo" 
+           @click="confirmarReemplazo" 
+           :disabled="guardando || seleccionados.length === 0"
+        >
+          {{ guardando ? 'Reemplazando...' : 'Confirmar Reemplazo' }}
+        </button>
+        
+        <button v-else
+           class="btn-guardar" 
+           @click="confirmarAsignacion" 
+           :disabled="guardando || seleccionados.length === 0"
         >
           {{ guardando ? 'Asignando...' : 'Confirmar Asignación' }}
         </button>
@@ -96,12 +122,16 @@ const emit = defineEmits(['close', 'asignado'])
 const voluntarios = ref([])
 const asignaciones = ref([])
 const seleccionados = ref([])
+
 const cargando = ref(false)
 const cargandoAsignaciones = ref(false)
 const guardando = ref(false)
 const cancelandoId = ref(null)
+
 const error = ref('')
 const errorAsignaciones = ref('')
+
+const reemplazandoAsignacion = ref(null)
 
 const voluntariosActivos = computed(() => {
   return voluntarios.value.filter(v => v.activo)
@@ -111,7 +141,15 @@ watch(() => props.visible, async (isVisible) => {
   if (isVisible) {
     seleccionados.value = []
     error.value = ''
+    reemplazandoAsignacion.value = null
     await Promise.all([cargarVoluntarios(), cargarAsignaciones()])
+  }
+})
+
+// Controla que solo se seleccione un voluntario en modo reemplazo
+watch(() => seleccionados.value, (newVals) => {
+  if (reemplazandoAsignacion.value && newVals.length > 1) {
+    seleccionados.value = [newVals[newVals.length - 1]]
   }
 })
 
@@ -142,12 +180,20 @@ const esCancelable = (asignacion) => {
   return !['cancelada', 'rechazada'].includes((asignacion.estadoRespuesta || '').toLowerCase())
 }
 
+const esOpcionDeshabilitada = (idVoluntario) => {
+  if (!reemplazandoAsignacion.value) return false
+  // Evitar que seleccione al mismo voluntario que está reemplazando
+  return idVoluntario === reemplazandoAsignacion.value.idVoluntario
+}
+
 const cerrar = () => {
   if (!guardando.value && cancelandoId.value === null) {
+    cancelarReemplazo()
     emit('close')
   }
 }
 
+// LOGICA DE CANCELACION DIRECTA
 const cancelarAsignacion = async (asignacion) => {
   const confirmar = window.confirm(`¿Cancelar la asignación de ${asignacion.nombreVoluntario}?`)
   if (!confirmar) return
@@ -165,15 +211,50 @@ const cancelarAsignacion = async (asignacion) => {
   }
 }
 
+// LOGICA DE ASIGNACION (Multiples)
 const confirmarAsignacion = async () => {
   if (seleccionados.value.length === 0) return
-  
   guardando.value = true
   error.value = ''
+  
   try {
     await asignacionTareaService.asignarVoluntarios(props.tarea.idTarea, seleccionados.value)
     emit('asignado')
-    emit('close') // Forzamos el cierre emitiendo el evento directamente
+    emit('close') // Forzamos el cierre tras asignar éxito
+  } catch (err) {
+    error.value = err.message
+  } finally {
+    guardando.value = false
+  }
+}
+
+// LOGICA DE REEMPLAZO
+const iniciarReemplazo = (asignacion) => {
+  reemplazandoAsignacion.value = asignacion
+  seleccionados.value = []
+  error.value = ''
+}
+
+const cancelarReemplazo = () => {
+  reemplazandoAsignacion.value = null
+  seleccionados.value = []
+  error.value = ''
+}
+
+const confirmarReemplazo = async () => {
+  if (seleccionados.value.length === 0 || !reemplazandoAsignacion.value) return
+  guardando.value = true
+  error.value = ''
+  
+  try {
+    await asignacionTareaService.reemplazarVoluntario(
+      props.tarea.idTarea, 
+      reemplazandoAsignacion.value.idAsignacion, 
+      seleccionados.value[0]
+    )
+    await cargarAsignaciones()
+    cancelarReemplazo()
+    emit('asignado') // Refrescar la tabla en el backend
   } catch (err) {
     error.value = err.message
   } finally {
@@ -196,6 +277,7 @@ const confirmarAsignacion = async () => {
   z-index: 1000;
   backdrop-filter: blur(2px);
 }
+
 .modal-contenido {
   background: white;
   width: min(500px, 90%);
@@ -206,18 +288,21 @@ const confirmarAsignacion = async () => {
   flex-direction: column;
   box-shadow: 0 20px 60px rgba(0,0,0,0.1);
 }
+
 .modal-encabezado {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 10px;
 }
+
 .modal-encabezado h2 {
   margin: 0;
   font-family: "DM Serif Display", serif;
   font-size: 26px;
   color: var(--texto);
 }
+
 .btn-cerrar {
   background: transparent;
   border: none;
@@ -226,34 +311,40 @@ const confirmarAsignacion = async () => {
   color: var(--texto-suave);
   cursor: pointer;
 }
+
 .btn-cerrar:hover {
   color: var(--texto);
 }
+
 .modal-descripcion {
   font-size: 13px;
   color: var(--texto-suave);
   margin-bottom: 20px;
   line-height: 1.5;
 }
+
 .lista-voluntarios {
   display: flex;
   flex-direction: column;
   gap: 10px;
   overflow-y: auto;
-  max-height: 350px;
+  max-height: 300px;
   padding-right: 5px;
   margin-bottom: 20px;
 }
+
 .asignaciones-historial {
   margin-bottom: 20px;
   padding-bottom: 18px;
   border-bottom: 1px solid var(--crema);
 }
+
 .asignaciones-historial h3 {
   margin: 0 0 10px;
   color: var(--texto);
   font-size: 15px;
 }
+
 .lista-asignaciones {
   display: flex;
   flex-direction: column;
@@ -264,6 +355,7 @@ const confirmarAsignacion = async () => {
   padding: 0;
   list-style: none;
 }
+
 .lista-asignaciones li {
   display: flex;
   align-items: center;
@@ -272,7 +364,14 @@ const confirmarAsignacion = async () => {
   padding: 10px 12px;
   border: 1px solid var(--crema);
   border-radius: 10px;
+  transition: background 0.3s;
 }
+
+.lista-asignaciones li.item-reemplazando {
+  background: #f1f5ec;
+  border-color: var(--salvia-claro);
+}
+
 .asignacion-info {
   display: flex;
   flex-direction: column;
@@ -280,22 +379,75 @@ const confirmarAsignacion = async () => {
   color: var(--texto);
   font-size: 12px;
 }
+
 .asignacion-info span {
   color: var(--texto-suave);
   font-size: 11px;
 }
-.btn-cancelar-asignacion {
+
+.acciones-asignacion {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-cancelar-asignacion, .btn-reemplazar {
   border: none;
   background: transparent;
-  color: #a34d41;
   font-size: 11px;
   font-weight: 600;
   cursor: pointer;
+  padding: 6px 10px;
+  border-radius: 6px;
 }
-.btn-cancelar-asignacion:disabled {
-  opacity: 0.6;
-  cursor: wait;
+
+.btn-cancelar-asignacion {
+  color: #a34d41;
 }
+.btn-cancelar-asignacion:hover:not(:disabled) {
+  background: #FFF0EB;
+}
+
+.btn-reemplazar {
+  color: #4B6E91;
+}
+.btn-reemplazar:hover:not(:disabled) {
+  background: #D9E5F2;
+}
+
+.btn-cancelar-asignacion:disabled, .btn-reemplazar:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.modo-reemplazo-banner {
+  background: #FFF7EE;
+  border: 1px solid var(--durazno);
+  color: #8A5A36;
+  padding: 12px 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modo-reemplazo-banner p {
+  margin: 0;
+}
+
+.btn-link-cancelar {
+  background: none;
+  border: none;
+  color: #a34d41;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  text-align: left;
+}
+
 .voluntario-opcion {
   display: flex;
   align-items: center;
@@ -306,32 +458,45 @@ const confirmarAsignacion = async () => {
   cursor: pointer;
   transition: all 0.2s;
 }
-.voluntario-opcion:hover {
+
+.voluntario-opcion:hover:not(.deshabilitado) {
   background: var(--crema-claro);
 }
+
 .voluntario-opcion.seleccionado {
   border-color: var(--verde-oscuro);
   background: #f1f5ec;
 }
+
+.voluntario-opcion.deshabilitado {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f9f9f9;
+}
+
 .voluntario-info {
   display: flex;
   flex-direction: column;
 }
+
 .voluntario-info .nombre {
   font-size: 14px;
   font-weight: 600;
   color: var(--texto);
 }
+
 .voluntario-info .doc {
   font-size: 11px;
   color: var(--texto-suave);
 }
+
 .modal-mensaje {
   text-align: center;
   padding: 30px 0;
   color: var(--texto-suave);
   font-size: 13px;
 }
+
 .modal-error {
   padding: 12px;
   background: #FFF0EB;
@@ -341,12 +506,14 @@ const confirmarAsignacion = async () => {
   margin-bottom: 20px;
   border: 1px solid #E9B0A5;
 }
+
 .modal-acciones {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: auto;
 }
+
 .btn-cancelar {
   padding: 12px 20px;
   background: transparent;
@@ -356,9 +523,11 @@ const confirmarAsignacion = async () => {
   font-size: 13px;
   cursor: pointer;
 }
+
 .btn-cancelar:hover {
   color: var(--texto);
 }
+
 .btn-guardar {
   padding: 12px 24px;
   background: var(--verde-oscuro);
@@ -369,9 +538,15 @@ const confirmarAsignacion = async () => {
   font-size: 13px;
   cursor: pointer;
 }
-.btn-guardar:hover:not(:disabled) {
-  background: var(--salvia);
+
+.btn-confirmar-reemplazo {
+  background: #4B6E91;
 }
+
+.btn-guardar:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
 .btn-guardar:disabled {
   opacity: 0.5;
   cursor: not-allowed;

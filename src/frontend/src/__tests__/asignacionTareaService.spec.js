@@ -8,6 +8,7 @@ const respuesta = (ok, cuerpo, texto = cuerpo ? JSON.stringify(cuerpo) : '') => 
 afterEach(() => vi.unstubAllGlobals())
 
 describe('asignacionTareaService', () => {
+  
   it('cancela una asignación con POST y conserva el recurso en el endpoint', async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta(true, null))
     vi.stubGlobal('fetch', fetchMock)
@@ -26,4 +27,17 @@ describe('asignacionTareaService', () => {
     await expect(asignacionTareaService.cancelarAsignacion(10, 30))
       .rejects.toThrow('La asignación ya está cancelada o rechazada.')
   })
+
+  it('reemplazarVoluntario envía un POST con el idNuevoVoluntario', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idAsignacion: 99 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await asignacionTareaService.reemplazarVoluntario(10, 30, 5)
+
+    const [url, opciones] = fetchMock.mock.calls[0]
+    expect(url).toMatch(/\/api\/tareas\/10\/asignaciones\/30\/reemplazar$/)
+    expect(opciones.method).toBe('POST')
+    expect(JSON.parse(opciones.body)).toEqual({ idNuevoVoluntario: 5 })
+  })
+
 })
