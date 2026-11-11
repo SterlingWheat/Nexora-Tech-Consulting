@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.model.TurnoAssignmentRecord;
 import com.example.backend.service.AsignacionTurnoService;
+import com.example.backend.service.AsignacionTurnoService.ResultadoAsignacionTurno;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,16 +40,34 @@ class AsignacionTurnoControllerTest {
 
     @Test
     void post_asignaVoluntariosYDevuelveNuevosRegistros() throws Exception {
-        when(service.asignarVoluntarios(8, List.of(5))).thenReturn(List.of(
-                new TurnoAssignmentRecord(30L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")));
+        when(service.asignarVoluntarios(8, List.of(5))).thenReturn(new ResultadoAsignacionTurno(
+                List.of(new TurnoAssignmentRecord(30L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")),
+                List.of()));
 
         mvc.perform(post("/api/turnos/8/asignaciones")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idVoluntarios\":[5]}"))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$[0].idAsignacion").value(30))
-                .andExpect(jsonPath("$[0].nombreVoluntario").value("Ana Paz"))
-                .andExpect(jsonPath("$[0].estado").value("Pendiente"));
+                .andExpect(jsonPath("$.asignaciones[0].idAsignacion").value(30))
+                .andExpect(jsonPath("$.asignaciones[0].nombreVoluntario").value("Ana Paz"))
+                .andExpect(jsonPath("$.asignaciones[0].estado").value("Pendiente"))
+                .andExpect(jsonPath("$.advertencias").isEmpty());
+    }
+
+    // KAN-31 Criterio 3: las advertencias de disponibilidad llegan en la respuesta sin bloquear la asignación
+    @Test
+    void post_asignaConAdvertenciaDeDisponibilidad_devuelve201ConElAviso() throws Exception {
+        when(service.asignarVoluntarios(8, List.of(5))).thenReturn(new ResultadoAsignacionTurno(
+                List.of(new TurnoAssignmentRecord(30L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")),
+                List.of("El voluntario Ana Paz no tiene disponibilidad declarada para el horario de este turno.")));
+
+        mvc.perform(post("/api/turnos/8/asignaciones")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"idVoluntarios\":[5]}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.asignaciones[0].idAsignacion").value(30))
+                .andExpect(jsonPath("$.advertencias[0]").value(
+                        "El voluntario Ana Paz no tiene disponibilidad declarada para el horario de este turno."));
     }
 
     @Test

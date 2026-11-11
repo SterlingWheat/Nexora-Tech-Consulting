@@ -2,6 +2,7 @@ package com.example.backend.controller;
 
 import com.example.backend.dto.AsignacionTurnoRequestDTO;
 import com.example.backend.dto.AsignacionTurnoResponseDTO;
+import com.example.backend.dto.AsignacionTurnoResultadoDTO;
 import com.example.backend.model.TurnoAssignmentRecord;
 import com.example.backend.service.AsignacionTurnoService;
 import jakarta.validation.Valid;
@@ -23,15 +24,17 @@ public class AsignacionTurnoController {
     }
 
     @PostMapping
-    public ResponseEntity<List<AsignacionTurnoResponseDTO>> asignar(
+    public ResponseEntity<AsignacionTurnoResultadoDTO> asignar(
             @PathVariable Integer idTurno,
             @Valid @RequestBody AsignacionTurnoRequestDTO request) {
-        List<AsignacionTurnoResponseDTO> response = service
-                .asignarVoluntarios(idTurno, request.getIdVoluntarios())
-                .stream()
+        AsignacionTurnoService.ResultadoAsignacionTurno resultado =
+                service.asignarVoluntarios(idTurno, request.getIdVoluntarios());
+        List<AsignacionTurnoResponseDTO> asignaciones = resultado.asignaciones().stream()
                 .map(this::aDto)
                 .toList();
-        return new ResponseEntity<>(response, HttpStatus.CREATED);
+        return new ResponseEntity<>(
+                new AsignacionTurnoResultadoDTO(asignaciones, resultado.advertencias()),
+                HttpStatus.CREATED);
     }
 
     @GetMapping
