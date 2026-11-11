@@ -172,4 +172,39 @@ class VoluntarioGestionControllerTest {
 
         mvc.perform(get("/api/voluntarios/99/detalle")).andExpect(status().isNotFound());
     }
+
+    // Criterio 1: baja lógica deja al voluntario inactivo conservando su historial
+    @Test
+    void put_desactivar_devuelve200ConVoluntarioInactivo() throws Exception {
+        Voluntario inactivo = guardado();
+        inactivo.setActivo(false);
+        when(service.cambiarEstado(1, false)).thenReturn(inactivo);
+
+        mvc.perform(put("/api/voluntarios/1/desactivar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.idVoluntario").value(1))
+                .andExpect(jsonPath("$.activo").value(false));
+
+        verify(service).cambiarEstado(1, false);
+    }
+
+    // Criterio 3: la reactivación lo vuelve a dejar disponible
+    @Test
+    void put_activar_devuelve200ConVoluntarioActivo() throws Exception {
+        when(service.cambiarEstado(1, true)).thenReturn(guardado());
+
+        mvc.perform(put("/api/voluntarios/1/activar"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activo").value(true));
+
+        verify(service).cambiarEstado(1, true);
+    }
+
+    @Test
+    void put_desactivar_inexistente_devuelve404() throws Exception {
+        when(service.cambiarEstado(99, false))
+                .thenThrow(new ResourceNotFoundException("Voluntario no encontrado con ID: 99"));
+
+        mvc.perform(put("/api/voluntarios/99/desactivar")).andExpect(status().isNotFound());
+    }
 }

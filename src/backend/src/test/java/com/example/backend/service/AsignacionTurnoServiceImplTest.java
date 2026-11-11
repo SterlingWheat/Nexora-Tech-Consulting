@@ -116,6 +116,28 @@ class AsignacionTurnoServiceImplTest {
     }
 
     @Test
+    void asignarRechazaVoluntarioInactivoSinNotificarNiCrearAsignacion() {
+        Voluntario voluntarioInactivo = Voluntario.builder()
+                .idVoluntario(5)
+                .nombre("Ana")
+                .apellido("Paz")
+                .email("ana@example.com")
+                .activo(false)
+                .build();
+
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
+        when(asignacionRepository.countActiveByTurno(7)).thenReturn(0);
+        when(voluntarioRepository.findById(5)).thenReturn(Optional.of(voluntarioInactivo));
+
+        BusinessValidationException ex = assertThrows(BusinessValidationException.class,
+                () -> service.asignarVoluntarios(7, List.of(5)));
+
+        assertEquals("El voluntario no est  activo y no puede ser asignado.", ex.getMessage());
+        verify(asignacionRepository, never()).create(any(), any());
+        verifyNoInteractions(outboxService, cruceTurnoService);
+    }
+
+    @Test
     void asignarRechazaVoluntarioConCruceDeHorario() {
         when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
         when(asignacionRepository.countActiveByTurno(7)).thenReturn(0);

@@ -2,7 +2,9 @@ package com.example.backend.service;
 
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.model.Usuario;
 import com.example.backend.model.Voluntario;
+import com.example.backend.notification.AccountEmailNotificationEvent;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
@@ -135,6 +137,64 @@ class VoluntarioServiceImplTest {
         when(repository.existsByEmailIgnoreCaseAndIdVoluntarioNot("ana@correo.com", 1)).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo()));
+        verify(repository, never()).save(any());
+    }
+
+    // Criterio 1: baja lógica conserva el registro, solo cambia el estado
+    @Test
+    void cambiarEstado_aInactivo_conservaElRegistroYSoloActualizaElEstado() {
+        Voluntario voluntario = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Quispe")
+                .documento("111").email("ana@correo.com").activo(true).build();
+
+        when(repository.findById(1)).thenReturn(Optional.of(voluntario));
+        when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
+
+        Voluntario resultado = service.cambiarEstado(1, false);
+
+        assertFalse(resultado.getActivo());
+        assertEquals(1, resultado.getIdVoluntario());
+        assertEquals("Ana", resultado.getNombre());
+        verify(eventPublisher, never()).publishEvent(any());
+    }
+
+    // Criterio 3: reactivación vuelve a estar disponible
+    @Test
+    void cambiarEstado_aActivo_reactivaAlVoluntario() {
+        Voluntario voluntario = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Quispe")
+                .documento("111").email("ana@correo.com").activo(false).build();
+
+        when(repository.findById(1)).thenReturn(Optional.of(voluntario));
+        when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
+
+        Voluntario resultado = service.cambiarEstado(1, true);
+
+        assertTrue(resultado.getActivo());
+    }
+
+    @Test
+    void cambiarEstado_conUsuarioAsociado_sincronizaElAccesoYPublicaNotificacion() {
+        Usuario usuario = Usuario.builder().idUsuario(9).nombre("Ana Quispe").email("ana@correo.com")
+                .estado("ACTIVO").build();
+        Voluntario voluntario = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Quispe")
+                .documento("111").email("ana@correo.com").activo(true).usuario(usuario).build();
+
+        when(repository.findById(1)).thenReturn(Optional.of(voluntario));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+        when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
+
+        Voluntario resultado = service.cambiarEstado(1, false);
+
+        assertFalse(resultado.getActivo());
+        assertFalse(usuario.getActivo());
+        verify(usuarioRepository).save(usuario);
+        verify(eventPublisher).publishEvent(any(AccountEmailNotificationEvent.class));
+    }
+
+    @Test
+    void cambiarEstado_inexistente_lanzaNoEncontrado() {
+        when(repository.findById(99)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.cambiarEstado(99, false));
         verify(repository, never()).save(any());
     }
 }
