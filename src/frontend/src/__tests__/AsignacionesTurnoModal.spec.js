@@ -23,7 +23,7 @@ describe('AsignacionesTurnoModal', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     turnoService.obtenerAsignaciones.mockResolvedValue([asignacion])
-    turnoService.asignarVoluntarios.mockResolvedValue([])
+    turnoService.asignarVoluntarios.mockResolvedValue({ asignaciones: [], advertencias: [] })
     turnoService.cancelarAsignacion.mockResolvedValue(null)
     voluntarioService.obtenerVoluntarios.mockResolvedValue([
       { idVoluntario: 1, nombre: 'Ana', apellido: 'Paz', activo: true },
@@ -58,6 +58,24 @@ describe('AsignacionesTurnoModal', () => {
     expect(turnoService.asignarVoluntarios).toHaveBeenCalledWith(8, [2])
     expect(turnoService.obtenerAsignaciones).toHaveBeenCalledTimes(2)
     expect(wrapper.emitted('updated')).toHaveLength(1)
+  })
+
+  // KAN-31 Criterio 3: la advertencia de disponibilidad del backend se muestra sin bloquear la asignación
+  it('muestra la advertencia de disponibilidad devuelta por el backend', async () => {
+    turnoService.asignarVoluntarios.mockResolvedValue({
+      asignaciones: [{ idAsignacion: 31, idVoluntario: 2, nombreVoluntario: 'Luis Rojas', estado: 'Pendiente' }],
+      advertencias: ['El voluntario Luis Rojas no tiene disponibilidad declarada para el horario de este turno.'],
+    })
+    const wrapper = mount(AsignacionesTurnoModal, {
+      props: { visible: false, turno },
+    })
+    await wrapper.setProps({ visible: true })
+    await flushPromises()
+    await wrapper.find('input[type="checkbox"]').setValue(true)
+    await wrapper.find('.btn-guardar').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('.modal-aviso').text()).toContain('no tiene disponibilidad declarada')
   })
 
   it('cancela una asignación vigente sin eliminar su fila histórica', async () => {

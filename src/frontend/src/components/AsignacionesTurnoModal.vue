@@ -13,6 +13,14 @@
       <div v-else>
         <p v-if="error" class="modal-error" role="alert">{{ error }}</p>
 
+        <!-- KAN-31 Criterio 3: avisos cuando un voluntario asignado no declaró disponibilidad para esta franja -->
+        <div v-if="advertencias.length" class="modal-aviso" role="status">
+          <span aria-hidden="true">ℹ</span>
+          <ul>
+            <li v-for="a in advertencias" :key="a">{{ a }}</li>
+          </ul>
+        </div>
+
         <section v-if="turno?.estado !== 'CANCELADO'" class="asignacion-nueva">
           <h3>Asignar voluntarios</h3>
           <p v-if="voluntariosDisponibles.length === 0" class="modal-mensaje">
@@ -88,6 +96,7 @@ const seleccionados = ref([])
 const cargando = ref(false)
 const guardando = ref(false)
 const error = ref('')
+const advertencias = ref([])
 
 const activosAsignados = computed(() => new Set(
   asignaciones.value
@@ -111,6 +120,7 @@ async function cargar() {
   if (!props.turno) return
   cargando.value = true
   error.value = ''
+  advertencias.value = []
   try {
     const [historial, listaVoluntarios] = await Promise.all([
       turnoService.obtenerAsignaciones(props.turno.idTurno),
@@ -131,9 +141,11 @@ async function asignar() {
   guardando.value = true
   error.value = ''
   try {
-    await turnoService.asignarVoluntarios(props.turno.idTurno, seleccionados.value)
+    const respuesta = await turnoService.asignarVoluntarios(props.turno.idTurno, seleccionados.value)
     seleccionados.value = []
     await cargar()
+    // KAN-31 Criterio 3: el aviso de disponibilidad se muestra tras el refresco (cargar() lo limpia)
+    advertencias.value = respuesta?.advertencias || []
     emit('updated')
   } catch (err) {
     error.value = err.message
@@ -258,6 +270,24 @@ function cerrar() {
 .modal-error {
   color: #a34d41;
   font-size: 13px;
+}
+
+.modal-aviso {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  padding: 14px 17px;
+  margin-top: 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  border: 1px solid var(--durazno);
+  background: #FFF7EE;
+  color: #8A5A36;
+}
+.modal-aviso ul {
+  margin: 0;
+  padding-left: 16px;
 }
 
 .btn-guardar,
