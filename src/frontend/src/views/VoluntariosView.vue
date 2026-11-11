@@ -107,10 +107,10 @@
                     >
                       Desactivar
                     </button>
-                    <button 
-                      v-else 
-                      class="vols-boton-editar btn-activar" 
-                      @click="activar(v.idVoluntario)"
+                    <button
+                      v-else
+                      class="vols-boton-editar btn-activar"
+                      @click="abrirModalActivar(v)"
                     >
                       Activar
                     </button>
@@ -151,6 +151,27 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Activar Voluntario -->
+    <div v-if="modalActivarVisible" class="modal-overlay" @click.self="cerrarModalActivar">
+      <div class="modal-contenido">
+        <h2>Activar voluntario</h2>
+        <p>
+          ¿Estás seguro de que deseas activar a
+          <strong>{{ voluntarioParaActivar?.nombre }} {{ voluntarioParaActivar?.apellido }}</strong>?
+          Volverá a estar disponible para asignaciones a tareas y turnos.
+        </p>
+
+        <div v-if="errorActivar" class="modal-error">{{ errorActivar }}</div>
+
+        <div class="modal-acciones">
+          <button class="btn-cancelar" @click="cerrarModalActivar" :disabled="activandoConfirmacion">Cancelar</button>
+          <button class="btn-guardar" @click="confirmarActivar" :disabled="activandoConfirmacion">
+            {{ activandoConfirmacion ? 'Activando...' : 'Activar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </section>
 </template>
 
@@ -171,6 +192,11 @@ const voluntarioSeleccionado = ref(null)
 const passwordTemporal = ref('')
 const errorModal = ref('')
 const guardandoAcceso = ref(false)
+
+const modalActivarVisible = ref(false)
+const voluntarioParaActivar = ref(null)
+const errorActivar = ref('')
+const activandoConfirmacion = ref(false)
 
 // KAN-27: búsqueda por texto, filtros de estado/disponibilidad y paginación
 const PAGE_SIZE = 10
@@ -266,16 +292,29 @@ const confirmarAcceso = async () => {
 }
 
 // Solución Error 2: Funciones para Activar y Desactivar voluntarios
-const activar = async (idVoluntario) => {
-  if (!window.confirm('¿Estás seguro de que deseas activar a este voluntario?')) return
-  error.value = ''
-  cargando.value = true
+const abrirModalActivar = (voluntario) => {
+  voluntarioParaActivar.value = voluntario
+  errorActivar.value = ''
+  modalActivarVisible.value = true
+}
+
+const cerrarModalActivar = () => {
+  if (!activandoConfirmacion.value) {
+    modalActivarVisible.value = false
+  }
+}
+
+const confirmarActivar = async () => {
+  activandoConfirmacion.value = true
+  errorActivar.value = ''
   try {
-    await voluntarioService.activarVoluntario(idVoluntario)
+    await voluntarioService.activarVoluntario(voluntarioParaActivar.value.idVoluntario)
+    modalActivarVisible.value = false
     await cargarVoluntarios(paginaActual.value)
   } catch (err) {
-    error.value = err.message
-    cargando.value = false
+    errorActivar.value = err.message
+  } finally {
+    activandoConfirmacion.value = false
   }
 }
 

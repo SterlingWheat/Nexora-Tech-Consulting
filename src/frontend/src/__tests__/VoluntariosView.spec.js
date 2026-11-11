@@ -85,13 +85,11 @@ describe('VoluntariosView', () => {
     expect(push).toHaveBeenCalledWith('/voluntarios/editar/3')
   })
 
-  it('permite desactivar y activar un voluntario, recargando la misma página', async () => {
+  it('permite desactivar un voluntario, recargando la misma página', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([
       { idVoluntario: 1, nombre: 'Ana', apellido: 'Q', documento: '1', email: 'a@a.com', activo: true },
-      { idVoluntario: 2, nombre: 'Luis', apellido: 'P', documento: '2', email: 'l@l.com', activo: false }
     ], { number: 2 }))
     voluntarioService.desactivarVoluntario.mockResolvedValue({})
-    voluntarioService.activarVoluntario.mockResolvedValue({})
 
     const wrapper = mount(VoluntariosView)
     await flushPromises()
@@ -102,10 +100,42 @@ describe('VoluntariosView', () => {
     expect(voluntarioService.buscarVoluntarios).toHaveBeenLastCalledWith(
       expect.objectContaining({ page: 2 })
     )
+  })
+
+  // El botón "Activar" abre un modal propio de la página en vez del confirm() nativo del navegador
+  it('activar un voluntario pide confirmación en un modal propio antes de llamar al servicio', async () => {
+    voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([
+      { idVoluntario: 2, nombre: 'Luis', apellido: 'Paz', documento: '2', email: 'l@l.com', activo: false }
+    ]))
+    voluntarioService.activarVoluntario.mockResolvedValue({})
+
+    const wrapper = mount(VoluntariosView)
+    await flushPromises()
 
     await wrapper.find('.btn-activar').trigger('click')
+    expect(voluntarioService.activarVoluntario).not.toHaveBeenCalled()
+    expect(wrapper.text()).toContain('Luis Paz')
+    expect(wrapper.find('.modal-contenido h2').text()).toBe('Activar voluntario')
+
+    await wrapper.find('.modal-contenido .btn-guardar').trigger('click')
     await flushPromises()
+
     expect(voluntarioService.activarVoluntario).toHaveBeenCalledWith(2)
+  })
+
+  it('cancelar el modal de activar no llama al servicio', async () => {
+    voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([
+      { idVoluntario: 2, nombre: 'Luis', apellido: 'Paz', documento: '2', email: 'l@l.com', activo: false }
+    ]))
+
+    const wrapper = mount(VoluntariosView)
+    await flushPromises()
+
+    await wrapper.find('.btn-activar').trigger('click')
+    await wrapper.find('.modal-contenido .btn-cancelar').trigger('click')
+
+    expect(wrapper.find('.modal-contenido').exists()).toBe(false)
+    expect(voluntarioService.activarVoluntario).not.toHaveBeenCalled()
   })
 
   // KAN-27 Criterio 1: la búsqueda por texto se envía (con debounce) al backend
