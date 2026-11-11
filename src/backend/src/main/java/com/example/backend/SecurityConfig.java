@@ -79,6 +79,9 @@ public class SecurityConfig {
                         // Gestión de Voluntarios (Solución Error 1 - Restricción general por roles)
                         .requestMatchers(HttpMethod.POST, "/api/voluntarios/*/habilitar-acceso").hasAnyRole("ADMINISTRADOR", "TI")
                         .requestMatchers(HttpMethod.POST, "/api/voluntarios").hasAnyRole("ADMINISTRADOR", "TI", "GESTOR_TAREAS")
+                        // KAN-26: solo Administrador/TI puede dar de baja o reactivar voluntarios
+                        .requestMatchers(HttpMethod.PUT, "/api/voluntarios/*/activar").hasAnyRole("ADMINISTRADOR", "TI")
+                        .requestMatchers(HttpMethod.PUT, "/api/voluntarios/*/desactivar").hasAnyRole("ADMINISTRADOR", "TI")
                         .requestMatchers("/api/voluntarios/**").authenticated()
                         
                         .anyRequest().authenticated())
