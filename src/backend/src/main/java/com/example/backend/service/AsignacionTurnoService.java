@@ -14,5 +14,9 @@ public interface AsignacionTurnoService {
 
     List<TurnoAssignmentRecord> listarAsignaciones(Integer idTurno);
 
+    // HU2 Criterio 1: Confirmar la participación de un voluntario
+    void confirmarAsignacion(Integer idTurno, Long idAsignacion);
+
+    // HU2 Criterio 2 y 3: Cancelar asignación (libera cupo) validando que el turno no haya iniciado
     void cancelarAsignacion(Integer idTurno, Long idAsignacion);
 }

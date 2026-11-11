@@ -2,9 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { createPinia, setActivePinia } from 'pinia'
 import { useAuthStore } from '../stores/authStore'
+import TurnosView from '../views/TurnosView.vue'
+import AsignacionesTurnoModal from '../components/AsignacionesTurnoModal.vue'
+import { turnoService } from '../services/turnoService'
+import { voluntarioService } from '../services/voluntarioService'
 
 const push = vi.fn()
-
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
 }))
@@ -15,6 +18,7 @@ vi.mock('../services/turnoService', () => ({
     cancelarTurno: vi.fn(),
     obtenerAsignaciones: vi.fn(),
     asignarVoluntarios: vi.fn(),
+    confirmarAsignacion: vi.fn(),
     cancelarAsignacion: vi.fn(),
   },
 }))
@@ -22,10 +26,6 @@ vi.mock('../services/turnoService', () => ({
 vi.mock('../services/voluntarioService', () => ({
   voluntarioService: { obtenerVoluntarios: vi.fn() },
 }))
-
-import TurnosView from '../views/TurnosView.vue'
-import { turnoService } from '../services/turnoService'
-import { voluntarioService } from '../services/voluntarioService'
 
 const turno = (extra = {}) => ({
   idTurno: 1, fecha: '2026-10-25', horaInicio: '08:00:00', horaFin: '12:00:00',
@@ -83,7 +83,6 @@ describe('TurnosView', () => {
     await flushPromises()
 
     await wrapper.find('.turnos-boton-nuevo').trigger('click')
-
     expect(push).toHaveBeenCalledWith('/turnos/nuevo')
   })
 
@@ -103,6 +102,7 @@ describe('TurnosView', () => {
     turnoService.obtenerTurnos.mockResolvedValue([turno()])
     turnoService.cancelarTurno.mockResolvedValue({ estado: 'CANCELADO' })
     vi.spyOn(window, 'confirm').mockReturnValue(true)
+    
     const wrapper = mount(TurnosView)
     await flushPromises()
 
@@ -122,5 +122,21 @@ describe('TurnosView', () => {
 
     expect(wrapper.find('.turnos-boton-nuevo').exists()).toBe(false)
     expect(wrapper.find('.turnos-acciones').exists()).toBe(false)
+  })
+
+  // HU2: Al emitir "updated" desde el modal, la vista recarga los datos
+  it('recarga los turnos cuando el modal de asignaciones emite el evento updated', async () => {
+    turnoService.obtenerTurnos.mockResolvedValue([turno()])
+    const wrapper = mount(TurnosView)
+    await flushPromises()
+
+    // Reseteamos el mock para contar solo las recargas posteriores a la carga inicial
+    turnoService.obtenerTurnos.mockClear()
+
+    const modal = wrapper.findComponent(AsignacionesTurnoModal)
+    modal.vm.$emit('updated')
+    await flushPromises()
+
+    expect(turnoService.obtenerTurnos).toHaveBeenCalledTimes(1)
   })
 })

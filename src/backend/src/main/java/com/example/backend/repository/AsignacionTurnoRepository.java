@@ -18,8 +18,10 @@ public class AsignacionTurnoRepository {
             from asignacion_turno a
             join voluntario v on v.id_voluntario = a.id_voluntario
             """;
+
     private static final String ESTADOS_VIGENTES =
             "(a.estado is null or a.estado not in (" + EstadosAsignacion.NO_VIGENTES_SQL + "))";
+
     private static final RowMapper<TurnoAssignmentRecord> ROW_MAPPER = (resultSet, rowNumber) ->
             new TurnoAssignmentRecord(
                     resultSet.getLong("id_asignacion"),
@@ -56,13 +58,16 @@ public class AsignacionTurnoRepository {
     public TurnoAssignmentRecord create(Integer idTurno, Integer idVoluntario) {
         Long idAsignacion = jdbcTemplate.queryForObject(
                 "insert into asignacion_turno (id_turno, id_voluntario, estado) "
-                        + "values (?, ?, 'Pendiente') returning id_asignacion",
+                        + "values (?, ?, ?) returning id_asignacion",
                 Long.class,
                 idTurno,
-                idVoluntario);
+                idVoluntario,
+                EstadosAsignacion.PENDIENTE);
+
         if (idAsignacion == null) {
             throw new IllegalStateException("No se pudo generar el ID de la asignación del turno.");
         }
+
         return findById(idAsignacion)
                 .orElseThrow(() -> new IllegalStateException("No se encontró la asignación recién creada."));
     }
@@ -100,6 +105,17 @@ public class AsignacionTurnoRepository {
                 idTurno);
     }
 
+    // HU2 Criterio 1: Confirmar asignación
+    public int confirmByIdAndTurno(Long idAsignacion, Integer idTurno) {
+        return jdbcTemplate.update(
+                "update asignacion_turno a set estado = ? "
+                        + "where a.id_asignacion = ? and a.id_turno = ? and " + ESTADOS_VIGENTES,
+                EstadosAsignacion.CONFIRMADA,
+                idAsignacion,
+                idTurno);
+    }
+
+    // HU2 Criterio 2: Cancelar asignación y liberar cupo (ya gestionado por ESTADOS_VIGENTES)
     public int cancelByIdAndTurno(Long idAsignacion, Integer idTurno) {
         return jdbcTemplate.update(
                 "update asignacion_turno a set estado = ? "

@@ -19,6 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -54,7 +55,6 @@ class AsignacionTurnoControllerTest {
                 .andExpect(jsonPath("$.advertencias").isEmpty());
     }
 
-    // KAN-31 Criterio 3: las advertencias de disponibilidad llegan en la respuesta sin bloquear la asignación
     @Test
     void post_asignaConAdvertenciaDeDisponibilidad_devuelve201ConElAviso() throws Exception {
         when(service.asignarVoluntarios(8, List.of(5))).thenReturn(new ResultadoAsignacionTurno(
@@ -87,9 +87,20 @@ class AsignacionTurnoControllerTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"idVoluntarios\":[]}"))
                 .andExpect(status().isBadRequest());
+
         verifyNoInteractions(service);
     }
 
+    // HU2 Criterio 1: Confirmar asignación
+    @Test
+    void patch_confirmaAsignacionYDevuelve204() throws Exception {
+        mvc.perform(patch("/api/turnos/8/asignaciones/30/confirmar"))
+                .andExpect(status().isNoContent());
+
+        verify(service).confirmarAsignacion(8, 30L);
+    }
+
+    // HU2 Criterios 2 y 3: Cancelar asignación
     @Test
     void post_cancelaAsignacionConservandoSuRegistro() throws Exception {
         mvc.perform(post("/api/turnos/8/asignaciones/30/cancelar"))

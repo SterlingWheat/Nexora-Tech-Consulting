@@ -27,11 +27,14 @@ public class AsignacionTurnoController {
     public ResponseEntity<AsignacionTurnoResultadoDTO> asignar(
             @PathVariable Integer idTurno,
             @Valid @RequestBody AsignacionTurnoRequestDTO request) {
+
         AsignacionTurnoService.ResultadoAsignacionTurno resultado =
                 service.asignarVoluntarios(idTurno, request.getIdVoluntarios());
+
         List<AsignacionTurnoResponseDTO> asignaciones = resultado.asignaciones().stream()
                 .map(this::aDto)
                 .toList();
+
         return new ResponseEntity<>(
                 new AsignacionTurnoResultadoDTO(asignaciones, resultado.advertencias()),
                 HttpStatus.CREATED);
@@ -42,6 +45,16 @@ public class AsignacionTurnoController {
         return ResponseEntity.ok(service.listarAsignaciones(idTurno).stream().map(this::aDto).toList());
     }
 
+    // HU2 Criterio 1: Confirmar asignación
+    @PatchMapping("/{idAsignacion}/confirmar")
+    public ResponseEntity<Void> confirmar(
+            @PathVariable Integer idTurno,
+            @PathVariable Long idAsignacion) {
+        service.confirmarAsignacion(idTurno, idAsignacion);
+        return ResponseEntity.noContent().build();
+    }
+
+    // HU2 Criterios 2 y 3: Cancelar asignación
     @PostMapping("/{idAsignacion}/cancelar")
     public ResponseEntity<Void> cancelar(
             @PathVariable Integer idTurno,

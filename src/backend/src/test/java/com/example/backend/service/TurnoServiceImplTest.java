@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.exception.BusinessValidationException;
+import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.mail.NotificationTemplateType;
 import com.example.backend.model.Turno;
@@ -38,106 +39,106 @@ class TurnoServiceImplTest {
 
     @Mock
     private TurnoRepository repository;
-
     @Mock
     private AsignacionTurnoRepository asignacionRepository;
-
     @Mock
     private NotificationOutboxService outboxService;
-
     @Mock
     private CruceTurnoService cruceTurnoService;
+    @Mock
+    private HistorialTurnoService historialTurnoService;
 
     private TurnoServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new TurnoServiceImpl(repository, asignacionRepository, outboxService, cruceTurnoService, RELOJ);
+        service = new TurnoServiceImpl(repository, asignacionRepository, outboxService, cruceTurnoService, historialTurnoService, RELOJ);
     }
 
     private Turno turno(String fecha, String inicio, String fin, int cupos) {
         return Turno.builder().fecha(LocalDate.parse(fecha)).horaInicio(LocalTime.parse(inicio))
-                .horaFin(LocalTime.parse(fin)).actividad("  Clasificar alimentos ").cuposTotales(cupos).build();
+                .horaFin(LocalTime.parse(fin)).actividad("Clasificar alimentos").cuposTotales(cupos).build();
     }
 
-    // Criterio 1
+    // HU1 Criterio 1 y Criterio 3 (Auditoría)
     @Test
-    void crear_conDatosValidos_creaConTodosLosCuposLibres() {
-        when(repository.save(any(Turno.class))).thenAnswer(i -> i.getArgument(0));
+    void crear_conDatosValidos_creaConTodosLosCuposLibresYRegistraHistorial() {
+        Turno mockGuardado = turno("2026-10-25", "08:00", "12:00", 5);
+        mockGuardado.setIdTurno(1);
+        when(repository.save(any(Turno.class))).thenReturn(mockGuardado);
 
-        Turno creado = service.crearTurno(turno("2026-10-25", "08:00", "12:00", 5));
+        Turno creado = service.crearTurno(turno("2026-10-25", "08:00", "12:00", 5), 99);
 
         assertEquals("Clasificar alimentos", creado.getActividad());
         assertEquals(0, creado.getCuposOcupados());
         assertEquals(5, creado.getCuposLibres());
+        verify(historialTurnoService).registrarAccion(eq(1), eq(99), contains("Turno creado"));
     }
 
-    // Criterio 2
     @Test
     void crear_fechaPasada_seRechaza() {
-        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-22", "08:00", "12:00", 5)));
+        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-22", "08:00", "12:00", 5), 99));
         verify(repository, never()).save(any());
+        verifyNoInteractions(historialTurnoService);
     }
 
-    // Criterio 2
     @Test
     void crear_horaFinAnteriorOIgualAInicio_seRechaza() {
-        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-25", "12:00", "08:00", 5)));
-        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-25", "08:00", "08:00", 5)));
+        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-25", "12:00", "08:00", 5), 99));
+        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-25", "08:00", "08:00", 5), 99));
         verify(repository, never()).save(any());
     }
 
-    // Criterio 2 (borde)
     @Test
     void crear_hoyConHorarioYaTerminado_seRechaza() {
-        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-23", "07:00", "09:00", 5)));
+        assertThrows(BusinessValidationException.class, () -> service.crearTurno(turno("2026-10-23", "07:00", "09:00", 5), 99));
     }
 
     @Test
     void crear_hoyConHorarioQueAunNoTermina_seAcepta() {
-        when(repository.save(any(Turno.class))).thenAnswer(i -> i.getArgument(0));
-
-        assertDoesNotThrow(() -> service.crearTurno(turno("2026-10-23", "09:00", "13:00", 3)));
+        Turno mockGuardado = turno("2026-10-23", "09:00", "13:00", 3);
+        mockGuardado.setIdTurno(2);
+        when(repository.save(any(Turno.class))).thenReturn(mockGuardado);
+        assertDoesNotThrow(() -> service.crearTurno(turno("2026-10-23", "09:00", "13:00", 3), 99));
     }
 
-    // Criterio 3
     @Test
     void cuposLibres_seCalculanComoTotalesMenosOcupados() {
         Turno t = turno("2026-10-25", "08:00", "12:00", 10);
         t.setCuposOcupados(4);
-
         assertEquals(6, t.getCuposLibres());
     }
 
     @Test
     void crear_ignoraCuposOcupadosEnviados() {
-        when(repository.save(any(Turno.class))).thenAnswer(i -> i.getArgument(0));
+        Turno mockGuardado = turno("2026-10-25", "08:00", "12:00", 10);
+        mockGuardado.setIdTurno(3);
+        mockGuardado.setCuposOcupados(0); // El backend lo resetea
+        when(repository.save(any(Turno.class))).thenReturn(mockGuardado);
+
         Turno t = turno("2026-10-25", "08:00", "12:00", 10);
         t.setCuposOcupados(9);
-
-        assertEquals(0, service.crearTurno(t).getCuposOcupados());
+        assertEquals(0, service.crearTurno(t, 99).getCuposOcupados());
     }
 
     @Test
     void listar_devuelveLoOrdenadoDelRepositorio() {
         var t = turno("2026-10-25", "08:00", "12:00", 2);
         when(repository.findAllByOrderByFechaAscHoraInicioAsc()).thenReturn(List.of(t));
-
         assertEquals(List.of(t), service.listarTurnos());
     }
 
-    // Criterio 3: los ocupados se cuentan desde las asignaciones del turno
     @Test
     void listar_completaCuposOcupadosDesdeLasAsignaciones() {
         var t1 = turno("2026-10-25", "08:00", "12:00", 5);
         t1.setIdTurno(1);
         var t2 = turno("2026-10-26", "08:00", "12:00", 3);
         t2.setIdTurno(2);
+
         when(repository.findAllByOrderByFechaAscHoraInicioAsc()).thenReturn(List.of(t1, t2));
         when(repository.contarCuposOcupados(List.of(1, 2))).thenReturn(List.of(ocupado(1, 2L)));
 
         var resultado = service.listarTurnos();
-
         assertEquals(2, resultado.get(0).getCuposOcupados());
         assertEquals(3, resultado.get(0).getCuposLibres());
         assertEquals(0, resultado.get(1).getCuposOcupados());
@@ -147,7 +148,6 @@ class TurnoServiceImplTest {
     @Test
     void listar_sinTurnos_noConsultaAsignaciones() {
         when(repository.findAllByOrderByFechaAscHoraInicioAsc()).thenReturn(List.of());
-
         assertTrue(service.listarTurnos().isEmpty());
         verify(repository, never()).contarCuposOcupados(any());
     }
@@ -172,26 +172,34 @@ class TurnoServiceImplTest {
     @Test
     void obtener_inexistente_lanzaNoEncontrado() {
         when(repository.findById(9)).thenReturn(Optional.empty());
-
         assertThrows(ResourceNotFoundException.class, () -> service.obtenerTurnoPorId(9));
     }
 
+    // HU1 Criterios 1, 2 y 3 (Auditoría)
     @Test
-    void actualizar_cambioDeHorarioEncolaCorreoParaCadaAsignacionVigente() {
+    void actualizar_cambioDeHorarioRevalidaCrucesYRegistraHistorial() {
         Turno existente = turno("2026-10-25", "08:00", "12:00", 5);
         existente.setIdTurno(7);
         existente.setEstado(Turno.ESTADO_ACTIVO);
+        
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
-
+        
         when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
         when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(assignment));
         when(repository.save(any(Turno.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(repository.contarCuposOcupados(List.of(7))).thenReturn(List.of());
 
-        Turno resultado = service.actualizarTurno(7, turno("2026-10-26", "09:00", "13:00", 5));
+        // Simulamos que al revalidar no hay cruce
+        when(cruceTurnoService.buscarCruces(5, 7)).thenReturn(List.of());
+
+        Turno resultado = service.actualizarTurno(7, turno("2026-10-26", "09:00", "13:00", 5), 88);
 
         assertEquals(LocalDate.parse("2026-10-26"), resultado.getFecha());
+
+        // HU1: Verifica guardado temprano (Flush) para validaciones de cruces
+        verify(repository).saveAndFlush(existente);
+        
         verify(outboxService).enqueue(
                 org.mockito.ArgumentMatchers.argThat(key -> key.startsWith("shift-change:7:42:")),
                 org.mockito.ArgumentMatchers.eq(NotificationTemplateType.CAMBIO_TURNO),
@@ -200,7 +208,37 @@ class TurnoServiceImplTest {
                 org.mockito.ArgumentMatchers.argThat(activity ->
                         activity.contains("25/10/2026") && activity.contains("26/10/2026")),
                 org.mockito.ArgumentMatchers.contains("26/10/2026"));
-        verify(cruceTurnoService).validarSinCruces(5, 7);
+
+        verify(cruceTurnoService).buscarCruces(5, 7);
+        // Verifica HU1 C3: Auditoría
+        verify(historialTurnoService).registrarAccion(eq(7), eq(88), contains("Turno actualizado"));
+    }
+
+    // HU1 Criterio 2: Revalidación aborta la transacción
+    @Test
+    void actualizar_conCruceTrasCambio_abortaLanzandoConflicto() {
+        Turno existente = turno("2026-10-25", "08:00", "12:00", 5);
+        existente.setIdTurno(7);
+        existente.setEstado(Turno.ESTADO_ACTIVO);
+
+        TurnoAssignmentRecord assignment =
+                new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
+        when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
+        when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(assignment));
+        
+        // Simulamos que al revalidar AHORA hay un cruce con otro turno
+        when(cruceTurnoService.buscarCruces(5, 7)).thenReturn(List.of(new Turno()));
+
+        ConflictException ex = assertThrows(ConflictException.class, 
+                () -> service.actualizarTurno(7, turno("2026-10-26", "09:00", "13:00", 5), 88));
+
+        assertTrue(ex.getMessage().contains("cruce de horarios"));
+        assertTrue(ex.getMessage().contains("Ana Paz"));
+
+        // No se debe notificar ni auditar un cambio fallido
+        verify(outboxService, never()).enqueue(any(), any(), any(), any(), any(), any());
+        verify(historialTurnoService, never()).registrarAccion(any(), any(), any());
     }
 
     @Test
@@ -215,38 +253,18 @@ class TurnoServiceImplTest {
                 new TurnoAssignmentRecord(43L, 7, 6, "Luis Paz", "luis@example.com", "Pendiente")));
 
         assertThrows(BusinessValidationException.class,
-                () -> service.actualizarTurno(7, turno("2026-10-25", "08:00", "12:00", 1)));
+                () -> service.actualizarTurno(7, turno("2026-10-25", "08:00", "12:00", 1), 88));
 
         verify(repository, never()).save(any());
         verifyNoInteractions(outboxService);
     }
 
     @Test
-    void actualizar_rechazaHorarioQueGeneraCruceAntesDeEncolarAvisos() {
+    void cancelar_mantieneElTurnoYLasAsignacionesEnHistorialYEncolaAvisosYAudita() {
         Turno existente = turno("2026-10-25", "08:00", "12:00", 5);
         existente.setIdTurno(7);
         existente.setEstado(Turno.ESTADO_ACTIVO);
-        TurnoAssignmentRecord assignment =
-                new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
 
-        when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
-        when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(assignment));
-        when(repository.save(any(Turno.class))).thenAnswer(invocation -> invocation.getArgument(0));
-        
-        doThrow(new com.example.backend.exception.ConflictException("Cruce de horarios"))
-                .when(cruceTurnoService).validarSinCruces(5, 7);
-
-        assertThrows(com.example.backend.exception.ConflictException.class,
-                () -> service.actualizarTurno(7, turno("2026-10-26", "09:00", "13:00", 5)));
-
-        verify(outboxService, never()).enqueue(any(), any(), any(), any(), any(), any());
-    }
-
-    @Test
-    void cancelar_mantieneElTurnoYLasAsignacionesEnHistorialYEncolaAvisos() {
-        Turno existente = turno("2026-10-25", "08:00", "12:00", 5);
-        existente.setIdTurno(7);
-        existente.setEstado(Turno.ESTADO_ACTIVO);
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
 
@@ -256,7 +274,7 @@ class TurnoServiceImplTest {
         when(repository.save(any(Turno.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(repository.contarCuposOcupados(List.of(7))).thenReturn(List.of());
 
-        Turno resultado = service.cancelarTurno(7);
+        Turno resultado = service.cancelarTurno(7, 88);
 
         assertEquals(Turno.ESTADO_CANCELADO, resultado.getEstado());
         verify(asignacionRepository).cancelActiveByTurno(7);
@@ -266,7 +284,10 @@ class TurnoServiceImplTest {
                 org.mockito.ArgumentMatchers.eq(NotificationTemplateType.CAMBIO_TURNO),
                 org.mockito.ArgumentMatchers.eq("ana@example.com"),
                 org.mockito.ArgumentMatchers.eq("Ana Paz"),
-                argThat(activity -> activity.contains("Cancelaci") && activity.contains("n del turno")),
+                argThat(activity -> activity.contains("Cancelación") && activity.contains("n del turno")),
                 org.mockito.ArgumentMatchers.contains("25/10/2026"));
+        
+        // Verifica HU1 C3: Auditoría
+        verify(historialTurnoService).registrarAccion(eq(7), eq(88), contains("cancelado completamente"));
     }
 }

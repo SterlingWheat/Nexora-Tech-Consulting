@@ -17,6 +17,8 @@ import com.example.backend.service.CruceTurnoService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -33,6 +35,7 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
     private final DisponibilidadRepository disponibilidadRepository;
     private final CruceTurnoService cruceTurnoService;
     private final NotificationOutboxService outboxService;
+    private final Clock clock;
 
     public AsignacionTurnoServiceImpl(
             AsignacionTurnoRepository asignacionRepository,
@@ -40,13 +43,15 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
             VoluntarioRepository voluntarioRepository,
             DisponibilidadRepository disponibilidadRepository,
             CruceTurnoService cruceTurnoService,
-            NotificationOutboxService outboxService) {
+            NotificationOutboxService outboxService,
+            Clock clock) {
         this.asignacionRepository = asignacionRepository;
         this.turnoRepository = turnoRepository;
         this.voluntarioRepository = voluntarioRepository;
         this.disponibilidadRepository = disponibilidadRepository;
         this.cruceTurnoService = cruceTurnoService;
         this.outboxService = outboxService;
+        this.clock = clock;
     }
 
     @Override
@@ -87,15 +92,15 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
 
             if (asignacionRepository.existsActiveByTurnoAndVoluntario(idTurno, idVoluntario)) {
                 throw new BusinessValidationException(
-                        "El voluntario ya tiene una asignaci n vigente para este turno.");
+                        "El voluntario ya tiene una asignación vigente para este turno.");
             }
 
             cruceTurnoService.validarSinCruces(idVoluntario, idTurno);
 
-            // KAN-31 Criterio 3: advierte (no bloquea) si el voluntario no declaró disponibilidad para esta franja
             boolean disponible = disponibilidadRepository
                     .existsByVoluntarioIdVoluntarioAndDiaSemanaAndHoraInicioLessThanEqualAndHoraFinGreaterThanEqual(
                             idVoluntario, diaTurno, turno.getHoraInicio(), turno.getHoraFin());
+
             if (!disponible) {
                 advertencias.add("El voluntario " + nombreCompleto(voluntario)
                         + " no tiene disponibilidad declarada para el horario de este turno.");
@@ -128,26 +133,51 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
 
     @Override
     @Transactional
-    public void cancelarAsignacion(Integer idTurno, Long idAsignacion) {
+    public void confirmarAsignacion(Integer idTurno, Long idAsignacion) {
         Turno turno = turnoRepository.findByIdForUpdate(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
-        
+                
         validarTurnoActivo(turno);
 
         TurnoAssignmentRecord asignacion = asignacionRepository.findActiveByIdAndTurno(idAsignacion, idTurno)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontr  una asignaci n vigente."));
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró una asignación vigente."));
+
+        // HU2 Criterio 1: Confirmar asignación
+        if (asignacionRepository.confirmByIdAndTurno(idAsignacion, idTurno) != 1) {
+            throw new BusinessValidationException("La asignación no pudo ser confirmada.");
+        }
+    }
+
+    @Override
+    @Transactional
+    public void cancelarAsignacion(Integer idTurno, Long idAsignacion) {
+        Turno turno = turnoRepository.findByIdForUpdate(idTurno)
+                .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+
+        validarTurnoActivo(turno);
+
+        // HU2 Criterio 3: El sistema impide cancelar si el turno ya ha iniciado
+        LocalDateTime ahora = LocalDateTime.now(clock);
+        LocalDateTime inicioTurno = LocalDateTime.of(turno.getFecha(), turno.getHoraInicio());
+        if (!ahora.isBefore(inicioTurno)) {
+            throw new BusinessValidationException("No se puede cancelar la asignación porque el turno ya ha iniciado.");
+        }
+
+        TurnoAssignmentRecord asignacion = asignacionRepository.findActiveByIdAndTurno(idAsignacion, idTurno)
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontró una asignación vigente."));
 
         outboxService.enqueue(
                 "shift-assignment-cancellation:" + asignacion.idAsignacion(),
-                NotificationTemplateType.CAMBIO_TURNO,
+                NotificationTemplateType.CAMBIO_TURNO, // Usa plantilla de cambio/cancelación
                 asignacion.email(),
                 asignacion.nombreVoluntario(),
-                "Cancelaci n de asignaci n para el turno de " + turno.getActividad()
+                "Cancelación de asignación para el turno de " + turno.getActividad()
                         + " (" + fechaHorario(turno) + ")",
                 fechaHorario(turno));
 
+        // HU2 Criterio 2: Al cancelar, el cupo se libera
         if (asignacionRepository.cancelByIdAndTurno(idAsignacion, idTurno) != 1) {
-            throw new BusinessValidationException("La asignaci n cambi  antes de poder cancelarse.");
+            throw new BusinessValidationException("La asignación cambió antes de poder cancelarse.");
         }
     }
 
@@ -159,13 +189,13 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
 
     private void validarVoluntario(Voluntario voluntario) {
         if (!Boolean.TRUE.equals(voluntario.getActivo())) {
-            throw new BusinessValidationException("El voluntario no est  activo y no puede ser asignado.");
+            throw new BusinessValidationException("El voluntario no está activo y no puede ser asignado.");
         }
         if (voluntario.getEmail() == null || voluntario.getEmail().isBlank()) {
-            throw new BusinessValidationException("El voluntario no tiene un correo v lido para recibir la notificaci n.");
+            throw new BusinessValidationException("El voluntario no tiene un correo válido para recibir la notificación.");
         }
         if (nombreCompleto(voluntario).isBlank()) {
-            throw new BusinessValidationException("El voluntario no tiene un nombre v lido para la notificaci n.");
+            throw new BusinessValidationException("El voluntario no tiene un nombre válido para la notificación.");
         }
     }
 

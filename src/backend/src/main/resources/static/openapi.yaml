@@ -6,14 +6,12 @@ info:
 servers:
   - url: http://localhost:8080
     description: Servidor Local
-
 components:
   securitySchemes:
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
-  
   schemas:
     LoginRequest:
       type: object
@@ -186,10 +184,35 @@ components:
       properties:
         idCategoria: { type: integer }
         nombre: { type: string }
-
+    AsignacionTurnoRequestDTO:
+      type: object
+      required: [idVoluntarios]
+      properties:
+        idVoluntarios:
+          type: array
+          items:
+            type: integer
+    AsignacionTurnoResponseDTO:
+      type: object
+      properties:
+        idAsignacion: { type: integer }
+        idTurno: { type: integer }
+        idVoluntario: { type: integer }
+        nombreVoluntario: { type: string }
+        estado: { type: string }
+    AsignacionTurnoResultadoDTO:
+      type: object
+      properties:
+        asignaciones:
+          type: array
+          items:
+            $ref: '#/components/schemas/AsignacionTurnoResponseDTO'
+        advertencias:
+          type: array
+          items:
+            type: string
 security:
   - bearerAuth: []
-
 paths:
   /api/admin/email/test:
     post:
@@ -250,7 +273,6 @@ paths:
           description: Credenciales inválidas
         '403':
           description: Usuario Inactivo
-
   /api/perfil/me:
     get:
       tags: [Perfil]
@@ -264,7 +286,6 @@ paths:
                 $ref: '#/components/schemas/UsuarioResponse'
         '404':
           description: No encontrado
-
   /api/usuarios:
     get:
       tags: [Usuarios]
@@ -303,7 +324,6 @@ paths:
           description: Datos inválidos
         '409':
           description: Conflicto (Correo ya registrado)
-
   /api/usuarios/{id}:
     get:
       tags: [Usuarios]
@@ -339,7 +359,6 @@ paths:
       responses:
         '200':
           description: Usuario actualizado exitosamente
-
   /api/usuarios/{id}/desactivar:
     put:
       tags: [Usuarios]
@@ -353,7 +372,6 @@ paths:
       responses:
         '200':
           description: Usuario desactivado
-
   /api/usuarios/{id}/activar:
     put:
       tags: [Usuarios]
@@ -367,7 +385,6 @@ paths:
       responses:
         '200':
           description: Usuario activado
-
   /api/voluntarios:
     get:
       tags: [Voluntarios]
@@ -397,7 +414,6 @@ paths:
           description: Datos inválidos
         '409':
           description: Conflicto (Documento o correo duplicado)
-
   /api/voluntarios/{id}:
     get:
       tags: [Voluntarios]
@@ -429,7 +445,6 @@ paths:
       responses:
         '200':
           description: Voluntario actualizado
-
   /api/voluntarios/{id}/detalle:
     get:
       tags: [Voluntarios]
@@ -447,7 +462,6 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VoluntarioResponseDTO'
-
   /api/voluntarios/{id}/habilitar-acceso:
     post:
       tags: [Voluntarios]
@@ -467,7 +481,6 @@ paths:
       responses:
         '200':
           description: Acceso habilitado exitosamente
-
   /api/voluntarios/{id}/activar:
     put:
       tags: [Voluntarios]
@@ -481,7 +494,6 @@ paths:
       responses:
         '200':
           description: Voluntario activado exitosamente
-
   /api/voluntarios/{id}/desactivar:
     put:
       tags: [Voluntarios]
@@ -495,7 +507,6 @@ paths:
       responses:
         '200':
           description: Voluntario desactivado exitosamente
-
   /api/voluntarios/{idVoluntario}/disponibilidad:
     get:
       tags: [Disponibilidad]
@@ -531,7 +542,6 @@ paths:
       responses:
         '200':
           description: Disponibilidad guardada
-
   /api/voluntarios/{idVoluntario}/turnos/{idTurno}/validacion-cruce:
     get:
       tags: [Turnos]
@@ -552,7 +562,6 @@ paths:
           description: Sin cruces (permitido)
         '409':
           description: Hay cruce de horarios
-
   /api/turnos:
     get:
       tags: [Turnos]
@@ -578,7 +587,6 @@ paths:
       responses:
         '201':
           description: Turno creado
-
   /api/turnos/{id}:
     get:
       tags: [Turnos]
@@ -596,7 +604,126 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/TurnoResponseDTO'
-
+    put:
+      tags: [Turnos]
+      summary: Actualizar y reprogramar turno (Revalida cruces)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TurnoRequestDTO'
+      responses:
+        '200':
+          description: Turno actualizado correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnoResponseDTO'
+        '409':
+          description: Conflicto por cruce de horarios con voluntarios asignados
+  /api/turnos/{id}/cancelar:
+    post:
+      tags: [Turnos]
+      summary: Cancelar un turno
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Turno cancelado exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TurnoResponseDTO'
+  /api/turnos/{idTurno}/asignaciones:
+    get:
+      tags: [Asignaciones Turno]
+      summary: Listar asignaciones de voluntarios de un turno
+      parameters:
+        - name: idTurno
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Asignaciones devueltas
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AsignacionTurnoResponseDTO'
+    post:
+      tags: [Asignaciones Turno]
+      summary: Asignar voluntarios a un turno
+      parameters:
+        - name: idTurno
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AsignacionTurnoRequestDTO'
+      responses:
+        '201':
+          description: Voluntarios asignados correctamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AsignacionTurnoResultadoDTO'
+  /api/turnos/{idTurno}/asignaciones/{idAsignacion}/confirmar:
+    patch:
+      tags: [Asignaciones Turno]
+      summary: Confirmar la participación de un voluntario en el turno
+      parameters:
+        - name: idTurno
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: idAsignacion
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Asignación confirmada
+  /api/turnos/{idTurno}/asignaciones/{idAsignacion}/cancelar:
+    post:
+      tags: [Asignaciones Turno]
+      summary: Cancelar la participación de un voluntario (libera cupo)
+      parameters:
+        - name: idTurno
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: idAsignacion
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '204':
+          description: Asignación cancelada
+        '400':
+          description: Error porque el turno ya inició o datos inválidos
   /api/tareas:
     get:
       tags: [Tareas]
@@ -622,7 +749,6 @@ paths:
       responses:
         '201':
           description: Tarea creada
-
   /api/tareas/filtrar:
     get:
       tags: [Tareas]
@@ -658,7 +784,6 @@ paths:
       responses:
         '200':
           description: Página de tareas devuelta
-
   /api/tareas/categorias:
     get:
       tags: [Tareas]
@@ -672,7 +797,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/CategoriaTarea'
-
   /api/tareas/{id}:
     put:
       tags: [Tareas]
@@ -692,7 +816,6 @@ paths:
       responses:
         '200':
           description: Tarea actualizada exitosamente
-
   /api/tareas/{id}/estado:
     patch:
       tags: [Tareas]
@@ -712,7 +835,6 @@ paths:
       responses:
         '200':
           description: Estado actualizado
-
   /api/tareas/{idTarea}/asignaciones:
     get:
       tags: [Asignaciones]
@@ -750,7 +872,6 @@ paths:
       responses:
         '201':
           description: Voluntarios asignados correctamente
-
   /api/tareas/{idTarea}/historial:
     get:
       tags: [Historial]

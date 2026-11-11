@@ -18,8 +18,11 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -37,21 +40,20 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class AsignacionTurnoServiceImplTest {
 
+    private static final ZoneId ZONA = ZoneId.of("America/La_Paz");
+    // "Ahora" fijo: 2026-10-23 10:00 hora de La Paz (Dos días antes del turno de prueba por defecto)
+    private static final Clock RELOJ = Clock.fixed(Instant.parse("2026-10-23T14:00:00Z"), ZONA);
+
     @Mock
     private AsignacionTurnoRepository asignacionRepository;
-
     @Mock
     private TurnoRepository turnoRepository;
-
     @Mock
     private VoluntarioRepository voluntarioRepository;
-
     @Mock
     private DisponibilidadRepository disponibilidadRepository;
-
     @Mock
     private CruceTurnoService cruceTurnoService;
-
     @Mock
     private NotificationOutboxService outboxService;
 
@@ -65,7 +67,8 @@ class AsignacionTurnoServiceImplTest {
                 voluntarioRepository,
                 disponibilidadRepository,
                 cruceTurnoService,
-                outboxService);
+                outboxService,
+                RELOJ);
     }
 
     // El turno de prueba cae en domingo (25/10/2026); por defecto el voluntario SÍ tiene disponibilidad declarada
@@ -94,6 +97,7 @@ class AsignacionTurnoServiceImplTest {
 
         assertEquals(List.of(created), resultado.asignaciones());
         assertTrue(resultado.advertencias().isEmpty());
+
         verify(asignacionRepository).create(7, 5);
         verify(cruceTurnoService).validarSinCruces(5, 7);
         verify(outboxService).enqueue(
@@ -105,7 +109,6 @@ class AsignacionTurnoServiceImplTest {
                 eq("25/10/2026 08:00"));
     }
 
-    // KAN-31 Criterio 3: sin disponibilidad declarada, el sistema advierte pero igual asigna
     @Test
     void asignarAdvierteSinBloquearCuandoElVoluntarioNoTieneDisponibilidadDeclarada() {
         Turno turno = turnoActivo();
@@ -125,6 +128,7 @@ class AsignacionTurnoServiceImplTest {
         assertEquals(List.of(created), resultado.asignaciones());
         assertEquals(1, resultado.advertencias().size());
         assertTrue(resultado.advertencias().get(0).contains("Ana Paz"));
+
         verify(asignacionRepository).create(7, 5);
         verify(outboxService).enqueue(any(), any(), any(), any(), any(), any());
     }
@@ -156,7 +160,6 @@ class AsignacionTurnoServiceImplTest {
         verifyNoInteractions(voluntarioRepository, outboxService);
     }
 
-    // KAN-31 Criterio 2 (límite exacto): con el último cupo libre, la asignación sí procede
     @Test
     void asignarProcedeCuandoUsaElUltimoCupoLibre() {
         Turno turno = turnoActivo();
@@ -172,7 +175,6 @@ class AsignacionTurnoServiceImplTest {
         when(asignacionRepository.create(7, 5)).thenReturn(created);
 
         AsignacionTurnoService.ResultadoAsignacionTurno resultado = service.asignarVoluntarios(7, List.of(5));
-
         assertEquals(List.of(created), resultado.asignaciones());
     }
 
@@ -192,8 +194,8 @@ class AsignacionTurnoServiceImplTest {
 
         BusinessValidationException ex = assertThrows(BusinessValidationException.class,
                 () -> service.asignarVoluntarios(7, List.of(5)));
+        assertEquals("El voluntario no está activo y no puede ser asignado.", ex.getMessage());
 
-        assertEquals("El voluntario no est  activo y no puede ser asignado.", ex.getMessage());
         verify(asignacionRepository, never()).create(any(), any());
         verifyNoInteractions(outboxService, cruceTurnoService);
     }
@@ -204,6 +206,7 @@ class AsignacionTurnoServiceImplTest {
         when(asignacionRepository.countActiveByTurno(7)).thenReturn(0);
         when(asignacionRepository.existsActiveByTurnoAndVoluntario(7, 5)).thenReturn(false);
         when(voluntarioRepository.findById(5)).thenReturn(Optional.of(voluntario()));
+
         org.mockito.Mockito.doThrow(new BusinessValidationException("Cruce de horarios"))
                 .when(cruceTurnoService).validarSinCruces(5, 7);
 
@@ -214,8 +217,25 @@ class AsignacionTurnoServiceImplTest {
         verifyNoInteractions(outboxService);
     }
 
+    // HU2 Criterio 1: Confirmar asignación
     @Test
-    void cancelarAsignacionNotificaYActualizaEstadoSinEliminarRegistro() {
+    void confirmarAsignacion_actualizaEstadoExitosamente() {
+        TurnoAssignmentRecord assignment =
+                new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
+        when(asignacionRepository.findActiveByIdAndTurno(100L, 7)).thenReturn(Optional.of(assignment));
+        when(asignacionRepository.confirmByIdAndTurno(100L, 7)).thenReturn(1);
+
+        service.confirmarAsignacion(7, 100L);
+
+        verify(asignacionRepository).confirmByIdAndTurno(100L, 7);
+    }
+
+    // HU2 Criterios 2 y 3: Cancelar antes de iniciar
+    @Test
+    void cancelarAsignacion_turnoNoIniciado_NotificaYActualizaEstadoSinEliminarRegistro() {
+        // turnoActivo() empieza el 2026-10-25 (el reloj está en 2026-10-23, válido)
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
 
@@ -230,11 +250,33 @@ class AsignacionTurnoServiceImplTest {
                 eq(NotificationTemplateType.CAMBIO_TURNO),
                 eq("ana@example.com"),
                 eq("Ana Paz"),
-                argThat(activity -> activity.contains("Cancelaci") && activity.contains("n")),
+                argThat(activity -> activity.contains("Cancelación") && activity.contains("asignación")),
                 eq("25/10/2026 08:00 - 12:00"));
-                
+
         verify(asignacionRepository).cancelByIdAndTurno(100L, 7);
         verify(asignacionRepository, never()).create(any(), any());
+    }
+
+    // HU2 Criterio 3: Cancelar cuando el turno YA inició bloquea la acción
+    @Test
+    void cancelarAsignacion_turnoYaIniciado_lanzaExcepcionBloqueante() {
+        Turno turnoIniciado = Turno.builder()
+                .idTurno(7)
+                .fecha(LocalDate.of(2026, 10, 23)) // Mismo día que RELOJ (2026-10-23 10:00:00)
+                .horaInicio(LocalTime.of(9, 0))    // Turno inició hace una hora
+                .horaFin(LocalTime.of(12, 0))
+                .actividad("Clasificar")
+                .estado(Turno.ESTADO_ACTIVO)
+                .cuposTotales(5)
+                .build();
+
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoIniciado));
+
+        BusinessValidationException ex = assertThrows(BusinessValidationException.class, 
+                () -> service.cancelarAsignacion(7, 100L));
+        
+        assertEquals("No se puede cancelar la asignación porque el turno ya ha iniciado.", ex.getMessage());
+        verify(asignacionRepository, never()).cancelByIdAndTurno(any(), any());
     }
 
     private Turno turnoActivo() {

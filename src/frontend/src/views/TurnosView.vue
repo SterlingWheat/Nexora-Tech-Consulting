@@ -87,6 +87,8 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal inyectado para gestionar confirmaciones y cancelaciones de asignación -->
     <AsignacionesTurnoModal
       :visible="mostrarAsignaciones"
       :turno="turnoSeleccionado"
@@ -105,10 +107,13 @@ import AsignacionesTurnoModal from '../components/AsignacionesTurnoModal.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
 const puedeGestionar = computed(() => ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol))
+
 const turnos = ref([])
 const cargando = ref(true)
 const error = ref('')
+
 const mostrarAsignaciones = ref(false)
 const turnoSeleccionado = ref(null)
 
@@ -131,7 +136,7 @@ const recortar = (hora) => (hora ? hora.slice(0, 5) : '')
 
 // Se arma la fecha en local para no desfasar un día por la zona horaria
 const formatearFecha = (fecha) => {
-  if (!fecha) return '—'
+  if (!fecha) return ''
   const [a, m, d] = fecha.split('-').map(Number)
   return new Date(a, m - 1, d).toLocaleDateString('es-BO', { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' })
 }
@@ -163,17 +168,14 @@ const cancelarTurno = async (turno) => {
   padding: 75px 24px 100px;
   background: radial-gradient(ellipse at 100% 0%, rgba(241, 205, 183, 0.25), transparent 42%), var(--crema-claro);
 }
-
 .turnos-contenedor { width: min(1150px, 100%); margin: auto; }
 .turnos-encabezado { max-width: 720px; margin-bottom: 40px; }
-
 .turnos-etiqueta {
   font-size: 10px;
   font-weight: 700;
   color: var(--verde-oscuro);
   letter-spacing: 2px;
 }
-
 .turnos-encabezado h1 {
   margin: 18px 0;
   font-family: "DM Serif Display", serif;
@@ -181,16 +183,13 @@ const cancelarTurno = async (turno) => {
   font-size: clamp(40px, 5vw, 65px);
   color: var(--texto);
 }
-
 .turnos-encabezado h1 em { color: var(--verde-oscuro); }
-
 .turnos-encabezado p {
   max-width: 630px;
   color: var(--texto-suave);
   font-size: 14px;
   line-height: 1.9;
 }
-
 .turnos-tarjeta {
   padding: 30px;
   background: white;
@@ -198,7 +197,6 @@ const cancelarTurno = async (turno) => {
   border-radius: 23px;
   box-shadow: 0 15px 50px rgba(81, 72, 62, 0.04);
 }
-
 .turnos-tarjeta-encabezado {
   display: flex;
   align-items: center;
@@ -206,16 +204,13 @@ const cancelarTurno = async (turno) => {
   gap: 20px;
   margin-bottom: 28px;
 }
-
 .turnos-tarjeta-encabezado h2 {
   font-family: "DM Serif Display", serif;
   font-size: 27px;
   font-weight: 400;
   color: var(--texto);
 }
-
 .turnos-tarjeta-encabezado p { margin-top: 7px; font-size: 12px; color: var(--texto-suave); }
-
 .turnos-boton-nuevo {
   padding: 12px 24px;
   border-radius: 30px;
@@ -227,15 +222,12 @@ const cancelarTurno = async (turno) => {
   cursor: pointer;
   transition: transform 0.2s, background 0.2s;
 }
-
 .turnos-boton-nuevo:hover { transform: translateY(-2px); background: var(--salvia); }
-
 .turnos-mensaje { text-align: center; padding: 40px; color: var(--texto-suave); font-size: 14px; }
 .turnos-mensaje-error { color: #A34D41; }
 
 .turnos-tabla-contenedor { overflow-x: auto; }
 .turnos-tabla { width: 100%; border-collapse: collapse; text-align: left; }
-
 .turnos-tabla th {
   padding: 16px;
   background: var(--crema-claro);
@@ -244,10 +236,8 @@ const cancelarTurno = async (turno) => {
   font-weight: 700;
   white-space: nowrap;
 }
-
 .turnos-tabla th:first-child { border-radius: 10px 0 0 10px; }
 .turnos-tabla th:last-child { border-radius: 0 10px 10px 0; }
-
 .turnos-tabla td {
   padding: 22px 16px;
   border-bottom: 1px solid var(--crema);
@@ -255,7 +245,6 @@ const cancelarTurno = async (turno) => {
   font-size: 13px;
   color: var(--texto);
 }
-
 .turnos-badge {
   display: inline-flex;
   padding: 8px 13px;
@@ -264,13 +253,14 @@ const cancelarTurno = async (turno) => {
   font-weight: 700;
   white-space: nowrap;
 }
-
 .badge-disponible { background: #E8F2E5; color: #50704B; }
 .badge-lleno { background: #FFF0EB; color: #A34D41; }
 .turnos-total { margin-left: 8px; color: var(--texto-suave); }
+
 .estado-turno { display: inline-flex; padding: 7px 10px; border-radius: 20px; font-size: 10px; font-weight: 700; }
 .estado-activo { background: #E8F2E5; color: #50704B; }
 .estado-cancelado { background: #FFF0EB; color: #A34D41; }
+
 .turnos-acciones { white-space: nowrap; }
 .turnos-acciones button {
   margin: 3px;

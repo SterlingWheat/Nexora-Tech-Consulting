@@ -69,4 +69,22 @@ describe('turnoService', () => {
     const turnos = await turnoService.obtenerTurnos()
     expect(turnos[0]).toMatchObject({ cuposOcupados: 2, cuposLibres: 3 })
   })
+
+  // HU2 Criterio 1: Confirmar asignación
+  it('confirmarAsignacion usa PATCH para actualizar el estado', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, null))
+    vi.stubGlobal('fetch', fetchMock)
+    await turnoService.confirmarAsignacion(1, 30)
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/turnos\/1\/asignaciones\/30\/confirmar$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('PATCH')
+  })
+
+  // HU2 Criterios 2 y 3: Cancelar asignación
+  it('cancelarAsignacion usa POST para cancelar la asignación', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, null))
+    vi.stubGlobal('fetch', fetchMock)
+    await turnoService.cancelarAsignacion(1, 30)
+    expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/turnos\/1\/asignaciones\/30\/cancelar$/)
+    expect(fetchMock.mock.calls[0][1].method).toBe('POST')
+  })
 })
