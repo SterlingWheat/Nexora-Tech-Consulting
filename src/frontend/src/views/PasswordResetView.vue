@@ -1,10 +1,10 @@
 <template>
   <section class="restablecer-pagina">
     <form v-if="tokenValido && !restablecido" class="restablecer-tarjeta" @submit.prevent="restablecer">
-      <span class="restablecer-etiqueta">NEXORA TECH CONSULTING</span>
+      <span class="restablecer-etiqueta">CASA AMANDITA</span>
       <h1>Nueva contraseña</h1>
       <p>La contraseña debe tener al menos 8 caracteres.</p>
-
+      
       <label for="new-password">Nueva contraseña</label>
       <input
         id="new-password"
@@ -16,7 +16,7 @@
         maxlength="72"
         required
       >
-
+      
       <label for="confirm-password">Confirmar contraseña</label>
       <input
         id="confirm-password"
@@ -28,15 +28,16 @@
         maxlength="72"
         required
       >
-
+      
       <p v-if="error" class="restablecer-error" role="alert">{{ error }}</p>
+      
       <button type="submit" :disabled="cargando">
         {{ cargando ? 'Guardando...' : 'Restablecer contraseña' }}
       </button>
     </form>
 
     <div v-else class="restablecer-tarjeta" aria-live="polite">
-      <span class="restablecer-etiqueta">NEXORA TECH CONSULTING</span>
+      <span class="restablecer-etiqueta">CASA AMANDITA</span>
       <h1>{{ restablecido ? 'Contraseña actualizada' : 'Enlace no válido' }}</h1>
       <p>{{ mensaje }}</p>
       <RouterLink class="restablecer-enlace" to="/login">Volver al inicio de sesión</RouterLink>
@@ -51,6 +52,7 @@ import { passwordResetService } from '../services/passwordResetService'
 const token = new URLSearchParams(window.location.hash.slice(1)).get('token') || ''
 const tokenValido = ref(false)
 const restablecido = ref(false)
+
 const newPassword = ref('')
 const confirmPassword = ref('')
 const error = ref('')
@@ -62,7 +64,7 @@ onMounted(async () => {
     mensaje.value = 'Solicita un nuevo enlace de recuperación para continuar.'
     return
   }
-
+  
   try {
     await passwordResetService.validar(token)
     tokenValido.value = true
@@ -74,16 +76,19 @@ onMounted(async () => {
 
 const restablecer = async () => {
   error.value = ''
+  
   if (newPassword.value !== confirmPassword.value) {
     error.value = 'Las contraseñas no coinciden.'
     return
   }
+  
   if (newPassword.value.length < 8) {
     error.value = 'La contraseña debe tener al menos 8 caracteres.'
     return
   }
-
+  
   cargando.value = true
+  
   try {
     const response = await passwordResetService.restablecer(
       token,

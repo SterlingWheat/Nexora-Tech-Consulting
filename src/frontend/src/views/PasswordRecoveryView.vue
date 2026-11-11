@@ -1,10 +1,10 @@
 <template>
   <section class="recuperacion-pagina">
     <form class="recuperacion-tarjeta" @submit.prevent="solicitar">
-      <span class="recuperacion-etiqueta">NEXORA TECH CONSULTING</span>
+      <span class="recuperacion-etiqueta">CASA AMANDITA</span>
       <h1>Recuperar contraseña</h1>
       <p>Ingresa el correo asociado a tu cuenta y te enviaremos un enlace si está registrado.</p>
-
+      
       <label for="recovery-email">Correo electrónico</label>
       <input
         id="recovery-email"
@@ -16,12 +16,14 @@
         required
         placeholder="nombre@ejemplo.com"
       >
-
+      
       <p v-if="mensaje" class="recuperacion-mensaje" role="status">{{ mensaje }}</p>
       <p v-if="error" class="recuperacion-error" role="alert">{{ error }}</p>
+      
       <button type="submit" :disabled="cargando">
         {{ cargando ? 'Enviando...' : 'Enviar enlace' }}
       </button>
+      
       <RouterLink class="recuperacion-enlace" to="/login">Volver al inicio de sesión</RouterLink>
     </form>
   </section>
@@ -40,6 +42,7 @@ const solicitar = async () => {
   mensaje.value = ''
   error.value = ''
   cargando.value = true
+
   try {
     const response = await passwordResetService.solicitar(email.value)
     mensaje.value = response.message

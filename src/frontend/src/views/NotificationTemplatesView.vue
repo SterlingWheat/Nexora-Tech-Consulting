@@ -11,6 +11,7 @@
 
       <p v-if="cargando" class="plantillas-mensaje">Cargando plantillas...</p>
       <p v-else-if="errorCarga" class="plantillas-mensaje error" role="alert">{{ errorCarga }}</p>
+
       <template v-else>
         <div class="plantillas-layout">
           <nav class="plantillas-lista" aria-label="Plantillas disponibles">
@@ -42,17 +43,19 @@
               Asunto
               <input v-model="formulario.subject" maxlength="200" required>
             </label>
+
+            <!-- Se eliminó el campo de Contenido HTML para mejorar el diseño y evitar mostrar código. -->
             <label>
-              Contenido HTML
-              <textarea v-model="formulario.htmlBody" rows="10" required></textarea>
+              Contenido del mensaje
+              <textarea v-model="formulario.textBody" rows="10" required placeholder="Escribe el mensaje en texto plano..."></textarea>
             </label>
-            <label>
-              Texto plano
-              <textarea v-model="formulario.textBody" rows="7" required></textarea>
-            </label>
+            <p class="plantillas-ayuda">
+              El formato visual y HTML del correo será generado automáticamente por el sistema basado en este texto.
+            </p>
 
             <p v-if="mensajeGuardar" class="plantillas-mensaje exito" role="status">{{ mensajeGuardar }}</p>
             <p v-if="errorGuardar" class="plantillas-mensaje error" role="alert">{{ errorGuardar }}</p>
+
             <button class="plantillas-boton" type="submit" :disabled="guardando">
               {{ guardando ? 'Guardando...' : 'Guardar cambios' }}
             </button>
@@ -64,6 +67,7 @@
             <h2>Enviar con esta plantilla</h2>
             <p>Usa datos reales para enviar la versión guardada mediante el SMTP configurado.</p>
           </div>
+
           <div class="plantillas-envio-campos">
             <label>
               Correo destinatario
@@ -82,8 +86,10 @@
               <input v-model="destinatario.date" required maxlength="100">
             </label>
           </div>
+
           <p v-if="mensajeEnvio" class="plantillas-mensaje exito" role="status">{{ mensajeEnvio }}</p>
           <p v-if="errorEnvio" class="plantillas-mensaje error" role="alert">{{ errorEnvio }}</p>
+
           <button
             class="plantillas-boton secundario"
             type="submit"
@@ -91,6 +97,7 @@
           >
             {{ enviando ? 'Enviando...' : 'Enviar correo' }}
           </button>
+          
           <p v-if="hayCambiosSinGuardar" class="plantillas-ayuda">
             Guarda los cambios antes de enviar para usar la versión actualizada.
           </p>
@@ -111,28 +118,30 @@ const plantillas = ref([])
 const seleccionada = ref('')
 const cargando = ref(true)
 const errorCarga = ref('')
+
 const guardando = ref(false)
 const enviando = ref(false)
 const errorGuardar = ref('')
 const mensajeGuardar = ref('')
 const errorEnvio = ref('')
 const mensajeEnvio = ref('')
-const formulario = reactive({ subject: '', htmlBody: '', textBody: '', active: true })
+
+const formulario = reactive({ subject: '', textBody: '', active: true })
 const destinatario = reactive({ recipient: '', name: '', activity: '', date: '' })
+
 const plantillaActual = computed(() =>
   plantillas.value.find((plantilla) => plantilla.templateType === seleccionada.value)
 )
+
 const hayCambiosSinGuardar = computed(() => {
   if (!plantillaActual.value) return false
   return formulario.subject !== plantillaActual.value.subject
-    || formulario.htmlBody !== plantillaActual.value.htmlBody
     || formulario.textBody !== plantillaActual.value.textBody
     || formulario.active !== plantillaActual.value.active
 })
 
 const copiarAlFormulario = (plantilla) => {
   formulario.subject = plantilla.subject
-  formulario.htmlBody = plantilla.htmlBody
   formulario.textBody = plantilla.textBody
   formulario.active = plantilla.active
 }
@@ -141,6 +150,7 @@ const seleccionar = (tipo) => {
   seleccionada.value = tipo
   const plantilla = plantillas.value.find((item) => item.templateType === tipo)
   if (plantilla) copiarAlFormulario(plantilla)
+  
   errorGuardar.value = ''
   mensajeGuardar.value = ''
   errorEnvio.value = ''
@@ -160,19 +170,42 @@ const cargar = async () => {
   }
 }
 
+const generarHtml = (textoPuro) => {
+  if (!textoPuro) return '<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;line-height:1.6">\n</body></html>'
+  const lineas = textoPuro.split('\n')
+  let html = '<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;line-height:1.6">\n'
+  
+  html += lineas.map(linea => {
+    const lim = linea.trim()
+    if (!lim) return ''
+    if (lim.startsWith('# ')) {
+      return `<h1>${lim.substring(2)}</h1>`
+    }
+    return `<p>${lim}</p>`
+  }).filter(Boolean).join('\n')
+  
+  html += '\n</body></html>'
+  return html
+}
+
 const guardar = async () => {
   guardando.value = true
   errorGuardar.value = ''
   mensajeGuardar.value = ''
+  
   try {
+    const htmlGenerado = generarHtml(formulario.textBody)
+    
     const guardada = await notificationTemplateService.actualizar(seleccionada.value, {
       subject: formulario.subject,
-      htmlBody: formulario.htmlBody,
+      htmlBody: htmlGenerado,
       textBody: formulario.textBody,
       active: formulario.active
     })
+    
     const index = plantillas.value.findIndex((item) => item.templateType === guardada.templateType)
     if (index >= 0) plantillas.value[index] = guardada
+    
     copiarAlFormulario(guardada)
     mensajeGuardar.value = 'Plantilla guardada. Los siguientes envíos usarán esta versión.'
   } catch (error) {
@@ -186,6 +219,7 @@ const enviar = async () => {
   enviando.value = true
   errorEnvio.value = ''
   mensajeEnvio.value = ''
+  
   try {
     await notificationTemplateService.enviar(seleccionada.value, { ...destinatario })
     mensajeEnvio.value = 'El servidor SMTP aceptó el mensaje para envío.'
@@ -205,7 +239,6 @@ onMounted(cargar)
   padding: 64px 24px 90px;
   background: radial-gradient(ellipse at 100% 0%, rgba(241, 205, 183, 0.25), transparent 42%), var(--crema-claro);
 }
-
 .plantillas-contenedor { width: min(1120px, 100%); margin: auto; }
 .plantillas-etiqueta { font-size: 10px; font-weight: 700; color: var(--verde-oscuro); letter-spacing: 2px; }
 .plantillas-contenedor h1 { margin: 18px 0; font-family: "DM Serif Display", serif; font-weight: 400; font-size: clamp(38px, 5vw, 58px); }
@@ -242,7 +275,6 @@ onMounted(cargar)
   .plantillas-lista { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .plantillas-lista button { display: grid; }
 }
-
 @media (max-width: 560px) {
   .plantillas-envio-campos { grid-template-columns: 1fr; }
 }
