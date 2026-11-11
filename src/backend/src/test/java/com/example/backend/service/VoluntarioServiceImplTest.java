@@ -2,6 +2,7 @@ package com.example.backend.service;
 
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Voluntario;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
@@ -13,12 +14,19 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -136,5 +144,56 @@ class VoluntarioServiceImplTest {
 
         assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo()));
         verify(repository, never()).save(any());
+    }
+
+    // KAN-27 Criterio 1: búsqueda por texto delegada al repositorio, normalizando espacios
+    @Test
+    void buscarVoluntarios_conTextoConEspacios_loNormalizaAntesDeConsultar() {
+        Pageable pageable = PageRequest.of(0, 10);
+        Page<Voluntario> pagina = new PageImpl<>(List.of(nuevo()), pageable, 1);
+        when(repository.buscarVoluntarios(eq("ana"), isNull(), isNull(), eq(pageable))).thenReturn(pagina);
+
+        Page<Voluntario> resultado = service.buscarVoluntarios("  ana  ", null, null, pageable);
+
+        assertEquals(1, resultado.getTotalElements());
+        verify(repository).buscarVoluntarios("ana", null, null, pageable);
+    }
+
+    // KAN-27 Criterio 1: un texto vacío o en blanco no debe filtrar (se envía null al repositorio)
+    @Test
+    void buscarVoluntarios_conTextoEnBlanco_envianNullAlRepositorio() {
+        Pageable pageable = PageRequest.of(0, 10);
+        when(repository.buscarVoluntarios(isNull(), isNull(), isNull(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        service.buscarVoluntarios("   ", null, null, pageable);
+
+        verify(repository).buscarVoluntarios(null, null, null, pageable);
+    }
+
+    // KAN-27 Criterio 2: filtros de estado y disponibilidad se propagan tal cual al repositorio
+    @Test
+    void buscarVoluntarios_conFiltrosDeEstadoYDisponibilidad_losPropagaAlRepositorio() {
+        Pageable pageable = PageRequest.of(0, 10);
+        when(repository.buscarVoluntarios(isNull(), eq(true), eq(DiaSemana.LUNES), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        service.buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
+
+        verify(repository).buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
+    }
+
+    // KAN-27 Criterio 3: el resultado conserva la metadata de paginación del repositorio
+    @Test
+    void buscarVoluntarios_devuelveLaPaginaTalComoLaEntregaElRepositorio() {
+        Pageable pageable = PageRequest.of(2, 10);
+        Page<Voluntario> pagina = new PageImpl<>(List.of(nuevo(), nuevo()), pageable, 37);
+        when(repository.buscarVoluntarios(any(), any(), any(), eq(pageable))).thenReturn(pagina);
+
+        Page<Voluntario> resultado = service.buscarVoluntarios(null, null, null, pageable);
+
+        assertEquals(37, resultado.getTotalElements());
+        assertEquals(4, resultado.getTotalPages());
+        assertEquals(2, resultado.getNumber());
     }
 }

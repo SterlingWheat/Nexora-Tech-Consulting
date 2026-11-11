@@ -3,6 +3,7 @@ package com.example.backend.service.impl;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.model.DiaSemana;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
 import com.example.backend.model.Voluntario;
@@ -12,6 +13,8 @@ import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.VoluntarioService;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -170,6 +173,14 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     public Voluntario obtenerVoluntarioPorId(Integer idVoluntario) {
         return voluntarioRepository.findById(idVoluntario)
                 .orElseThrow(() -> new ResourceNotFoundException("Voluntario no encontrado con ID: " + idVoluntario));
+    }
+
+    // KAN-27 Criterios 1, 2 y 3: delega el filtrado y la paginación a la base de datos
+    @Override
+    @Transactional(readOnly = true)
+    public Page<Voluntario> buscarVoluntarios(String texto, Boolean activo, DiaSemana diaSemana, Pageable pageable) {
+        String textoNormalizado = (texto == null || texto.isBlank()) ? null : texto.trim();
+        return voluntarioRepository.buscarVoluntarios(textoNormalizado, activo, diaSemana, pageable);
     }
 
     private void normalizar(Voluntario v) {
