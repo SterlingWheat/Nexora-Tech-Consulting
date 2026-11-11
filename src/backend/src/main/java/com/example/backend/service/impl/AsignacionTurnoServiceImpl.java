@@ -48,13 +48,17 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
     public List<TurnoAssignmentRecord> asignarVoluntarios(Integer idTurno, List<Integer> idVoluntarios) {
         Turno turno = turnoRepository.findByIdForUpdate(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+        
         validarTurnoActivo(turno);
+
         if (idVoluntarios == null || idVoluntarios.isEmpty()) {
             throw new BusinessValidationException("Debe proporcionar al menos el ID de un voluntario.");
         }
+
         if (idVoluntarios.stream().anyMatch(id -> id == null || id <= 0)) {
             throw new BusinessValidationException("Los IDs de voluntario deben ser positivos.");
         }
+
         if (new HashSet<>(idVoluntarios).size() != idVoluntarios.size()) {
             throw new BusinessValidationException("La lista contiene voluntarios duplicados.");
         }
@@ -65,18 +69,23 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
         }
 
         String fechaTurno = fechaTurno(turno);
+
         return idVoluntarios.stream().map(idVoluntario -> {
             Voluntario voluntario = voluntarioRepository.findById(idVoluntario)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Voluntario no encontrado con ID: " + idVoluntario));
+
             validarVoluntario(voluntario);
+
             if (asignacionRepository.existsActiveByTurnoAndVoluntario(idTurno, idVoluntario)) {
                 throw new BusinessValidationException(
-                        "El voluntario ya tiene una asignación vigente para este turno.");
+                        "El voluntario ya tiene una asignaci n vigente para este turno.");
             }
+
             cruceTurnoService.validarSinCruces(idVoluntario, idTurno);
 
             TurnoAssignmentRecord asignacion = asignacionRepository.create(idTurno, idVoluntario);
+
             outboxService.enqueue(
                     "shift-assignment:" + asignacion.idAsignacion(),
                     NotificationTemplateType.ASIGNACION,
@@ -84,6 +93,7 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
                     nombreCompleto(voluntario),
                     turno.getActividad(),
                     fechaTurno);
+
             return asignacion;
         }).toList();
     }
@@ -102,19 +112,23 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
     public void cancelarAsignacion(Integer idTurno, Long idAsignacion) {
         Turno turno = turnoRepository.findByIdForUpdate(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+        
         validarTurnoActivo(turno);
+
         TurnoAssignmentRecord asignacion = asignacionRepository.findActiveByIdAndTurno(idAsignacion, idTurno)
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró una asignación vigente."));
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontr  una asignaci n vigente."));
+
         outboxService.enqueue(
                 "shift-assignment-cancellation:" + asignacion.idAsignacion(),
                 NotificationTemplateType.CAMBIO_TURNO,
                 asignacion.email(),
                 asignacion.nombreVoluntario(),
-                "Cancelación de asignación para el turno de " + turno.getActividad()
+                "Cancelaci n de asignaci n para el turno de " + turno.getActividad()
                         + " (" + fechaHorario(turno) + ")",
                 fechaHorario(turno));
+
         if (asignacionRepository.cancelByIdAndTurno(idAsignacion, idTurno) != 1) {
-            throw new BusinessValidationException("La asignación cambió antes de poder cancelarse.");
+            throw new BusinessValidationException("La asignaci n cambi  antes de poder cancelarse.");
         }
     }
 
@@ -126,13 +140,13 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
 
     private void validarVoluntario(Voluntario voluntario) {
         if (!Boolean.TRUE.equals(voluntario.getActivo())) {
-            throw new BusinessValidationException("El voluntario no está activo y no puede ser asignado.");
+            throw new BusinessValidationException("El voluntario no est  activo y no puede ser asignado.");
         }
         if (voluntario.getEmail() == null || voluntario.getEmail().isBlank()) {
-            throw new BusinessValidationException("El voluntario no tiene un correo válido para recibir la notificación.");
+            throw new BusinessValidationException("El voluntario no tiene un correo v lido para recibir la notificaci n.");
         }
         if (nombreCompleto(voluntario).isBlank()) {
-            throw new BusinessValidationException("El voluntario no tiene un nombre válido para la notificación.");
+            throw new BusinessValidationException("El voluntario no tiene un nombre v lido para la notificaci n.");
         }
     }
 

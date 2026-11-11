@@ -10,7 +10,6 @@ import org.springframework.stereotype.Service;
 public class PasswordResetEmailSender {
 
     private static final Logger logger = LoggerFactory.getLogger(PasswordResetEmailSender.class);
-
     private final SmtpEmailService smtpEmailService;
 
     public PasswordResetEmailSender(SmtpEmailService smtpEmailService) {
@@ -21,25 +20,27 @@ public class PasswordResetEmailSender {
     public void enviar(String recipient, String rawToken, long expiryMinutes, String frontendUrl) {
         String resetUrl = frontendUrl.replaceAll("/+$", "")
                 + "/restablecer-contrasena#token=" + rawToken;
-        String subject = "Restablece tu contraseña - Nexora Tech Consulting";
+
+        String subject = "Restablece tu contrase a - Nexora Tech Consulting";
         String text = """
-                Recibimos una solicitud para restablecer la contraseña de tu cuenta de Nexora Tech Consulting.
-
-                Abre este enlace para crear una nueva contraseña:
+                Recibimos una solicitud para restablecer la contrase a de tu cuenta de Nexora Tech Consulting.
+                
+                Abre este enlace para crear una nueva contrase a:
                 %s
-
+                
                 El enlace vence en %d minutos. Si no solicitaste este cambio, ignora este correo.
                 """.formatted(resetUrl, expiryMinutes);
+
         String html = """
-                <p>Recibimos una solicitud para restablecer la contraseña de tu cuenta de <strong>Nexora Tech Consulting</strong>.</p>
-                <p><a href="%s">Restablecer contraseña</a></p>
+                <p>Recibimos una solicitud para restablecer la contrase a de tu cuenta de <strong>Nexora Tech Consulting</strong>.</p>
+                <p><a href="%s">Restablecer contrase a</a></p>
                 <p>El enlace vence en %d minutos. Si no solicitaste este cambio, ignora este correo.</p>
                 """.formatted(resetUrl, expiryMinutes);
 
         try {
             smtpEmailService.sendEmail(recipient, subject, html, text);
         } catch (SmtpEmailException exception) {
-            logger.warn("No se pudo entregar el correo de recuperación; revisa la configuración SMTP.");
+            logger.warn("No se pudo entregar el correo de recuperaci n; revisa la configuraci n SMTP.");
         }
     }
 }

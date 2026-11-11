@@ -15,6 +15,7 @@ public class EmailTemplateRenderer {
 
     private static final DateTimeFormatter DATE_FORMAT =
             DateTimeFormatter.ofPattern("dd/MM/yyyy 'a las' HH:mm");
+
     private final Clock clock;
     private final String systemName;
 
@@ -39,6 +40,7 @@ public class EmailTemplateRenderer {
         TemplateContent content = contentFor(type, data, name, plainName, email, details);
         String html = wrapHtml(safeSystemName, content.heading(), content.htmlBody(), date);
         String text = wrapText(safeSystemName, content.heading(), content.textBody(), date);
+
         return new RenderedEmail(content.subject(), html, text);
     }
 
@@ -53,46 +55,52 @@ public class EmailTemplateRenderer {
             case WELCOME -> new TemplateContent(
                     "Bienvenido a " + systemName,
                     "Te damos la bienvenida",
-                    "<p>Hola " + name + ",</p><p>Tu cuenta ya está lista para que accedas a "
+                    "<p>Hola " + name + ",</p><p>Tu cuenta ya est  lista para que accedas a "
                             + escape(systemName) + ".</p>" + accountEmail(email),
-                    "Hola " + plainName + ",\nTu cuenta ya está lista para que accedas a "
+                    "Hola " + plainName + ",\nTu cuenta ya est  lista para que accedas a "
                             + systemName + "." + plainAccountEmail(data.recipientEmail()));
+
             case PASSWORD_RECOVERY -> passwordRecovery(data, name, plainName);
+
             case PASSWORD_RESET -> new TemplateContent(
-                    "Contraseña actualizada - " + systemName,
-                    "Tu contraseña fue actualizada",
-                    "<p>Hola " + name + ",</p><p>La contraseña de tu cuenta fue restablecida.</p>"
+                    "Contrase a actualizada - " + systemName,
+                    "Tu contrase a fue actualizada",
+                    "<p>Hola " + name + ",</p><p>La contrase a de tu cuenta fue restablecida.</p>"
                             + "<p>Si no reconoces este cambio, contacta al equipo de TI.</p>" + accountEmail(email),
-                    "Hola " + plainName + ",\nLa contraseña de tu cuenta fue restablecida."
+                    "Hola " + plainName + ",\nLa contrase a de tu cuenta fue restablecida."
                             + "\nSi no reconoces este cambio, contacta al equipo de TI."
                             + plainAccountEmail(data.recipientEmail()));
+
             case ADMIN_NOTIFICATION -> detailsTemplate(
-                    "Notificación administrativa - " + systemName,
-                    "Notificación administrativa",
+                    "Notificaci n administrativa - " + systemName,
+                    "Notificaci n administrativa",
                     name,
                     details,
-                    "Se ha generado una notificación administrativa.");
+                    "Se ha generado una notificaci n administrativa.");
+
             case ACCOUNT_CHANGE -> detailsTemplate(
                     "Cambios en tu cuenta - " + systemName,
                     "Se actualizaron los datos de tu cuenta",
                     name,
                     details,
                     "Se realizaron cambios en tu cuenta.");
+
             case OPERATION_CONFIRMATION -> detailsTemplate(
-                    "Operación confirmada - " + systemName,
-                    "Operación completada",
+                    "Operaci n confirmada - " + systemName,
+                    "Operaci n completada",
                     name,
                     details,
-                    "La operación solicitada se completó correctamente.");
+                    "La operaci n solicitada se complet  correctamente.");
         };
     }
 
     private TemplateContent passwordRecovery(EmailTemplateData data, String name, String plainName) {
         if (!hasText(data.actionUrl()) || !hasText(data.actionLabel()) || data.expiresAt() == null) {
-            throw new IllegalArgumentException("La recuperación requiere enlace, acción y vencimiento.");
+            throw new IllegalArgumentException("La recuperaci n requiere enlace, acci n y vencimiento.");
         }
+
         if (!data.expiresAt().isAfter(LocalDateTime.now(clock))) {
-            throw new IllegalArgumentException("El enlace de recuperación debe tener un vencimiento futuro.");
+            throw new IllegalArgumentException("El enlace de recuperaci n debe tener un vencimiento futuro.");
         }
 
         String actionUrl = validateActionUrl(data.actionUrl());
@@ -101,8 +109,9 @@ public class EmailTemplateRenderer {
         String details = escape(hasText(data.details())
                 ? data.details().trim()
                 : "Solicitaste recuperar el acceso a tu cuenta.");
+
         return new TemplateContent(
-                "Recuperación de contraseña - " + systemName,
+                "Recuperaci n de contrase a - " + systemName,
                 "Recupera el acceso a tu cuenta",
                 "<p>Hola " + name + ",</p><p>" + details + "</p>"
                         + actionButton(actionUrl, actionLabel)
@@ -123,6 +132,7 @@ public class EmailTemplateRenderer {
             String defaultDetails) {
         String safeDetails = hasText(details) ? escape(details).replace("\n", "<br>") : escape(defaultDetails);
         String plainDetails = hasText(details) ? details : defaultDetails;
+
         return new TemplateContent(
                 subject,
                 heading,
@@ -156,7 +166,7 @@ public class EmailTemplateRenderer {
                           <div style="font-size:16px;line-height:1.6;">%s</div>
                         </td></tr>
                         <tr><td style="padding:20px 30px;background:#f7f9fc;color:#627187;font-size:12px;line-height:1.5;">
-                          Mensaje automático de %s.<br>Enviado el %s.
+                          Mensaje autom tico de %s.<br>Enviado el %s.
                         </td></tr>
                       </table>
                     </td></tr>
@@ -167,7 +177,7 @@ public class EmailTemplateRenderer {
     }
 
     private String wrapText(String system, String heading, String body, String date) {
-        return system + "\n" + heading + "\n\n" + body + "\n\nMensaje automático de "
+        return system + "\n" + heading + "\n\n" + body + "\n\nMensaje autom tico de "
                 + system + ".\nEnviado el " + date + ".";
     }
 
@@ -193,13 +203,15 @@ public class EmailTemplateRenderer {
             boolean localDevelopment = "http".equalsIgnoreCase(scheme)
                     && ("localhost".equalsIgnoreCase(uri.getHost())
                     || "127.0.0.1".equals(uri.getHost()));
+
             if (!uri.isAbsolute() || uri.getHost() == null || uri.getRawUserInfo() != null
                     || (!secureScheme && !localDevelopment)) {
-                throw new IllegalArgumentException("El enlace de recuperación debe usar HTTPS.");
+                throw new IllegalArgumentException("El enlace de recuperaci n debe usar HTTPS.");
             }
+
             return uri.toASCIIString();
         } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("El enlace de recuperación no es válido.");
+            throw new IllegalArgumentException("El enlace de recuperaci n no es v lido.");
         }
     }
 

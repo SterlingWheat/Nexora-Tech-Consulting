@@ -63,6 +63,7 @@ public class TurnoServiceImpl implements TurnoService {
     public Turno actualizarTurno(Integer idTurno, Turno detalles) {
         Turno turno = turnoRepository.findByIdForUpdate(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+        
         validarTurnoActivo(turno);
 
         List<TurnoAssignmentRecord> asignacionesVigentes = asignacionRepository.findActiveByTurno(idTurno);
@@ -81,17 +82,21 @@ public class TurnoServiceImpl implements TurnoService {
         turno.setHoraFin(detalles.getHoraFin());
         turno.setActividad(detalles.getActividad().trim());
         turno.setCuposTotales(detalles.getCuposTotales());
+        
         validar(turno);
 
         boolean scheduleChanged = !Objects.equals(oldDate, turno.getFecha())
                 || !Objects.equals(oldStart, turno.getHoraInicio())
                 || !Objects.equals(oldEnd, turno.getHoraFin())
                 || !Objects.equals(oldActivity, turno.getActividad());
+
         Turno guardado = turnoRepository.save(turno);
+
         if (scheduleChanged) {
             if (!Objects.equals(oldDate, turno.getFecha())
                     || !Objects.equals(oldStart, turno.getHoraInicio())
                     || !Objects.equals(oldEnd, turno.getHoraFin())) {
+                
                 turnoRepository.flush();
                 asignacionesVigentes.forEach(asignacion ->
                         cruceTurnoService.validarSinCruces(asignacion.idVoluntario(), idTurno));
@@ -104,6 +109,7 @@ public class TurnoServiceImpl implements TurnoService {
                     oldEnd,
                     oldActivity);
         }
+
         completarCuposOcupados(List.of(guardado));
         return guardado;
     }
@@ -113,23 +119,27 @@ public class TurnoServiceImpl implements TurnoService {
     public Turno cancelarTurno(Integer idTurno) {
         Turno turno = turnoRepository.findByIdForUpdate(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+        
         validarTurnoActivo(turno);
 
         List<TurnoAssignmentRecord> asignacionesVigentes = asignacionRepository.findActiveByTurno(idTurno);
         String fechaAnterior = formatSchedule(turno.getFecha(), turno.getHoraInicio(), turno.getHoraFin());
+
         for (TurnoAssignmentRecord asignacion : asignacionesVigentes) {
             outboxService.enqueue(
                     "shift-cancellation:" + asignacion.idAsignacion(),
                     NotificationTemplateType.CAMBIO_TURNO,
                     asignacion.email(),
                     asignacion.nombreVoluntario(),
-                    "Cancelación del turno: " + turno.getActividad() + " (" + fechaAnterior + ")",
+                    "Cancelaci n del turno: " + turno.getActividad() + " (" + fechaAnterior + ")",
                     fechaAnterior);
         }
+
         asignacionRepository.cancelActiveByTurno(idTurno);
         turno.setEstado(Turno.ESTADO_CANCELADO);
         Turno guardado = turnoRepository.save(turno);
         completarCuposOcupados(List.of(guardado));
+        
         return guardado;
     }
 
@@ -159,6 +169,7 @@ public class TurnoServiceImpl implements TurnoService {
                 .contarCuposOcupados(turnos.stream().map(Turno::getIdTurno).collect(Collectors.toList()))
                 .stream()
                 .collect(Collectors.toMap(CupoOcupado::getIdTurno, CupoOcupado::getTotal));
+
         turnos.forEach(t -> t.setCuposOcupados(ocupados.getOrDefault(t.getIdTurno(), 0L).intValue()));
     }
 
@@ -167,19 +178,22 @@ public class TurnoServiceImpl implements TurnoService {
         if (!t.getHoraFin().isAfter(t.getHoraInicio())) {
             throw new BusinessValidationException("La hora de fin debe ser posterior a la hora de inicio");
         }
+        
         LocalDate hoy = LocalDate.now(clock);
+        
         if (t.getFecha().isBefore(hoy)) {
             throw new BusinessValidationException("La fecha del turno no puede ser pasada");
         }
-        // Un turno de hoy cuyo horario ya terminó equivale a una fecha pasada
+        
+        // Un turno de hoy cuyo horario ya termin  equivale a una fecha pasada
         if (!LocalDateTime.of(t.getFecha(), t.getHoraFin()).isAfter(LocalDateTime.now(clock))) {
-            throw new BusinessValidationException("El horario del turno ya terminó");
+            throw new BusinessValidationException("El horario del turno ya termin ");
         }
     }
 
     private void validarTurnoActivo(Turno turno) {
         if (Turno.ESTADO_CANCELADO.equals(turno.getEstado())) {
-            throw new BusinessValidationException("El turno ya está cancelado.");
+            throw new BusinessValidationException("El turno ya est  cancelado.");
         }
     }
 
@@ -190,13 +204,17 @@ public class TurnoServiceImpl implements TurnoService {
             LocalTime oldStart,
             LocalTime oldEnd,
             String oldActivity) {
+            
         String previousSchedule = formatSchedule(oldDate, oldStart, oldEnd);
         String updatedSchedule = formatSchedule(turno.getFecha(), turno.getHoraInicio(), turno.getHoraFin());
+
         String activity = "Cambio de turno: " + oldActivity + " (" + previousSchedule + ") -> "
                 + turno.getActividad() + " (" + updatedSchedule + ")";
+
         String transitionKey = Integer.toHexString(Objects.hash(
                 oldDate, oldStart, oldEnd, oldActivity,
                 turno.getFecha(), turno.getHoraInicio(), turno.getHoraFin(), turno.getActividad()));
+
         for (TurnoAssignmentRecord asignacion : asignaciones) {
             outboxService.enqueue(
                     "shift-change:" + turno.getIdTurno() + ":" + asignacion.idAsignacion() + ":" + transitionKey,

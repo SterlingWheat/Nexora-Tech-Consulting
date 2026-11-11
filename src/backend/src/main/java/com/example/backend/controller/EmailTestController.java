@@ -24,14 +24,14 @@ public class EmailTestController {
     }
 
     @PostMapping("/test")
-    public ResponseEntity<Map<String, String>> sendTestEmail(
-            @Valid @RequestBody EmailTestRequest request) {
+    public ResponseEntity<?> sendTestEmail(@Valid @RequestBody EmailTestRequest request) {
         try {
             emailService.sendEmail(
                     request.recipient(),
                     "Prueba de correo - Nexora",
                     "<p>Este es un correo de prueba enviado por Nexora Tech Consulting.</p>",
                     "Este es un correo de prueba enviado por Nexora Tech Consulting.");
+            
             return ResponseEntity.ok(Map.of("message", "Correo de prueba enviado correctamente."));
         } catch (SmtpEmailException exception) {
             if (exception.getReason() == SmtpEmailException.Reason.CONFIGURATION) {

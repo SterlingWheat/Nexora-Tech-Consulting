@@ -52,20 +52,24 @@ public class NotificationTemplateService {
             NotificationTemplateType type,
             NotificationTemplateUpdateRequest request) {
         validateTemplate(request.subject(), request.htmlBody(), request.textBody());
+
         NotificationTemplate template = findTemplate(type);
         template.update(
                 request.subject().trim(),
                 request.htmlBody(),
                 request.textBody(),
                 request.active());
+
         return toResponse(repository.saveAndFlush(template));
     }
 
     public void send(NotificationTemplateType type, NotificationEmailRequest request) {
         NotificationTemplate template = findTemplate(type);
+
         if (!template.isActive()) {
-            throw new BusinessValidationException("La plantilla seleccionada está inactiva.");
+            throw new BusinessValidationException("La plantilla seleccionada est  inactiva.");
         }
+
         if (request == null
                 || !hasText(request.recipient())
                 || !hasText(request.name())
@@ -82,6 +86,7 @@ public class NotificationTemplateService {
         String subject = replaceVariables(template.getSubject(), values, false);
         String html = replaceVariables(template.getHtmlBody(), values, true);
         String text = replaceVariables(template.getTextBody(), values, false);
+
         ensureNoUnresolvedVariables(subject, html, text);
 
         smtpEmailService.sendEmail(request.recipient().trim(), subject, html, text);
@@ -89,12 +94,13 @@ public class NotificationTemplateService {
 
     private NotificationTemplate findTemplate(NotificationTemplateType type) {
         return repository.findByTemplateType(type.name())
-                .orElseThrow(() -> new ResourceNotFoundException("No se encontró la plantilla solicitada."));
+                .orElseThrow(() -> new ResourceNotFoundException("No se encontr  la plantilla solicitada."));
     }
 
     private void validateTemplate(String subject, String htmlBody, String textBody) {
         String content = subject + "\n" + htmlBody + "\n" + textBody;
         Matcher matcher = ANY_VARIABLE_PATTERN.matcher(content);
+
         while (matcher.find()) {
             Matcher validVariable = VARIABLE_PATTERN.matcher(matcher.group());
             if (!validVariable.matches() || !REQUIRED_VARIABLES.contains(validVariable.group(1))) {
@@ -109,6 +115,7 @@ public class NotificationTemplateService {
                         "La plantilla debe incluir las variables {{nombre}}, {{actividad}} y {{fecha}}.");
             }
         }
+
         String contentWithoutVariables = VARIABLE_PATTERN.matcher(content).replaceAll("");
         if (contentWithoutVariables.contains("{{") || contentWithoutVariables.contains("}}")) {
             throw new BusinessValidationException("La plantilla contiene una variable incompleta.");
@@ -118,6 +125,7 @@ public class NotificationTemplateService {
     private String replaceVariables(String content, Map<String, String> values, boolean html) {
         Matcher matcher = VARIABLE_PATTERN.matcher(content);
         StringBuffer result = new StringBuffer();
+
         while (matcher.find()) {
             String value = values.get(matcher.group(1));
             if (value == null) {

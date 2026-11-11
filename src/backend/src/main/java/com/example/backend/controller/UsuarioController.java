@@ -30,9 +30,9 @@ public class UsuarioController {
     private final VoluntarioRepository voluntarioRepository;
     private final ApplicationEventPublisher eventPublisher;
 
-    public UsuarioController(UsuarioRepository usuarioRepository, 
-                             RolRepository rolRepository, 
-                             PasswordEncoder passwordEncoder,
+    public UsuarioController(UsuarioRepository usuarioRepository,
+                              RolRepository rolRepository,
+                              PasswordEncoder passwordEncoder,
                              VoluntarioRepository voluntarioRepository,
                              ApplicationEventPublisher eventPublisher) {
         this.usuarioRepository = usuarioRepository;
@@ -49,12 +49,12 @@ public class UsuarioController {
                 || request.password().length() < 8
                 || request.nombre() == null || request.nombre().isBlank()
                 || request.rol() == null) {
-            return ResponseEntity.badRequest().body("Datos de usuario inválidos.");
+            return ResponseEntity.badRequest().body("Datos de usuario inv lidos.");
         }
 
         String email = normalizarEmail(request.email());
         if (usuarioRepository.existsByEmailIgnoreCase(email)) {
-            return ResponseEntity.status(409).body("El correo ya está registrado.");
+            return ResponseEntity.status(409).body("El correo ya est  registrado.");
         }
 
         String nombreRol = request.rol().name();
@@ -70,11 +70,13 @@ public class UsuarioController {
                 .build();
 
         Usuario guardado = usuarioRepository.save(usuario);
+
         eventPublisher.publishEvent(new AccountEmailNotificationEvent(
                 AccountEmailNotificationEvent.Kind.WELCOME,
                 guardado.getEmail(),
                 guardado.getNombre(),
                 "Tu cuenta de acceso ha sido creada."));
+
         return ResponseEntity.ok(UsuarioResponse.from(guardado));
     }
 
@@ -95,6 +97,7 @@ public class UsuarioController {
                     .filter(u -> u.getActivo().equals(activo))
                     .toList();
         }
+
         return ResponseEntity.ok(usuarios.stream().map(UsuarioResponse::from).toList());
     }
 
@@ -116,7 +119,7 @@ public class UsuarioController {
                 || (request.password() != null && !request.password().isBlank()
                         && request.password().length() < 8)
                 || request.rol() == null) {
-            return ResponseEntity.badRequest().body("Datos de usuario inválidos.");
+            return ResponseEntity.badRequest().body("Datos de usuario inv lidos.");
         }
 
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
@@ -126,7 +129,7 @@ public class UsuarioController {
 
         String email = normalizarEmail(request.email());
         if (usuarioRepository.existsByEmailIgnoreCaseAndIdUsuarioNot(email, id)) {
-            return ResponseEntity.status(409).body("El correo ya está registrado.");
+            return ResponseEntity.status(409).body("El correo ya est  registrado.");
         }
 
         String nombreRol = request.rol().name();
@@ -137,16 +140,18 @@ public class UsuarioController {
         String emailAnterior = usuario.getEmail();
         String nombreAnterior = usuario.getNombre();
         String rolAnterior = usuario.getRol() == null ? null : usuario.getRol().getNombre();
+        
         boolean cambioContrasena = request.password() != null && !request.password().isBlank();
         List<String> cambios = new ArrayList<>();
+
         if (!Objects.equals(nombreAnterior, request.nombre().trim())) {
-            cambios.add("Se actualizó el nombre asociado a tu cuenta.");
+            cambios.add("Se actualiz  el nombre asociado a tu cuenta.");
         }
         if (emailAnterior == null || !emailAnterior.equalsIgnoreCase(email)) {
-            cambios.add("Se actualizó el correo asociado a tu cuenta.");
+            cambios.add("Se actualiz  el correo asociado a tu cuenta.");
         }
         if (rolAnterior == null || !rolAnterior.equals(nombreRol)) {
-            cambios.add("Se actualizó el rol de tu cuenta.");
+            cambios.add("Se actualiz  el rol de tu cuenta.");
         }
 
         usuario.setNombre(request.nombre().trim());
@@ -158,12 +163,13 @@ public class UsuarioController {
         }
 
         Usuario actualizado = usuarioRepository.save(usuario);
+
         if (cambioContrasena) {
             eventPublisher.publishEvent(new AccountEmailNotificationEvent(
                     AccountEmailNotificationEvent.Kind.PASSWORD_RESET,
                     actualizado.getEmail(),
                     actualizado.getNombre(),
-                    "La contraseña de tu cuenta fue actualizada por un administrador."));
+                    "La contrase a de tu cuenta fue actualizada por un administrador."));
         } else if (!cambios.isEmpty()) {
             eventPublisher.publishEvent(new AccountEmailNotificationEvent(
                     AccountEmailNotificationEvent.Kind.ACCOUNT_CHANGE,
@@ -171,21 +177,23 @@ public class UsuarioController {
                     actualizado.getNombre(),
                     String.join(" ", cambios)));
         }
+
         return ResponseEntity.ok(UsuarioResponse.from(actualizado));
     }
 
-    // Solución Error 2: Sincronizar desactivación de cuenta de usuario con la entidad Voluntario
+    // Soluci n Error 2: Sincronizar desactivaci n de cuenta de usuario con la entidad Voluntario
     @PutMapping("/{id}/desactivar")
     public ResponseEntity<?> desactivarUsuario(@PathVariable Integer id) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+
         Usuario usuario = usuarioOpt.get();
         usuario.setActivo(false);
         usuarioRepository.save(usuario);
 
-        // Si el usuario es de un voluntario, desactivar también al voluntario
+        // Si el usuario es de un voluntario, desactivar tambi n al voluntario
         voluntarioRepository.findByUsuarioIdUsuario(id).ifPresent(vol -> {
             vol.setActivo(false);
             voluntarioRepository.save(vol);
@@ -196,21 +204,23 @@ public class UsuarioController {
                 usuario.getEmail(),
                 usuario.getNombre(),
                 "El acceso a tu cuenta fue desactivado por un administrador."));
+
         return ResponseEntity.ok("Usuario desactivado correctamente.");
     }
     
-    // Solución Error 2: Nuevo endpoint para reactivar cuentas previamente desactivadas
+    // Soluci n Error 2: Nuevo endpoint para reactivar cuentas previamente desactivadas
     @PutMapping("/{id}/activar")
     public ResponseEntity<?> activarUsuario(@PathVariable Integer id) {
         Optional<Usuario> usuarioOpt = usuarioRepository.findById(id);
         if (usuarioOpt.isEmpty()) {
             return ResponseEntity.notFound().build();
         }
+
         Usuario usuario = usuarioOpt.get();
         usuario.setActivo(true);
         usuarioRepository.save(usuario);
 
-        // Si el usuario es de un voluntario, activar también al voluntario
+        // Si el usuario es de un voluntario, activar tambi n al voluntario
         voluntarioRepository.findByUsuarioIdUsuario(id).ifPresent(vol -> {
             vol.setActivo(true);
             voluntarioRepository.save(vol);
@@ -221,6 +231,7 @@ public class UsuarioController {
                 usuario.getEmail(),
                 usuario.getNombre(),
                 "El acceso a tu cuenta fue activado por un administrador."));
+
         return ResponseEntity.ok("Usuario activado correctamente.");
     }
 

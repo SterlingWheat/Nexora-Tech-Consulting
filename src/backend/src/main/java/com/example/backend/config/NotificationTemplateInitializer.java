@@ -17,13 +17,13 @@ public class NotificationTemplateInitializer {
             List<NotificationTemplate> defaults = List.of(
                     new NotificationTemplate(
                             "ASIGNACION",
-                            "Asignación",
+                            "Asignaci n",
                             "Nueva actividad asignada: {{actividad}}",
                             "<!doctype html><html lang=\"es\"><body style=\"font-family:Arial,sans-serif;line-height:1.6\">"
-                                    + "<h1>Nueva asignación</h1><p>Hola {{nombre}},</p>"
-                                    + "<p>Se te asignó la actividad <strong>{{actividad}}</strong>.</p>"
+                                    + "<h1>Nueva asignaci n</h1><p>Hola {{nombre}},</p>"
+                                    + "<p>Se te asign  la actividad <strong>{{actividad}}</strong>.</p>"
                                     + "<p>Fecha: {{fecha}}</p></body></html>",
-                            "Nueva asignación\nHola {{nombre}},\nSe te asignó la actividad {{actividad}}.\nFecha: {{fecha}}"),
+                            "Nueva asignaci n\nHola {{nombre}},\nSe te asign  la actividad {{actividad}}.\nFecha: {{fecha}}"),
                     new NotificationTemplate(
                             "RECORDATORIO",
                             "Recordatorio",
@@ -36,25 +36,27 @@ public class NotificationTemplateInitializer {
                     new NotificationTemplate(
                             "CAMBIO_TURNO",
                             "Cambio de turno",
-                            "Actualización de turno: {{actividad}}",
+                            "Actualizaci n de turno: {{actividad}}",
                             "<!doctype html><html lang=\"es\"><body style=\"font-family:Arial,sans-serif;line-height:1.6\">"
                                     + "<h1>Cambio de turno</h1><p>Hola {{nombre}},</p>"
-                                    + "<p>Hay una actualización para el turno de <strong>{{actividad}}</strong>.</p>"
+                                    + "<p>Hay una actualizaci n para el turno de <strong>{{actividad}}</strong>.</p>"
                                     + "<p>Nueva fecha: {{fecha}}</p></body></html>",
-                            "Cambio de turno\nHola {{nombre}},\nHay una actualización para el turno de {{actividad}}.\n"
-                                    + "Nueva fecha: {{fecha}"));
+                            "Cambio de turno\nHola {{nombre}},\nHay una actualizaci n para el turno de {{actividad}}.\n"
+                                    + "Nueva fecha: {{fecha}}"));
+
             if (repository.findByTemplateType("CANCELACION_ASIGNACION").isEmpty()) {
                 repository.save(new NotificationTemplate(
                         "CANCELACION_ASIGNACION",
-                        "Cancelación de asignación",
-                        "Se canceló tu asignación: {{actividad}}",
+                        "Cancelaci n de asignaci n",
+                        "Se cancel  tu asignaci n: {{actividad}}",
                         "<!doctype html><html lang=\"es\"><body style=\"font-family:Arial,sans-serif;line-height:1.6\">"
-                                + "<h1>Cancelación de asignación</h1><p>Hola {{nombre}},</p>"
-                                + "<p>Tu asignación para <strong>{{actividad}}</strong> fue cancelada.</p>"
-                                + "<p>Fecha de cancelación: {{fecha}}</p></body></html>",
-                        "Cancelación de asignación\nHola {{nombre}},\n"
-                                + "Tu asignación para {{actividad}} fue cancelada.\nFecha de cancelación: {{fecha}}"));
+                                + "<h1>Cancelaci n de asignaci n</h1><p>Hola {{nombre}},</p>"
+                                + "<p>Tu asignaci n para <strong>{{actividad}}</strong> fue cancelada.</p>"
+                                + "<p>Fecha de cancelaci n: {{fecha}}</p></body></html>",
+                        "Cancelaci n de asignaci n\nHola {{nombre}},\n"
+                                + "Tu asignaci n para {{actividad}} fue cancelada.\nFecha de cancelaci n: {{fecha}}"));
             }
+
             for (NotificationTemplate template : defaults) {
                 if (repository.findByTemplateType(template.getTemplateType()).isEmpty()) {
                     repository.save(template);

@@ -58,9 +58,11 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         }
 
         Voluntario guardado = voluntarioRepository.save(voluntario);
+
         if (Boolean.TRUE.equals(crearCuenta)) {
             publicarBienvenida(guardado.getUsuario());
         }
+
         return guardado;
     }
 
@@ -68,7 +70,6 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     @Transactional
     public Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles) {
         Voluntario existente = obtenerVoluntarioPorId(idVoluntario);
-
         normalizar(detalles);
 
         if (voluntarioRepository.existsByDocumentoIgnoreCaseAndIdVoluntarioNot(detalles.getDocumento(), idVoluntario)) {
@@ -99,10 +100,11 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         crearCuentaAcceso(voluntario, password);
         Voluntario actualizado = voluntarioRepository.save(voluntario);
         publicarBienvenida(actualizado.getUsuario());
+
         return actualizado;
     }
 
-    // Solución Error 2: Mantiene la consistencia de acceso entre el Voluntario y su Usuario si lo posee
+    // Soluci n Error 2: Mantiene la consistencia de acceso entre el Voluntario y su Usuario si lo posee
     @Override
     @Transactional
     public Voluntario cambiarEstado(Integer idVoluntario, boolean activo) {
@@ -113,6 +115,7 @@ public class VoluntarioServiceImpl implements VoluntarioService {
             Usuario usuario = voluntario.getUsuario();
             usuario.setActivo(activo);
             usuarioRepository.save(usuario);
+
             eventPublisher.publishEvent(new AccountEmailNotificationEvent(
                     AccountEmailNotificationEvent.Kind.ACCOUNT_CHANGE,
                     usuario.getEmail(),
@@ -135,14 +138,14 @@ public class VoluntarioServiceImpl implements VoluntarioService {
 
     private void crearCuentaAcceso(Voluntario voluntario, String password) {
         if (password == null || password.trim().length() < 8) {
-            throw new BusinessValidationException("La contraseña es obligatoria y debe tener al menos 8 caracteres.");
+            throw new BusinessValidationException("La contrase a es obligatoria y debe tener al menos 8 caracteres.");
         }
         if (usuarioRepository.existsByEmailIgnoreCase(voluntario.getEmail())) {
-            throw new ConflictException("El correo del voluntario ya está siendo usado por otro usuario del sistema.");
+            throw new ConflictException("El correo del voluntario ya est  siendo usado por otro usuario del sistema.");
         }
         
         RolEntity rol = rolRepository.findByNombre("VOLUNTARIO")
-                .orElseThrow(() -> new BusinessValidationException("El rol VOLUNTARIO no está configurado en la base de datos."));
+                .orElseThrow(() -> new BusinessValidationException("El rol VOLUNTARIO no est  configurado en la base de datos."));
         
         Usuario nuevoUsuario = Usuario.builder()
                 .nombre(voluntario.getNombre() + " " + voluntario.getApellido())

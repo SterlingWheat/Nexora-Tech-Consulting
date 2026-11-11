@@ -62,18 +62,17 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
             Voluntario voluntario = voluntarioRepository.findById(idVoluntario)
                     .orElseThrow(() -> new ResourceNotFoundException("Voluntario no encontrado con ID: " + idVoluntario));
 
-            // HU2 Criterio 2: Validar que el voluntario está activo
+            // HU2 Criterio 2: Validar que el voluntario est  activo
             if (!Boolean.TRUE.equals(voluntario.getActivo())) {
-                throw new BusinessValidationException("El voluntario " + voluntario.getNombre() + " no está activo y no puede ser asignado.");
+                throw new BusinessValidationException("El voluntario " + voluntario.getNombre() + " no est  activo y no puede ser asignado.");
             }
 
             // Evitar duplicidades
             if (!asignacionTareaRepository.existsActiveByTareaAndVoluntario(idTarea, idVoluntario)) {
                 String nombreCompleto = (voluntario.getNombre() + " " + voluntario.getApellido()).trim();
-
                 if (voluntario.getEmail() == null || voluntario.getEmail().isBlank() || nombreCompleto.isBlank()) {
                     throw new BusinessValidationException(
-                            "El voluntario debe tener nombre y correo para recibir la notificación.");
+                            "El voluntario debe tener nombre y correo para recibir la notificaci n.");
                 }
 
                 AsignacionTarea asignacion = AsignacionTarea.builder()
@@ -81,7 +80,6 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
                         .voluntario(voluntario)
                         .estadoRespuesta("Asignado")
                         .build();
-
                 nuevasAsignaciones.add(asignacion);
                 nombresVoluntarios.add(nombreCompleto);
             }
@@ -105,7 +103,7 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
                 tareaRepository.save(tarea);
             }
 
-            // HU2 Criterio 3: Registrar quién asignó y cuándo
+            // HU2 Criterio 3: Registrar qui n asign  y cu ndo
             String detalle = "Se asignaron los voluntarios: " + String.join(", ", nombresVoluntarios);
             historialTareaService.registrarAccion(idTarea, idUsuarioAsignador, detalle);
         }
@@ -124,26 +122,26 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
         }
 
         AsignacionTarea asignacionAnterior = asignacionTareaRepository.findById(idAsignacionActual)
-                .orElseThrow(() -> new ResourceNotFoundException("Asignación no encontrada con ID: " + idAsignacionActual));
+                .orElseThrow(() -> new ResourceNotFoundException("Asignaci n no encontrada con ID: " + idAsignacionActual));
 
         if (!idTarea.equals(asignacionAnterior.getTarea().getIdTarea())) {
-            throw new ResourceNotFoundException("Asignación no encontrada para la tarea indicada.");
+            throw new ResourceNotFoundException("Asignaci n no encontrada para la tarea indicada.");
         }
 
         if ("Cancelada".equalsIgnoreCase(asignacionAnterior.getEstadoRespuesta())
                 || "Rechazada".equalsIgnoreCase(asignacionAnterior.getEstadoRespuesta())) {
-            throw new ConflictException("La asignación anterior ya está cancelada o rechazada.");
+            throw new ConflictException("La asignaci n anterior ya est  cancelada o rechazada.");
         }
 
         Voluntario nuevoVoluntario = voluntarioRepository.findById(idNuevoVoluntario)
                 .orElseThrow(() -> new ResourceNotFoundException("Voluntario no encontrado con ID: " + idNuevoVoluntario));
 
         if (!Boolean.TRUE.equals(nuevoVoluntario.getActivo())) {
-            throw new BusinessValidationException("El voluntario " + nuevoVoluntario.getNombre() + " no está activo y no puede ser asignado.");
+            throw new BusinessValidationException("El voluntario " + nuevoVoluntario.getNombre() + " no est  activo y no puede ser asignado.");
         }
 
         if (asignacionAnterior.getVoluntario().getIdVoluntario().equals(idNuevoVoluntario)) {
-            throw new BusinessValidationException("El nuevo voluntario seleccionado es el mismo que ya está asignado.");
+            throw new BusinessValidationException("El nuevo voluntario seleccionado es el mismo que ya est  asignado.");
         }
 
         if (asignacionTareaRepository.existsActiveByTareaAndVoluntario(idTarea, idNuevoVoluntario)) {
@@ -155,23 +153,24 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
         String nombreCompletoNuevo = (nuevoVoluntario.getNombre() + " " + nuevoVoluntario.getApellido()).trim();
 
         if (nuevoVoluntario.getEmail() == null || nuevoVoluntario.getEmail().isBlank()) {
-            throw new BusinessValidationException("El nuevo voluntario debe tener un correo para recibir la notificación.");
+            throw new BusinessValidationException("El nuevo voluntario debe tener un correo para recibir la notificaci n.");
         }
 
-        // 1. Desactivar asignación previa pero mantenerla para el historial (Criterio 1)
+        // 1. Desactivar asignaci n previa pero mantenerla para el historial (Criterio 1)
         asignacionAnterior.setEstadoRespuesta("Cancelada");
         asignacionTareaRepository.save(asignacionAnterior);
 
-        // 2. Crear nueva asignación
+        // 2. Crear nueva asignaci n
         AsignacionTarea nuevaAsignacion = AsignacionTarea.builder()
                 .tarea(tarea)
                 .voluntario(nuevoVoluntario)
                 .estadoRespuesta("Asignado")
                 .build();
+
         AsignacionTarea asignacionGuardada = asignacionTareaRepository.save(nuevaAsignacion);
 
         // 3. Notificar a voluntarios afectados (Criterio 2)
-        // Notificación al voluntario retirado
+        // Notificaci n al voluntario retirado
         if (voluntarioAnterior.getEmail() != null && !voluntarioAnterior.getEmail().isBlank()) {
             notificationOutboxService.enqueue(
                     "task-assignment-replacement-out:" + idAsignacionActual + ":" + System.currentTimeMillis(),
@@ -182,7 +181,7 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
                     LocalDateTime.now().format(ASSIGNMENT_DATE_FORMAT));
         }
 
-        // Notificación al nuevo voluntario
+        // Notificaci n al nuevo voluntario
         notificationOutboxService.enqueue(
                 "task-assignment-replacement-in:" + asignacionGuardada.getIdAsignacion(),
                 NotificationTemplateType.ASIGNACION,
@@ -192,7 +191,7 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
                 assignmentDate(asignacionGuardada));
 
         // 4. Registro en el historial
-        String detalle = "Se sustituyó al voluntario " + nombreCompletoAnterior + " por " + nombreCompletoNuevo + " ante un imprevisto.";
+        String detalle = "Se sustituy  al voluntario " + nombreCompletoAnterior + " por " + nombreCompletoNuevo + " ante un imprevisto.";
         historialTareaService.registrarAccion(idTarea, idUsuarioGestor, detalle);
 
         return asignacionGuardada;
@@ -219,15 +218,15 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
 
         AsignacionTarea asignacion = asignacionTareaRepository.findById(idAsignacion)
                 .orElseThrow(() -> new ResourceNotFoundException(
-                        "Asignación no encontrada con ID: " + idAsignacion));
+                        "Asignaci n no encontrada con ID: " + idAsignacion));
 
         if (!idTarea.equals(asignacion.getTarea().getIdTarea())) {
-            throw new ResourceNotFoundException("Asignación no encontrada para la tarea indicada.");
+            throw new ResourceNotFoundException("Asignaci n no encontrada para la tarea indicada.");
         }
 
         if ("Cancelada".equalsIgnoreCase(asignacion.getEstadoRespuesta())
                 || "Rechazada".equalsIgnoreCase(asignacion.getEstadoRespuesta())) {
-            throw new ConflictException("La asignación ya está cancelada o rechazada.");
+            throw new ConflictException("La asignaci n ya est  cancelada o rechazada.");
         }
 
         Voluntario voluntario = asignacion.getVoluntario();
@@ -236,7 +235,7 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
         if (voluntario.getEmail() == null || voluntario.getEmail().isBlank()
                 || nombreCompleto.isBlank()) {
             throw new BusinessValidationException(
-                    "El voluntario debe tener nombre y correo para recibir la notificación de cancelación.");
+                    "El voluntario debe tener nombre y correo para recibir la notificaci n de cancelaci n.");
         }
 
         asignacion.setEstadoRespuesta("Cancelada");
@@ -253,7 +252,7 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
         historialTareaService.registrarAccion(
                 idTarea,
                 idUsuarioGestor,
-                "Se canceló la asignación de " + nombreCompleto + ".");
+                "Se cancel  la asignaci n de " + nombreCompleto + ".");
 
         if ("Asignada".equalsIgnoreCase(tarea.getEstado())
                 && asignacionTareaRepository.countActiveByTareaId(idTarea) == 0) {
