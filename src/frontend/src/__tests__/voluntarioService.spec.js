@@ -69,4 +69,47 @@ describe('voluntarioService', () => {
     expect(url).toMatch(/\/api\/voluntarios\/5\/desactivar$/)
     expect(opciones.method).toBe('PUT')
   })
+
+  // KAN-27 Criterio 1: búsqueda por texto
+  it('buscarVoluntarios envía el texto como parámetro de consulta', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await voluntarioService.buscarVoluntarios({ texto: 'ana' })
+    const url = fetchMock.mock.calls[0][0]
+    expect(url).toMatch(/\/api\/voluntarios\/filtrar\?/)
+    expect(url).toContain('texto=ana')
+    expect(url).toContain('page=0')
+    expect(url).toContain('size=10')
+  })
+
+  // KAN-27 Criterio 2: filtros de estado y disponibilidad
+  it('buscarVoluntarios envía activo y diaSemana cuando se especifican', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await voluntarioService.buscarVoluntarios({ activo: false, diaSemana: 'LUNES' })
+    const url = fetchMock.mock.calls[0][0]
+    expect(url).toContain('activo=false')
+    expect(url).toContain('diaSemana=LUNES')
+  })
+
+  // KAN-27: sin filtros no deben enviarse parámetros vacíos (texto/activo/diaSemana)
+  it('buscarVoluntarios omite texto, activo y diaSemana cuando no se especifican', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await voluntarioService.buscarVoluntarios()
+    const url = fetchMock.mock.calls[0][0]
+    expect(url).not.toContain('texto=')
+    expect(url).not.toContain('activo=')
+    expect(url).not.toContain('diaSemana=')
+  })
+
+  // KAN-27 Criterio 3: paginación explícita
+  it('buscarVoluntarios envía page y size explícitos', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+    await voluntarioService.buscarVoluntarios({ page: 3, size: 25 })
+    const url = fetchMock.mock.calls[0][0]
+    expect(url).toContain('page=3')
+    expect(url).toContain('size=25')
+  })
 })

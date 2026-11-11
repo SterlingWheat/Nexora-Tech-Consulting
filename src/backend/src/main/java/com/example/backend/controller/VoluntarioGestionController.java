@@ -3,11 +3,16 @@ package com.example.backend.controller;
 import com.example.backend.dto.HabilitarAccesoRequestDTO;
 import com.example.backend.dto.VoluntarioRequestDTO;
 import com.example.backend.dto.VoluntarioResponseDTO;
+import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Usuario;
 import com.example.backend.model.Voluntario;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.service.VoluntarioService;
 import jakarta.validation.Valid;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -86,6 +91,25 @@ public class VoluntarioGestionController {
                 .map(this::mapearADTO)
                 .collect(Collectors.toList());
         return ResponseEntity.ok(voluntarios);
+    }
+
+    // KAN-27 Criterios 1, 2 y 3: búsqueda por texto, filtros de estado/disponibilidad y paginación
+    @GetMapping("/filtrar")
+    public ResponseEntity<Page<VoluntarioResponseDTO>> filtrarVoluntarios(
+            @RequestParam(required = false) String texto,
+            @RequestParam(required = false) Boolean activo,
+            @RequestParam(required = false) DiaSemana diaSemana,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "nombre") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        int tamanioSeguro = Math.min(Math.max(size, 1), 100);
+        Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
+        Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioSeguro, sort);
+
+        Page<Voluntario> resultado = voluntarioService.buscarVoluntarios(texto, activo, diaSemana, pageable);
+        return ResponseEntity.ok(resultado.map(this::mapearADTO));
     }
 
     @GetMapping("/{id}/detalle")

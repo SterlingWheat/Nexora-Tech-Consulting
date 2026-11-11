@@ -3,6 +3,7 @@ package com.example.backend.controller;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Voluntario;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.service.VoluntarioService;
@@ -11,6 +12,10 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
@@ -21,6 +26,7 @@ import java.util.List;
 import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -206,5 +212,67 @@ class VoluntarioGestionControllerTest {
                 .thenThrow(new ResourceNotFoundException("Voluntario no encontrado con ID: 99"));
 
         mvc.perform(put("/api/voluntarios/99/desactivar")).andExpect(status().isNotFound());
+    }
+
+    // KAN-27 Criterio 1: búsqueda por texto
+    @Test
+    void getFiltrar_conTexto_devuelve200ConResultadosPaginados() throws Exception {
+        Pageable pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("nombre").ascending());
+        when(service.buscarVoluntarios(eq("ana"), isNull(), isNull(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(guardado()), pageable, 1));
+
+        mvc.perform(get("/api/voluntarios/filtrar").param("texto", "ana"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[0].documento").value("1234567"))
+                .andExpect(jsonPath("$.totalElements").value(1));
+    }
+
+    // KAN-27 Criterio 2: filtros de estado y disponibilidad combinados
+    @Test
+    void getFiltrar_conEstadoYDisponibilidad_propagaAmbosFiltros() throws Exception {
+        Pageable pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("nombre").ascending());
+        when(service.buscarVoluntarios(isNull(), eq(true), eq(DiaSemana.LUNES), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        mvc.perform(get("/api/voluntarios/filtrar").param("activo", "true").param("diaSemana", "LUNES"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content").isEmpty());
+
+        verify(service).buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
+    }
+
+    // KAN-27 Criterio 3: paginación explícita por page/size
+    @Test
+    void getFiltrar_conPageYSize_losUsaParaPaginar() throws Exception {
+        Pageable pageable = PageRequest.of(2, 5, org.springframework.data.domain.Sort.by("nombre").ascending());
+        when(service.buscarVoluntarios(any(), any(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 37));
+
+        mvc.perform(get("/api/voluntarios/filtrar").param("page", "2").param("size", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(37))
+                .andExpect(jsonPath("$.number").value(2));
+    }
+
+    // KAN-27: un tamaño de página fuera de rango se acota a un máximo razonable (protege AC3)
+    @Test
+    void getFiltrar_conSizeExcesivo_loAcotaA100() throws Exception {
+        Pageable pageable = PageRequest.of(0, 100, org.springframework.data.domain.Sort.by("nombre").ascending());
+        when(service.buscarVoluntarios(any(), any(), any(), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+        mvc.perform(get("/api/voluntarios/filtrar").param("size", "5000"))
+                .andExpect(status().isOk());
+
+        verify(service).buscarVoluntarios(null, null, null, pageable);
+    }
+
+    // KAN-27: un diaSemana con un valor fuera del enum es un 400 explícito, no un 500
+    @Test
+    void getFiltrar_conDiaSemanaInvalido_devuelve400() throws Exception {
+        mvc.perform(get("/api/voluntarios/filtrar").param("diaSemana", "NOEXISTE"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(service);
     }
 }
