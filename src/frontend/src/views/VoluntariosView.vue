@@ -18,14 +18,31 @@
           </div>
           <button class="vols-boton-nuevo" @click="irANuevo">Registrar Voluntario</button>
         </div>
-        
+
+        <div class="vols-filtro" role="group" aria-label="Filtrar voluntarios por estado">
+          <button
+            v-for="opcion in filtrosEstado"
+            :key="opcion.valor"
+            type="button"
+            class="vols-filtro-boton"
+            :class="{ activo: filtroEstado === opcion.valor }"
+            @click="filtroEstado = opcion.valor"
+          >
+            {{ opcion.etiqueta }}
+          </button>
+        </div>
+
         <div v-if="cargando" class="vols-mensaje">Cargando voluntarios...</div>
         <div v-else-if="error" class="vols-mensaje vols-mensaje-error" role="alert">{{ error }}</div>
-        
+
         <div v-else-if="voluntarios.length === 0" class="vols-mensaje">
           No hay voluntarios registrados todavía. Registra el primero con el botón superior.
         </div>
-        
+
+        <div v-else-if="voluntariosFiltrados.length === 0" class="vols-mensaje">
+          No hay voluntarios {{ filtroEstado === 'activos' ? 'activos' : 'inactivos' }} para mostrar.
+        </div>
+
         <div v-else class="vols-tabla-contenedor">
           <table class="vols-tabla">
             <thead>
@@ -38,7 +55,7 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="v in voluntarios" :key="v.idVoluntario">
+              <tr v-for="v in voluntariosFiltrados" :key="v.idVoluntario">
                 <td>
                   <strong>{{ v.nombre }} {{ v.apellido }}</strong>
                   <span v-if="v.idUsuario" class="badge-acceso">Tiene Cuenta</span>
@@ -118,7 +135,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { voluntarioService } from '../services/voluntarioService'
 
@@ -126,6 +143,19 @@ const router = useRouter()
 const voluntarios = ref([])
 const cargando = ref(true)
 const error = ref('')
+
+const filtrosEstado = [
+  { valor: 'todos', etiqueta: 'Todos' },
+  { valor: 'activos', etiqueta: 'Activos' },
+  { valor: 'inactivos', etiqueta: 'Inactivos' },
+]
+const filtroEstado = ref('todos')
+
+const voluntariosFiltrados = computed(() => {
+  if (filtroEstado.value === 'activos') return voluntarios.value.filter((v) => v.activo)
+  if (filtroEstado.value === 'inactivos') return voluntarios.value.filter((v) => !v.activo)
+  return voluntarios.value
+})
 
 const modalVisible = ref(false)
 const voluntarioSeleccionado = ref(null)
@@ -288,6 +318,31 @@ const desactivar = async (idVoluntario) => {
 .vols-boton-nuevo:hover {
   transform: translateY(-2px);
   background: var(--salvia);
+}
+
+.vols-filtro {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+.vols-filtro-boton {
+  padding: 8px 18px;
+  border-radius: 30px;
+  border: 1px solid var(--salvia-claro);
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vols-filtro-boton:hover {
+  background: var(--crema);
+}
+.vols-filtro-boton.activo {
+  background: var(--verde-oscuro);
+  color: white;
+  border-color: var(--verde-oscuro);
 }
 
 .vols-mensaje {

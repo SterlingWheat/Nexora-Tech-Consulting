@@ -8,6 +8,9 @@ import com.example.backend.controller.NotificationTemplateController;
 import com.example.backend.controller.AsignacionTurnoController;
 import com.example.backend.controller.AsignacionTareaController;
 import com.example.backend.controller.TurnoController;
+import com.example.backend.controller.VoluntarioGestionController;
+import com.example.backend.model.Voluntario;
+import com.example.backend.service.VoluntarioService;
 import com.example.backend.dto.NotificationEmailRequest;
 import com.example.backend.dto.NotificationTemplateResponse;
 import com.example.backend.dto.NotificationTemplateUpdateRequest;
@@ -58,7 +61,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         NotificationTemplateController.class,
         TurnoController.class,
         AsignacionTurnoController.class,
-        AsignacionTareaController.class
+        AsignacionTareaController.class,
+        VoluntarioGestionController.class
 })
 @Import({com.example.backend.SecurityConfig.class, JwtAuthenticationFilter.class})
 class TaskRoleAccessTest {
@@ -98,6 +102,9 @@ class TaskRoleAccessTest {
 
     @MockitoBean
     private AsignacionTareaService asignacionTareaService;
+
+    @MockitoBean
+    private VoluntarioService voluntarioService;
 
     @Test
     void voluntarioPuedeConsultarTareas() throws Exception {
@@ -416,6 +423,72 @@ class TaskRoleAccessTest {
                 .andExpect(status().isForbidden());
 
         verifyNoInteractions(usuarioRepository);
+    }
+
+    // KAN-26: solo Administrador/TI pueden dar de baja o reactivar voluntarios
+    @Test
+    void administradorPuedeDesactivarVoluntario() throws Exception {
+        when(voluntarioService.cambiarEstado(1, false)).thenReturn(voluntario(1, false));
+
+        mockMvc.perform(put("/api/voluntarios/1/desactivar").with(user("admin").roles("ADMINISTRADOR")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activo").value(false));
+
+        verify(voluntarioService).cambiarEstado(1, false);
+    }
+
+    @Test
+    void tiPuedeReactivarVoluntario() throws Exception {
+        when(voluntarioService.cambiarEstado(1, true)).thenReturn(voluntario(1, true));
+
+        mockMvc.perform(put("/api/voluntarios/1/activar").with(user("ti").roles("TI")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.activo").value(true));
+
+        verify(voluntarioService).cambiarEstado(1, true);
+    }
+
+    @Test
+    void voluntarioRecibe403AlIntentarDesactivarAOtroVoluntario() throws Exception {
+        mockMvc.perform(put("/api/voluntarios/99/desactivar").with(user("voluntario").roles("VOLUNTARIO")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(voluntarioService);
+    }
+
+    @Test
+    void voluntarioRecibe403AlIntentarActivarAOtroVoluntario() throws Exception {
+        mockMvc.perform(put("/api/voluntarios/99/activar").with(user("voluntario").roles("VOLUNTARIO")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(voluntarioService);
+    }
+
+    @Test
+    void gestorTareasRecibe403AlIntentarDesactivarVoluntario() throws Exception {
+        mockMvc.perform(put("/api/voluntarios/1/desactivar").with(user("gestor").roles("GESTOR_TAREAS")))
+                .andExpect(status().isForbidden());
+
+        verifyNoInteractions(voluntarioService);
+    }
+
+    @Test
+    void peticionSinAutenticacionAlDesactivarRecibe401() throws Exception {
+        mockMvc.perform(put("/api/voluntarios/1/desactivar"))
+                .andExpect(status().isUnauthorized());
+
+        verifyNoInteractions(voluntarioService);
+    }
+
+    private Voluntario voluntario(Integer id, boolean activo) {
+        return Voluntario.builder()
+                .idVoluntario(id)
+                .nombre("Ana")
+                .apellido("Quispe")
+                .documento("1234567")
+                .email("ana@correo.com")
+                .activo(activo)
+                .build();
     }
 
     private Usuario usuario(Integer id, String email, RolEntity rol) {
