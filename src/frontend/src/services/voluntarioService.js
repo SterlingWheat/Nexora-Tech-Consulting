@@ -33,9 +33,21 @@ export const voluntarioService = {
   },
 
   desactivarVoluntario(id) {
-    return request(`/voluntarios/${id}/desactivar`, { 
-      method: 'PUT', 
-      mensajeError: 'Error al desactivar el voluntario' 
+    return request(`/voluntarios/${id}/desactivar`, {
+      method: 'PUT',
+      mensajeError: 'Error al desactivar el voluntario'
+    });
+  },
+
+  // KAN-27 Criterios 1, 2 y 3: búsqueda por texto, filtros de estado/disponibilidad y paginación
+  buscarVoluntarios({ texto, activo, diaSemana, page = 0, size = 10 } = {}) {
+    const query = new URLSearchParams({ page, size });
+    if (texto) query.set('texto', texto);
+    if (activo !== null && activo !== undefined) query.set('activo', activo);
+    if (diaSemana) query.set('diaSemana', diaSemana);
+
+    return request(`/voluntarios/filtrar?${query.toString()}`, {
+      mensajeError: 'Error al buscar voluntarios'
     });
   }
 };

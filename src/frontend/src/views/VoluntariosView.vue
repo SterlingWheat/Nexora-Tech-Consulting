@@ -18,14 +18,44 @@
           </div>
           <button class="vols-boton-nuevo" @click="irANuevo">Registrar Voluntario</button>
         </div>
-        
+
+        <div class="vols-filtros" role="search" aria-label="Buscar y filtrar voluntarios">
+          <input
+            v-model="texto"
+            type="search"
+            class="vols-buscador"
+            placeholder="Buscar por nombre, apellido o documento..."
+            aria-label="Buscar voluntarios"
+          />
+
+          <div class="vols-filtro-grupo" role="group" aria-label="Filtrar por estado">
+            <button
+              v-for="opcion in filtrosEstado"
+              :key="opcion.valor"
+              type="button"
+              class="vols-filtro-boton"
+              :class="{ activo: filtroEstado === opcion.valor }"
+              @click="filtroEstado = opcion.valor"
+            >
+              {{ opcion.etiqueta }}
+            </button>
+          </div>
+
+          <select v-model="diaSemana" class="vols-filtro-dia" aria-label="Filtrar por día de disponibilidad">
+            <option value="">Cualquier disponibilidad</option>
+            <option v-for="dia in DIAS" :key="dia.valor" :value="dia.valor">Disponible el {{ dia.etiqueta }}</option>
+          </select>
+        </div>
+
         <div v-if="cargando" class="vols-mensaje">Cargando voluntarios...</div>
         <div v-else-if="error" class="vols-mensaje vols-mensaje-error" role="alert">{{ error }}</div>
-        
+
         <div v-else-if="voluntarios.length === 0" class="vols-mensaje">
-          No hay voluntarios registrados todavía. Registra el primero con el botón superior.
+          {{ hayFiltrosActivos
+            ? 'Ningún voluntario coincide con la búsqueda o los filtros aplicados.'
+            : 'No hay voluntarios registrados todavía. Registra el primero con el botón superior.' }}
         </div>
-        
+
         <div v-else class="vols-tabla-contenedor">
           <table class="vols-tabla">
             <thead>
@@ -89,6 +119,13 @@
               </tr>
             </tbody>
           </table>
+
+          <Paginacion
+            :paginaActual="paginaActual"
+            :totalPaginas="totalPaginas"
+            @cambiarPagina="cargarVoluntarios"
+          />
+          <p class="vols-total" v-if="totalElementos > 0">{{ totalElementos }} voluntario(s) en total.</p>
         </div>
       </div>
     </div>
@@ -118,9 +155,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { voluntarioService } from '../services/voluntarioService'
+import { DIAS } from '../services/disponibilidadService'
+import Paginacion from '../components/Paginacion.vue'
 
 const router = useRouter()
 const voluntarios = ref([])
@@ -133,11 +172,45 @@ const passwordTemporal = ref('')
 const errorModal = ref('')
 const guardandoAcceso = ref(false)
 
-const cargarVoluntarios = async () => {
+// KAN-27: búsqueda por texto, filtros de estado/disponibilidad y paginación
+const PAGE_SIZE = 10
+const filtrosEstado = [
+  { valor: 'todos', etiqueta: 'Todos' },
+  { valor: 'activos', etiqueta: 'Activos' },
+  { valor: 'inactivos', etiqueta: 'Inactivos' },
+]
+const texto = ref('')
+const filtroEstado = ref('todos')
+const diaSemana = ref('')
+const paginaActual = ref(0)
+const totalPaginas = ref(0)
+const totalElementos = ref(0)
+
+const hayFiltrosActivos = computed(() =>
+  Boolean(texto.value.trim()) || filtroEstado.value !== 'todos' || Boolean(diaSemana.value)
+)
+
+const activoParaFiltro = () => {
+  if (filtroEstado.value === 'activos') return true
+  if (filtroEstado.value === 'inactivos') return false
+  return null
+}
+
+const cargarVoluntarios = async (page = 0) => {
   cargando.value = true
   error.value = ''
   try {
-    voluntarios.value = await voluntarioService.obtenerVoluntarios()
+    const respuesta = await voluntarioService.buscarVoluntarios({
+      texto: texto.value.trim() || undefined,
+      activo: activoParaFiltro(),
+      diaSemana: diaSemana.value || undefined,
+      page,
+      size: PAGE_SIZE,
+    })
+    voluntarios.value = respuesta.content
+    paginaActual.value = respuesta.number
+    totalPaginas.value = respuesta.totalPages
+    totalElementos.value = respuesta.totalElements
   } catch (err) {
     error.value = err.message
   } finally {
@@ -145,7 +218,16 @@ const cargarVoluntarios = async () => {
   }
 }
 
-onMounted(cargarVoluntarios)
+// Debounce de la búsqueda por texto para no disparar una petición por cada tecla
+let debounceId = null
+watch(texto, () => {
+  clearTimeout(debounceId)
+  debounceId = setTimeout(() => cargarVoluntarios(0), 350)
+})
+
+watch([filtroEstado, diaSemana], () => cargarVoluntarios(0))
+
+onMounted(() => cargarVoluntarios(0))
 
 const irANuevo = () => router.push('/voluntarios/nuevo')
 const editar = (id) => router.push(`/voluntarios/editar/${id}`)
@@ -175,7 +257,7 @@ const confirmarAcceso = async () => {
   try {
     await voluntarioService.habilitarAcceso(voluntarioSeleccionado.value.idVoluntario, passwordTemporal.value)
     modalVisible.value = false // Modificamos la variable directamente para forzar el cierre
-    await cargarVoluntarios() // Refresca la tabla
+    await cargarVoluntarios(paginaActual.value) // Refresca la página actual
   } catch (err) {
     errorModal.value = err.message
   } finally {
@@ -190,7 +272,7 @@ const activar = async (idVoluntario) => {
   cargando.value = true
   try {
     await voluntarioService.activarVoluntario(idVoluntario)
-    await cargarVoluntarios()
+    await cargarVoluntarios(paginaActual.value)
   } catch (err) {
     error.value = err.message
     cargando.value = false
@@ -203,7 +285,7 @@ const desactivar = async (idVoluntario) => {
   cargando.value = true
   try {
     await voluntarioService.desactivarVoluntario(idVoluntario)
-    await cargarVoluntarios()
+    await cargarVoluntarios(paginaActual.value)
   } catch (err) {
     error.value = err.message
     cargando.value = false
@@ -288,6 +370,66 @@ const desactivar = async (idVoluntario) => {
 .vols-boton-nuevo:hover {
   transform: translateY(-2px);
   background: var(--salvia);
+}
+
+.vols-filtros {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 24px;
+}
+.vols-buscador {
+  flex: 1 1 220px;
+  padding: 10px 16px;
+  border: 1px solid var(--crema);
+  border-radius: 30px;
+  background: var(--crema-claro);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+.vols-buscador:focus {
+  border-color: var(--salvia);
+}
+.vols-filtro-grupo {
+  display: flex;
+  gap: 8px;
+}
+.vols-filtro-boton {
+  padding: 8px 18px;
+  border-radius: 30px;
+  border: 1px solid var(--salvia-claro);
+  background: transparent;
+  color: var(--texto-suave);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.vols-filtro-boton:hover {
+  background: var(--crema);
+}
+.vols-filtro-boton.activo {
+  background: var(--verde-oscuro);
+  color: white;
+  border-color: var(--verde-oscuro);
+}
+.vols-filtro-dia {
+  padding: 9px 14px;
+  border: 1px solid var(--crema);
+  border-radius: 30px;
+  background: var(--crema-claro);
+  font-family: inherit;
+  font-size: 12px;
+  color: var(--texto);
+  outline: none;
+}
+.vols-total {
+  text-align: center;
+  margin: 4px 0 0;
+  font-size: 12px;
+  color: var(--texto-suave);
 }
 
 .vols-mensaje {
