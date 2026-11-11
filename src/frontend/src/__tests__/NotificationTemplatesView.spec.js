@@ -48,6 +48,7 @@ const mountView = async () => {
   })
   await router.push('/plantillas-notificacion')
   await router.isReady()
+
   const wrapper = mount(NotificationTemplatesView, {
     global: { plugins: [createPinia(), router] }
   })
@@ -66,19 +67,23 @@ describe('NotificationTemplatesView', () => {
     enviar.mockResolvedValue(null)
   })
 
-  it('carga y permite editar y guardar una plantilla persistida', async () => {
+  it('carga y permite editar y guardar una plantilla persistida generando automáticamente el HTML', async () => {
     const wrapper = await mountView()
-
     expect(wrapper.text()).toContain('Asignación')
+
     await wrapper.get('.plantillas-editor input:not([type="checkbox"])')
       .setValue('Asignada: {{actividad}} - actualizada')
+    
+    await wrapper.get('.plantillas-editor textarea')
+      .setValue('# Nueva asignación\nHola {{nombre}},\nSe te asignó la actividad {{actividad}}.')
+
     await wrapper.get('form.plantillas-editor').trigger('submit')
     await flushPromises()
 
     expect(actualizar).toHaveBeenCalledWith('ASIGNACION', {
       subject: 'Asignada: {{actividad}} - actualizada',
-      htmlBody: templates[0].htmlBody,
-      textBody: templates[0].textBody,
+      htmlBody: '<!doctype html><html lang="es"><body style="font-family:Arial,sans-serif;line-height:1.6">\n<h1>Nueva asignación</h1>\n<p>Hola {{nombre}},</p>\n<p>Se te asignó la actividad {{actividad}}.</p>\n</body></html>',
+      textBody: '# Nueva asignación\nHola {{nombre}},\nSe te asignó la actividad {{actividad}}.',
       active: true
     })
     expect(wrapper.text()).toContain('Los siguientes envíos usarán esta versión.')
@@ -87,10 +92,12 @@ describe('NotificationTemplatesView', () => {
   it('envía con la plantilla seleccionada y valores dinámicos proporcionados', async () => {
     const wrapper = await mountView()
     const inputs = wrapper.findAll('form.plantillas-envio input')
+
     await inputs[0].setValue('ana@example.com')
     await inputs[1].setValue('Ana')
     await inputs[2].setValue('Limpieza')
     await inputs[3].setValue('21/12/2026')
+
     await wrapper.get('form.plantillas-envio').trigger('submit')
     await flushPromises()
 

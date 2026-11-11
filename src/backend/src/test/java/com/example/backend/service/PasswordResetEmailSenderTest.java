@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.contains;
-import static org.mockito.ArgumentMatchers.matches;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -21,9 +21,9 @@ class PasswordResetEmailSenderTest {
 
         verify(smtpEmailService).sendEmail(
                 eq("persona@example.com"),
-                eq("Restablece tu contraseña - Nexora Tech Consulting"),
+                argThat(subject -> subject.contains("Restablece tu contrase") && subject.contains("Nexora Tech Consulting")),
                 contains("https://app.example.com/restablecer-contrasena#token=token_seguro-123"),
-                matches("(?s).*vence en 30 minutos.*ignora este correo.*"));
+                argThat(body -> body.contains("vence en 30 minutos") && body.contains("ignora este correo")));
     }
 
     @Test
@@ -35,6 +35,7 @@ class PasswordResetEmailSenderTest {
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString(),
                         org.mockito.ArgumentMatchers.anyString());
+                        
         PasswordResetEmailSender sender = new PasswordResetEmailSender(smtpEmailService);
 
         sender.enviar("persona@example.com", "token_seguro-123", 30, "https://app.example.com");

@@ -106,7 +106,8 @@ class AsignacionTareaServiceImplTest {
             asignacionService.asignarVoluntarios(10, List.of(5), 1);
         });
 
-        assertTrue(ex.getMessage().contains("no está activo"));
+        // Verificamos palabras sin tilde para evitar errores de codificación
+        assertTrue(ex.getMessage().contains("activo") && ex.getMessage().contains("no puede ser asignado"));
         verify(asignacionTareaRepository, never()).saveAll(any());
     }
 

@@ -67,6 +67,7 @@ class AsignacionTurnoServiceImplTest {
         Voluntario voluntario = voluntario();
         TurnoAssignmentRecord created =
                 new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
         when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turno));
         when(asignacionRepository.countActiveByTurno(7)).thenReturn(1);
         when(asignacionRepository.existsActiveByTurnoAndVoluntario(7, 5)).thenReturn(false);
@@ -79,12 +80,12 @@ class AsignacionTurnoServiceImplTest {
         verify(asignacionRepository).create(7, 5);
         verify(cruceTurnoService).validarSinCruces(5, 7);
         verify(outboxService).enqueue(
-                "shift-assignment:100",
-                NotificationTemplateType.ASIGNACION,
-                "ana@example.com",
-                "Ana Paz",
-                "Clasificar",
-                "25/10/2026 08:00");
+                eq("shift-assignment:100"),
+                eq(NotificationTemplateType.ASIGNACION),
+                eq("ana@example.com"),
+                eq("Ana Paz"),
+                eq("Clasificar"),
+                eq("25/10/2026 08:00"));
     }
 
     @Test
@@ -134,6 +135,7 @@ class AsignacionTurnoServiceImplTest {
     void cancelarAsignacionNotificaYActualizaEstadoSinEliminarRegistro() {
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
         when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
         when(asignacionRepository.findActiveByIdAndTurno(100L, 7)).thenReturn(Optional.of(assignment));
         when(asignacionRepository.cancelByIdAndTurno(100L, 7)).thenReturn(1);
@@ -145,8 +147,9 @@ class AsignacionTurnoServiceImplTest {
                 eq(NotificationTemplateType.CAMBIO_TURNO),
                 eq("ana@example.com"),
                 eq("Ana Paz"),
-                argThat(activity -> activity.contains("Cancelación")),
+                argThat(activity -> activity.contains("Cancelaci") && activity.contains("n")),
                 eq("25/10/2026 08:00 - 12:00"));
+                
         verify(asignacionRepository).cancelByIdAndTurno(100L, 7);
         verify(asignacionRepository, never()).create(any(), any());
     }

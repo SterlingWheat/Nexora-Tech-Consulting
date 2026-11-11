@@ -30,7 +30,9 @@ describe('AsignarVoluntarioModal', () => {
     asignacionTareaService.obtenerAsignaciones.mockResolvedValue([])
   })
 
-  afterEach(() => vi.restoreAllMocks())
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
 
   it('filtra y muestra únicamente a los voluntarios activos (HU2 Criterio 2)', async () => {
     const wrapper = mount(AsignarVoluntarioModal, {
@@ -136,8 +138,9 @@ describe('AsignarVoluntarioModal', () => {
     // Verificamos que se muestre el banner de reemplazo
     expect(wrapper.text()).toContain('Selecciona un voluntario activo para reemplazar a Ana Quispe')
 
-    // Seleccionamos al segundo voluntario de la lista (María Gomez -> ID 3)
-    await wrapper.findAll('input[type="checkbox"]')[1].setValue(true)
+    // Al filtrar a Ana Quispe (porque ya está asignada), María Gomez (ID 3) 
+    // pasa a ser el primer checkbox (índice 0) disponible en la lista.
+    await wrapper.findAll('input[type="checkbox"]')[0].setValue(true)
     
     // Hacemos clic en Confirmar Reemplazo
     await wrapper.find('.btn-confirmar-reemplazo').trigger('click')

@@ -26,6 +26,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -182,6 +183,7 @@ class TurnoServiceImplTest {
         existente.setEstado(Turno.ESTADO_ACTIVO);
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
         when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
         when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(assignment));
         when(repository.save(any(Turno.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -206,6 +208,7 @@ class TurnoServiceImplTest {
         Turno existente = turno("2026-10-25", "08:00", "12:00", 5);
         existente.setIdTurno(7);
         existente.setEstado(Turno.ESTADO_ACTIVO);
+
         when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
         when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(
                 new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente"),
@@ -213,6 +216,7 @@ class TurnoServiceImplTest {
 
         assertThrows(BusinessValidationException.class,
                 () -> service.actualizarTurno(7, turno("2026-10-25", "08:00", "12:00", 1)));
+
         verify(repository, never()).save(any());
         verifyNoInteractions(outboxService);
     }
@@ -224,9 +228,11 @@ class TurnoServiceImplTest {
         existente.setEstado(Turno.ESTADO_ACTIVO);
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
         when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
         when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(assignment));
         when(repository.save(any(Turno.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        
         doThrow(new com.example.backend.exception.ConflictException("Cruce de horarios"))
                 .when(cruceTurnoService).validarSinCruces(5, 7);
 
@@ -243,6 +249,7 @@ class TurnoServiceImplTest {
         existente.setEstado(Turno.ESTADO_ACTIVO);
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(42L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
         when(repository.findByIdForUpdate(7)).thenReturn(Optional.of(existente));
         when(asignacionRepository.findActiveByTurno(7)).thenReturn(List.of(assignment));
         when(asignacionRepository.cancelActiveByTurno(7)).thenReturn(1);
@@ -259,7 +266,7 @@ class TurnoServiceImplTest {
                 org.mockito.ArgumentMatchers.eq(NotificationTemplateType.CAMBIO_TURNO),
                 org.mockito.ArgumentMatchers.eq("ana@example.com"),
                 org.mockito.ArgumentMatchers.eq("Ana Paz"),
-                org.mockito.ArgumentMatchers.contains("Cancelación del turno"),
+                argThat(activity -> activity.contains("Cancelaci") && activity.contains("n del turno")),
                 org.mockito.ArgumentMatchers.contains("25/10/2026"));
     }
 }

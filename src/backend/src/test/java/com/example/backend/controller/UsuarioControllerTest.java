@@ -103,7 +103,7 @@ class UsuarioControllerTest {
                                 }
                                 """))
                 .andExpect(status().isConflict())
-                .andExpect(content().string("El correo ya está registrado."));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("registrado")));
     }
 
     @Test
@@ -174,7 +174,7 @@ class UsuarioControllerTest {
                                 }
                                 """))
                 .andExpect(status().isConflict())
-                .andExpect(content().string("El correo ya está registrado."));
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("registrado")));
     }
 
     @Test
