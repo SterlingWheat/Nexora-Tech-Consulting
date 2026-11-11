@@ -3,11 +3,13 @@ package com.example.backend.service.impl;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.mail.NotificationTemplateType;
+import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Turno;
 import com.example.backend.model.TurnoAssignmentRecord;
 import com.example.backend.model.Voluntario;
 import com.example.backend.notification.NotificationOutboxService;
 import com.example.backend.repository.AsignacionTurnoRepository;
+import com.example.backend.repository.DisponibilidadRepository;
 import com.example.backend.repository.TurnoRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.AsignacionTurnoService;
@@ -16,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 
@@ -27,6 +30,7 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
     private final AsignacionTurnoRepository asignacionRepository;
     private final TurnoRepository turnoRepository;
     private final VoluntarioRepository voluntarioRepository;
+    private final DisponibilidadRepository disponibilidadRepository;
     private final CruceTurnoService cruceTurnoService;
     private final NotificationOutboxService outboxService;
 
@@ -34,21 +38,23 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
             AsignacionTurnoRepository asignacionRepository,
             TurnoRepository turnoRepository,
             VoluntarioRepository voluntarioRepository,
+            DisponibilidadRepository disponibilidadRepository,
             CruceTurnoService cruceTurnoService,
             NotificationOutboxService outboxService) {
         this.asignacionRepository = asignacionRepository;
         this.turnoRepository = turnoRepository;
         this.voluntarioRepository = voluntarioRepository;
+        this.disponibilidadRepository = disponibilidadRepository;
         this.cruceTurnoService = cruceTurnoService;
         this.outboxService = outboxService;
     }
 
     @Override
     @Transactional
-    public List<TurnoAssignmentRecord> asignarVoluntarios(Integer idTurno, List<Integer> idVoluntarios) {
+    public ResultadoAsignacionTurno asignarVoluntarios(Integer idTurno, List<Integer> idVoluntarios) {
         Turno turno = turnoRepository.findByIdForUpdate(idTurno)
                 .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
-        
+
         validarTurnoActivo(turno);
 
         if (idVoluntarios == null || idVoluntarios.isEmpty()) {
@@ -69,8 +75,10 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
         }
 
         String fechaTurno = fechaTurno(turno);
+        DiaSemana diaTurno = DiaSemana.desdeNumero((short) turno.getFecha().getDayOfWeek().getValue());
+        List<String> advertencias = new ArrayList<>();
 
-        return idVoluntarios.stream().map(idVoluntario -> {
+        List<TurnoAssignmentRecord> asignaciones = idVoluntarios.stream().map(idVoluntario -> {
             Voluntario voluntario = voluntarioRepository.findById(idVoluntario)
                     .orElseThrow(() -> new ResourceNotFoundException(
                             "Voluntario no encontrado con ID: " + idVoluntario));
@@ -84,6 +92,15 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
 
             cruceTurnoService.validarSinCruces(idVoluntario, idTurno);
 
+            // KAN-31 Criterio 3: advierte (no bloquea) si el voluntario no declaró disponibilidad para esta franja
+            boolean disponible = disponibilidadRepository
+                    .existsByVoluntarioIdVoluntarioAndDiaSemanaAndHoraInicioLessThanEqualAndHoraFinGreaterThanEqual(
+                            idVoluntario, diaTurno, turno.getHoraInicio(), turno.getHoraFin());
+            if (!disponible) {
+                advertencias.add("El voluntario " + nombreCompleto(voluntario)
+                        + " no tiene disponibilidad declarada para el horario de este turno.");
+            }
+
             TurnoAssignmentRecord asignacion = asignacionRepository.create(idTurno, idVoluntario);
 
             outboxService.enqueue(
@@ -96,6 +113,8 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
 
             return asignacion;
         }).toList();
+
+        return new ResultadoAsignacionTurno(asignaciones, advertencias);
     }
 
     @Override

@@ -22,6 +22,7 @@ import com.example.backend.service.JwtService;
 import com.example.backend.service.TareaService;
 import com.example.backend.service.TurnoService;
 import com.example.backend.service.AsignacionTurnoService;
+import com.example.backend.service.AsignacionTurnoService.ResultadoAsignacionTurno;
 import com.example.backend.service.AsignacionTareaService;
 import com.example.backend.service.SmtpEmailService;
 import com.example.backend.mail.NotificationTemplateService;
@@ -165,8 +166,9 @@ class TaskRoleAccessTest {
 
     @Test
     void gestorPuedeAsignarTurnos() throws Exception {
-        when(asignacionTurnoService.asignarVoluntarios(8, List.of(5))).thenReturn(List.of(
-                new TurnoAssignmentRecord(40L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")));
+        when(asignacionTurnoService.asignarVoluntarios(8, List.of(5))).thenReturn(new ResultadoAsignacionTurno(
+                List.of(new TurnoAssignmentRecord(40L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")),
+                List.of()));
 
         mockMvc.perform(post("/api/turnos/8/asignaciones")
                         .with(user("gestor").roles("GESTOR_TAREAS"))

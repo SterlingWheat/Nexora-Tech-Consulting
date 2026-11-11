@@ -2,11 +2,13 @@ package com.example.backend.service;
 
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.mail.NotificationTemplateType;
+import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Turno;
 import com.example.backend.model.TurnoAssignmentRecord;
 import com.example.backend.model.Voluntario;
 import com.example.backend.notification.NotificationOutboxService;
 import com.example.backend.repository.AsignacionTurnoRepository;
+import com.example.backend.repository.DisponibilidadRepository;
 import com.example.backend.repository.TurnoRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.impl.AsignacionTurnoServiceImpl;
@@ -23,6 +25,7 @@ import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
@@ -44,6 +47,9 @@ class AsignacionTurnoServiceImplTest {
     private VoluntarioRepository voluntarioRepository;
 
     @Mock
+    private DisponibilidadRepository disponibilidadRepository;
+
+    @Mock
     private CruceTurnoService cruceTurnoService;
 
     @Mock
@@ -57,8 +63,17 @@ class AsignacionTurnoServiceImplTest {
                 asignacionRepository,
                 turnoRepository,
                 voluntarioRepository,
+                disponibilidadRepository,
                 cruceTurnoService,
                 outboxService);
+    }
+
+    // El turno de prueba cae en domingo (25/10/2026); por defecto el voluntario SÍ tiene disponibilidad declarada
+    private void stubDisponible(boolean disponible) {
+        when(disponibilidadRepository
+                .existsByVoluntarioIdVoluntarioAndDiaSemanaAndHoraInicioLessThanEqualAndHoraFinGreaterThanEqual(
+                        eq(5), eq(DiaSemana.DOMINGO), eq(LocalTime.of(8, 0)), eq(LocalTime.of(12, 0))))
+                .thenReturn(disponible);
     }
 
     @Test
@@ -72,11 +87,13 @@ class AsignacionTurnoServiceImplTest {
         when(asignacionRepository.countActiveByTurno(7)).thenReturn(1);
         when(asignacionRepository.existsActiveByTurnoAndVoluntario(7, 5)).thenReturn(false);
         when(voluntarioRepository.findById(5)).thenReturn(Optional.of(voluntario));
+        stubDisponible(true);
         when(asignacionRepository.create(7, 5)).thenReturn(created);
 
-        List<TurnoAssignmentRecord> resultado = service.asignarVoluntarios(7, List.of(5));
+        AsignacionTurnoService.ResultadoAsignacionTurno resultado = service.asignarVoluntarios(7, List.of(5));
 
-        assertEquals(List.of(created), resultado);
+        assertEquals(List.of(created), resultado.asignaciones());
+        assertTrue(resultado.advertencias().isEmpty());
         verify(asignacionRepository).create(7, 5);
         verify(cruceTurnoService).validarSinCruces(5, 7);
         verify(outboxService).enqueue(
@@ -86,6 +103,30 @@ class AsignacionTurnoServiceImplTest {
                 eq("Ana Paz"),
                 eq("Clasificar"),
                 eq("25/10/2026 08:00"));
+    }
+
+    // KAN-31 Criterio 3: sin disponibilidad declarada, el sistema advierte pero igual asigna
+    @Test
+    void asignarAdvierteSinBloquearCuandoElVoluntarioNoTieneDisponibilidadDeclarada() {
+        Turno turno = turnoActivo();
+        Voluntario voluntario = voluntario();
+        TurnoAssignmentRecord created =
+                new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turno));
+        when(asignacionRepository.countActiveByTurno(7)).thenReturn(1);
+        when(asignacionRepository.existsActiveByTurnoAndVoluntario(7, 5)).thenReturn(false);
+        when(voluntarioRepository.findById(5)).thenReturn(Optional.of(voluntario));
+        stubDisponible(false);
+        when(asignacionRepository.create(7, 5)).thenReturn(created);
+
+        AsignacionTurnoService.ResultadoAsignacionTurno resultado = service.asignarVoluntarios(7, List.of(5));
+
+        assertEquals(List.of(created), resultado.asignaciones());
+        assertEquals(1, resultado.advertencias().size());
+        assertTrue(resultado.advertencias().get(0).contains("Ana Paz"));
+        verify(asignacionRepository).create(7, 5);
+        verify(outboxService).enqueue(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -113,6 +154,26 @@ class AsignacionTurnoServiceImplTest {
                 () -> service.asignarVoluntarios(7, List.of(5)));
 
         verifyNoInteractions(voluntarioRepository, outboxService);
+    }
+
+    // KAN-31 Criterio 2 (límite exacto): con el último cupo libre, la asignación sí procede
+    @Test
+    void asignarProcedeCuandoUsaElUltimoCupoLibre() {
+        Turno turno = turnoActivo();
+        turno.setCuposTotales(1);
+        TurnoAssignmentRecord created =
+                new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
+
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turno));
+        when(asignacionRepository.countActiveByTurno(7)).thenReturn(0);
+        when(asignacionRepository.existsActiveByTurnoAndVoluntario(7, 5)).thenReturn(false);
+        when(voluntarioRepository.findById(5)).thenReturn(Optional.of(voluntario()));
+        stubDisponible(true);
+        when(asignacionRepository.create(7, 5)).thenReturn(created);
+
+        AsignacionTurnoService.ResultadoAsignacionTurno resultado = service.asignarVoluntarios(7, List.of(5));
+
+        assertEquals(List.of(created), resultado.asignaciones());
     }
 
     @Test
