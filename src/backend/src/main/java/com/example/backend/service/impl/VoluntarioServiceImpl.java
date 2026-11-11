@@ -180,7 +180,10 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     @Transactional(readOnly = true)
     public Page<Voluntario> buscarVoluntarios(String texto, Boolean activo, DiaSemana diaSemana, Pageable pageable) {
         String textoNormalizado = (texto == null || texto.isBlank()) ? null : texto.trim();
-        return voluntarioRepository.buscarVoluntarios(textoNormalizado, activo, diaSemana, pageable);
+        // El patrón LIKE se arma aquí (no con CONCAT en el HQL) para evitar el bug de Postgres/Hibernate
+        // con parámetros nulos dentro de CONCAT (ver comentario en VoluntarioRepository.buscarVoluntarios).
+        String patron = textoNormalizado == null ? null : "%" + textoNormalizado.toLowerCase() + "%";
+        return voluntarioRepository.buscarVoluntarios(patron, activo, diaSemana, pageable);
     }
 
     private void normalizar(Voluntario v) {

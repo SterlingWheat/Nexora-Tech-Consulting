@@ -206,17 +206,17 @@ class VoluntarioServiceImplTest {
         verify(repository, never()).save(any());
     }
 
-    // KAN-27 Criterio 1: búsqueda por texto delegada al repositorio, normalizando espacios
+    // KAN-27 Criterio 1: búsqueda por texto delegada al repositorio como patrón LIKE ya armado, normalizando espacios
     @Test
-    void buscarVoluntarios_conTextoConEspacios_loNormalizaAntesDeConsultar() {
+    void buscarVoluntarios_conTextoConEspacios_armaElPatronLikeEnMinusculas() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Voluntario> pagina = new PageImpl<>(List.of(nuevo()), pageable, 1);
-        when(repository.buscarVoluntarios(eq("ana"), isNull(), isNull(), eq(pageable))).thenReturn(pagina);
+        when(repository.buscarVoluntarios(eq("%ana%"), isNull(), isNull(), eq(pageable))).thenReturn(pagina);
 
-        Page<Voluntario> resultado = service.buscarVoluntarios("  ana  ", null, null, pageable);
+        Page<Voluntario> resultado = service.buscarVoluntarios("  Ana  ", null, null, pageable);
 
         assertEquals(1, resultado.getTotalElements());
-        verify(repository).buscarVoluntarios("ana", null, null, pageable);
+        verify(repository).buscarVoluntarios("%ana%", null, null, pageable);
     }
 
     // KAN-27 Criterio 1: un texto vacío o en blanco no debe filtrar (se envía null al repositorio)
