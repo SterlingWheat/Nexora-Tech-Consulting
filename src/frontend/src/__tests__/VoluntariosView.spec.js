@@ -82,4 +82,42 @@ describe('VoluntariosView', () => {
     await flushPromises()
     expect(voluntarioService.activarVoluntario).toHaveBeenCalledWith(2)
   })
+
+  it('filtra el listado por voluntarios activos e inactivos', async () => {
+    voluntarioService.obtenerVoluntarios.mockResolvedValue([
+      { idVoluntario: 1, nombre: 'Ana', apellido: 'Quispe', documento: '1', email: 'ana@a.com', activo: true },
+      { idVoluntario: 2, nombre: 'Luis', apellido: 'Paz', documento: '2', email: 'luis@a.com', activo: false },
+    ])
+    const wrapper = mount(VoluntariosView)
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('Ana Quispe')
+    expect(wrapper.text()).toContain('Luis Paz')
+
+    const botones = wrapper.findAll('.vols-filtro-boton')
+    await botones.find((b) => b.text() === 'Activos').trigger('click')
+    expect(wrapper.text()).toContain('Ana Quispe')
+    expect(wrapper.text()).not.toContain('Luis Paz')
+
+    await botones.find((b) => b.text() === 'Inactivos').trigger('click')
+    expect(wrapper.text()).not.toContain('Ana Quispe')
+    expect(wrapper.text()).toContain('Luis Paz')
+
+    await botones.find((b) => b.text() === 'Todos').trigger('click')
+    expect(wrapper.text()).toContain('Ana Quispe')
+    expect(wrapper.text()).toContain('Luis Paz')
+  })
+
+  it('muestra un mensaje cuando el filtro no tiene coincidencias', async () => {
+    voluntarioService.obtenerVoluntarios.mockResolvedValue([
+      { idVoluntario: 1, nombre: 'Ana', apellido: 'Quispe', documento: '1', email: 'ana@a.com', activo: true },
+    ])
+    const wrapper = mount(VoluntariosView)
+    await flushPromises()
+
+    const botones = wrapper.findAll('.vols-filtro-boton')
+    await botones.find((b) => b.text() === 'Inactivos').trigger('click')
+
+    expect(wrapper.text()).toContain('No hay voluntarios inactivos para mostrar.')
+  })
 })
