@@ -176,6 +176,90 @@ class AsignacionTareaServiceImplTest {
     }
 
     @Test
+    void responderAsignacionConfirmaSoloLaAsignacionDelVoluntario() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(10);
+        Voluntario voluntario = Voluntario.builder().idVoluntario(5).nombre("Ana").apellido("Quispe").build();
+        AsignacionTarea asignacion = AsignacionTarea.builder()
+                .idAsignacion(101)
+                .tarea(tarea)
+                .voluntario(voluntario)
+                .estadoRespuesta("Asignado")
+                .build();
+        when(tareaRepository.findById(10)).thenReturn(Optional.of(tarea));
+        when(asignacionTareaRepository.findById(101)).thenReturn(Optional.of(asignacion));
+
+        asignacionService.responderAsignacion(10, 101, 5, 15, true);
+
+        assertEquals("Confirmada", asignacion.getEstadoRespuesta());
+        verify(asignacionTareaRepository).save(asignacion);
+        verify(historialTareaService).registrarAccion(eq(10), eq(15), contains("confirmó"));
+    }
+
+    @Test
+    void responderAsignacionRechazaLiberandoCupoDeLaTarea() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(10);
+        tarea.setEstado("Asignada");
+        Voluntario voluntario = Voluntario.builder().idVoluntario(5).nombre("Ana").apellido("Quispe").build();
+        AsignacionTarea asignacion = AsignacionTarea.builder()
+                .idAsignacion(101)
+                .tarea(tarea)
+                .voluntario(voluntario)
+                .estadoRespuesta("Asignado")
+                .build();
+        when(tareaRepository.findById(10)).thenReturn(Optional.of(tarea));
+        when(asignacionTareaRepository.findById(101)).thenReturn(Optional.of(asignacion));
+        when(asignacionTareaRepository.countActiveByTareaId(10)).thenReturn(0L);
+
+        asignacionService.responderAsignacion(10, 101, 5, 15, false);
+
+        assertEquals("Rechazada", asignacion.getEstadoRespuesta());
+        assertEquals("Pendiente", tarea.getEstado());
+        verify(tareaRepository).save(tarea);
+        verify(historialTareaService).registrarAccion(eq(10), eq(15), contains("rechazó"));
+    }
+
+    @Test
+    void responderAsignacionNoPermiteResponderLaAsignacionDeOtroVoluntario() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(10);
+        AsignacionTarea asignacion = AsignacionTarea.builder()
+                .idAsignacion(101)
+                .tarea(tarea)
+                .voluntario(Voluntario.builder().idVoluntario(5).build())
+                .estadoRespuesta("Asignado")
+                .build();
+        when(tareaRepository.findById(10)).thenReturn(Optional.of(tarea));
+        when(asignacionTareaRepository.findById(101)).thenReturn(Optional.of(asignacion));
+
+        assertThrows(com.example.backend.exception.ResourceNotFoundException.class,
+                () -> asignacionService.responderAsignacion(10, 101, 6, 16, false));
+
+        verify(asignacionTareaRepository, never()).save(any());
+        verifyNoInteractions(historialTareaService);
+    }
+
+    @Test
+    void responderAsignacionNoPermiteCambiarUnaRespuestaAnterior() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(10);
+        AsignacionTarea asignacion = AsignacionTarea.builder()
+                .idAsignacion(101)
+                .tarea(tarea)
+                .voluntario(Voluntario.builder().idVoluntario(5).build())
+                .estadoRespuesta("Confirmada")
+                .build();
+        when(tareaRepository.findById(10)).thenReturn(Optional.of(tarea));
+        when(asignacionTareaRepository.findById(101)).thenReturn(Optional.of(asignacion));
+
+        assertThrows(ConflictException.class,
+                () -> asignacionService.responderAsignacion(10, 101, 5, 15, false));
+
+        verify(asignacionTareaRepository, never()).save(any());
+    }
+
+    @Test
     void asignarVoluntarios_LanzaExcepcionSiTareaEstaFinalizada() {
         Tarea tarea = new Tarea();
         tarea.setIdTarea(10);

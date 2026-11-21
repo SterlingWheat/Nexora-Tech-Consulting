@@ -211,6 +211,25 @@ components:
           type: array
           items:
             type: string
+    AsignacionTareaMovilDTO:
+      type: object
+      properties:
+        idAsignacion: { type: integer }
+        idTarea: { type: integer }
+        titulo: { type: string }
+        descripcion: { type: string }
+        estado: { type: string }
+        fechaAsignacion: { type: string, format: date-time }
+    AsignacionTurnoMovilDTO:
+      type: object
+      properties:
+        idAsignacion: { type: integer, format: int64 }
+        idTurno: { type: integer }
+        actividad: { type: string }
+        fecha: { type: string, format: date }
+        horaInicio: { type: string, format: time }
+        horaFin: { type: string, format: time }
+        estado: { type: string }
 security:
   - bearerAuth: []
 paths:
@@ -872,6 +891,124 @@ paths:
       responses:
         '201':
           description: Voluntarios asignados correctamente
+  /api/movil/asignaciones/tareas:
+    get:
+      tags: [Aplicación móvil]
+      summary: Listar asignaciones de tareas del voluntario autenticado
+      responses:
+        '200':
+          description: Asignaciones del voluntario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AsignacionTareaMovilDTO'
+        '401':
+          description: No autorizado
+        '403':
+          description: Solo disponible para voluntarios
+  /api/movil/asignaciones/turnos:
+    get:
+      tags: [Aplicación móvil]
+      summary: Listar asignaciones de turnos del voluntario autenticado
+      responses:
+        '200':
+          description: Asignaciones del voluntario
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/AsignacionTurnoMovilDTO'
+        '401':
+          description: No autorizado
+        '403':
+          description: Solo disponible para voluntarios
+  /api/movil/asignaciones/tareas/{idTarea}/{idAsignacion}/confirmar:
+    patch:
+      tags: [Aplicación móvil]
+      summary: Aceptar una asignación de tarea propia
+      parameters:
+        - name: idTarea
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: idAsignacion
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204':
+          description: Asignación confirmada
+        '403':
+          description: Solo disponible para voluntarios
+        '404':
+          description: Asignación no encontrada para el voluntario
+        '409':
+          description: La asignación ya fue respondida
+  /api/movil/asignaciones/tareas/{idTarea}/{idAsignacion}/rechazar:
+    patch:
+      tags: [Aplicación móvil]
+      summary: Rechazar una asignación de tarea propia y liberar el cupo
+      parameters:
+        - name: idTarea
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: idAsignacion
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        '204':
+          description: Asignación rechazada
+        '403':
+          description: Solo disponible para voluntarios
+        '404':
+          description: Asignación no encontrada para el voluntario
+        '409':
+          description: La asignación ya fue respondida
+  /api/movil/asignaciones/turnos/{idTurno}/{idAsignacion}/confirmar:
+    patch:
+      tags: [Aplicación móvil]
+      summary: Aceptar una asignación de turno propia
+      parameters:
+        - name: idTurno
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: idAsignacion
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: Asignación confirmada
+        '403':
+          description: Solo disponible para voluntarios
+        '409':
+          description: La asignación ya fue respondida o no pertenece al voluntario
+  /api/movil/asignaciones/turnos/{idTurno}/{idAsignacion}/rechazar:
+    patch:
+      tags: [Aplicación móvil]
+      summary: Rechazar una asignación de turno propia y liberar el cupo
+      parameters:
+        - name: idTurno
+          in: path
+          required: true
+          schema: { type: integer }
+        - name: idAsignacion
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: Asignación rechazada
+        '403':
+          description: Solo disponible para voluntarios
+        '409':
+          description: La asignación ya fue respondida o no pertenece al voluntario
   /api/tareas/{idTarea}/historial:
     get:
       tags: [Historial]

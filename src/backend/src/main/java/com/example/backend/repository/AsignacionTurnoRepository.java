@@ -1,10 +1,13 @@
 package com.example.backend.repository;
 
 import com.example.backend.model.TurnoAssignmentRecord;
+import com.example.backend.model.TurnoAssignmentMobileRecord;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -97,6 +100,27 @@ public class AsignacionTurnoRepository {
                 idTurno);
     }
 
+    public List<TurnoAssignmentMobileRecord> findAllByVoluntario(Integer idVoluntario) {
+        return jdbcTemplate.query(
+                """
+                select a.id_asignacion, t.id_turno, t.actividad, t.fecha,
+                       t.hora_inicio, t.hora_fin, a.estado
+                from asignacion_turno a
+                join turno t on t.id_turno = a.id_turno
+                where a.id_voluntario = ?
+                order by t.fecha, t.hora_inicio, a.id_asignacion
+                """,
+                (resultSet, rowNumber) -> new TurnoAssignmentMobileRecord(
+                        resultSet.getLong("id_asignacion"),
+                        resultSet.getInt("id_turno"),
+                        resultSet.getString("actividad"),
+                        resultSet.getObject("fecha", LocalDate.class),
+                        resultSet.getObject("hora_inicio", LocalTime.class),
+                        resultSet.getObject("hora_fin", LocalTime.class),
+                        resultSet.getString("estado")),
+                idVoluntario);
+    }
+
     public List<TurnoAssignmentRecord> findActiveByTurno(Integer idTurno) {
         return jdbcTemplate.query(
                 SELECT_COLUMNS + "where a.id_turno = ? and " + ESTADOS_VIGENTES
@@ -123,6 +147,20 @@ public class AsignacionTurnoRepository {
                 EstadosAsignacion.CANCELADA,
                 idAsignacion,
                 idTurno);
+    }
+
+    public int respondByIdAndTurnoAndVoluntario(
+            Long idAsignacion, Integer idTurno, Integer idVoluntario, String estado) {
+        return jdbcTemplate.update(
+                "update asignacion_turno a set estado = ? "
+                        + "where a.id_asignacion = ? and a.id_turno = ? and a.id_voluntario = ? "
+                        + "and coalesce(a.estado, ?) = ?",
+                estado,
+                idAsignacion,
+                idTurno,
+                idVoluntario,
+                EstadosAsignacion.PENDIENTE,
+                EstadosAsignacion.PENDIENTE);
     }
 
     public int cancelActiveByTurno(Integer idTurno) {

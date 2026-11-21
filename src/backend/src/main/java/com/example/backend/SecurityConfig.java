@@ -43,6 +43,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/movil/**").hasRole("VOLUNTARIO")
                         .requestMatchers("/error").permitAll()
 
                         .requestMatchers("/openapi.yaml", "/swagger-ui/**", "/v3/api-docs/**").permitAll()

@@ -279,6 +279,51 @@ class AsignacionTurnoServiceImplTest {
         verify(asignacionRepository, never()).cancelByIdAndTurno(any(), any());
     }
 
+    @Test
+    void responderAsignacionDeTurnoConfirmaAlVoluntarioAsignado() {
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
+        when(asignacionRepository.respondByIdAndTurnoAndVoluntario(100L, 7, 5, "Confirmada"))
+                .thenReturn(1);
+
+        service.responderAsignacion(7, 100L, 5, true);
+
+        verify(asignacionRepository).respondByIdAndTurnoAndVoluntario(100L, 7, 5, "Confirmada");
+    }
+
+    @Test
+    void responderAsignacionDeTurnoRechazaYLiberaCupo() {
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
+        when(asignacionRepository.respondByIdAndTurnoAndVoluntario(100L, 7, 5, "Rechazada"))
+                .thenReturn(1);
+
+        service.responderAsignacion(7, 100L, 5, false);
+
+        verify(asignacionRepository).respondByIdAndTurnoAndVoluntario(100L, 7, 5, "Rechazada");
+    }
+
+    @Test
+    void responderAsignacionDeTurnoRechazaAsignacionAjenaONoPendiente() {
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoActivo()));
+        when(asignacionRepository.respondByIdAndTurnoAndVoluntario(100L, 7, 6, "Rechazada"))
+                .thenReturn(0);
+
+        assertThrows(com.example.backend.exception.ConflictException.class,
+                () -> service.responderAsignacion(7, 100L, 6, false));
+    }
+
+    @Test
+    void responderAsignacionDeTurnoImpideResponderDespuesDelInicio() {
+        Turno turnoIniciado = turnoActivo();
+        turnoIniciado.setFecha(LocalDate.of(2026, 10, 23));
+        turnoIniciado.setHoraInicio(LocalTime.of(9, 0));
+        when(turnoRepository.findByIdForUpdate(7)).thenReturn(Optional.of(turnoIniciado));
+
+        assertThrows(BusinessValidationException.class,
+                () -> service.responderAsignacion(7, 100L, 5, false));
+        verify(asignacionRepository, never())
+                .respondByIdAndTurnoAndVoluntario(any(), any(), any(), any());
+    }
+
     private Turno turnoActivo() {
         return Turno.builder()
                 .idTurno(7)

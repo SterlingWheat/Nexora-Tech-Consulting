@@ -1,0 +1,14 @@
+package com.example.backend.model;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+public record TurnoAssignmentMobileRecord(
+        Long idAsignacion,
+        Integer idTurno,
+        String actividad,
+        LocalDate fecha,
+        LocalTime horaInicio,
+        LocalTime horaFin,
+        String estado) {
+}

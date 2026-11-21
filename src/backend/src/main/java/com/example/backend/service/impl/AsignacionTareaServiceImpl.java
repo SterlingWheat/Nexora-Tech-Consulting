@@ -3,6 +3,7 @@ package com.example.backend.service.impl;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
+import com.example.backend.dto.AsignacionTareaMovilDTO;
 import com.example.backend.mail.NotificationTemplateType;
 import com.example.backend.model.AsignacionTarea;
 import com.example.backend.model.Tarea;
@@ -208,6 +209,68 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
     @Transactional(readOnly = true)
     public List<AsignacionTarea> obtenerAsignacionesPorTarea(Integer idTarea) {
         return asignacionTareaRepository.findByTareaIdTarea(idTarea);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AsignacionTareaMovilDTO> obtenerAsignacionesDelVoluntario(Integer idVoluntario) {
+        return asignacionTareaRepository.findByVoluntarioIdVoluntario(idVoluntario).stream()
+                .map(asignacion -> new AsignacionTareaMovilDTO(
+                        asignacion.getIdAsignacion(),
+                        asignacion.getTarea().getIdTarea(),
+                        asignacion.getTarea().getTitulo(),
+                        asignacion.getTarea().getDescripcion(),
+                        asignacion.getEstadoRespuesta(),
+                        asignacion.getFechaAsignacion()))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void responderAsignacion(
+            Integer idTarea,
+            Integer idAsignacion,
+            Integer idVoluntario,
+            Integer idUsuario,
+            boolean aceptar) {
+        Tarea tarea = tareaRepository.findById(idTarea)
+                .orElseThrow(() -> new ResourceNotFoundException("Tarea no encontrada con ID: " + idTarea));
+        AsignacionTarea asignacion = asignacionTareaRepository.findById(idAsignacion)
+                .orElseThrow(() -> new ResourceNotFoundException("Asignación no encontrada con ID: " + idAsignacion));
+
+        if (!idTarea.equals(asignacion.getTarea().getIdTarea())
+                || !idVoluntario.equals(asignacion.getVoluntario().getIdVoluntario())) {
+            throw new ResourceNotFoundException("No se encontró una asignación vigente para este voluntario.");
+        }
+
+        String estadoActual = asignacion.getEstadoRespuesta();
+        if (estadoActual != null
+                && !"Asignado".equalsIgnoreCase(estadoActual)
+                && !"Pendiente".equalsIgnoreCase(estadoActual)) {
+            throw new ConflictException("La asignación ya fue respondida.");
+        }
+
+        asignacion.setEstadoRespuesta(aceptar ? "Confirmada" : "Rechazada");
+        asignacionTareaRepository.save(asignacion);
+
+        if (!aceptar) {
+            historialTareaService.registrarAccion(
+                    idTarea,
+                    idUsuario,
+                    "El voluntario " + asignacion.getVoluntario().getNombre() + " "
+                            + asignacion.getVoluntario().getApellido() + " rechazó la asignación.");
+            if ("Asignada".equalsIgnoreCase(tarea.getEstado())
+                    && asignacionTareaRepository.countActiveByTareaId(idTarea) == 0) {
+                tarea.setEstado("Pendiente");
+                tareaRepository.save(tarea);
+            }
+        } else {
+            historialTareaService.registrarAccion(
+                    idTarea,
+                    idUsuario,
+                    "El voluntario " + asignacion.getVoluntario().getNombre() + " "
+                            + asignacion.getVoluntario().getApellido() + " confirmó la asignación.");
+        }
     }
 
     @Override
