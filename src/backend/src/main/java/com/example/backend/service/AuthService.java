@@ -51,13 +51,16 @@ public class AuthService {
             throw new UsuarioInactivoException("Usuario Inactivo. Tu cuenta ha sido deshabilitada.");
         }
 
+        String nombreRol = (usuario.getRol() != null && usuario.getRol().getNombre() != null)
+                ? usuario.getRol().getNombre().trim().toUpperCase()
+                : "";
+        if (!"VOLUNTARIO".equals(nombreRol)) {
+            throw new BadCredentialsException("Solo usuarios con rol Voluntario pueden acceder a la aplicación móvil.");
+        }
+
         if (!coincidePassword(request.getPassword(), usuario)) {
             throw new BadCredentialsException(INVALID_CREDENTIALS);
         }
-
-        String nombreRol = (usuario.getRol() != null && usuario.getRol().getNombre() != null)
-                ? usuario.getRol().getNombre()
-                : "VOLUNTARIO";
 
         String token = jwtService.generarToken(usuario.getEmail(), nombreRol);
         return new LoginResponse(token, nombreRol);

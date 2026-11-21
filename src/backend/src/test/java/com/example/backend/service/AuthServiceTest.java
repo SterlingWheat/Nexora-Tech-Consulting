@@ -79,6 +79,21 @@ class AuthServiceTest {
     }
 
     @Test
+    void rechazaUsuariosQueNoSonVoluntarios() {
+        Usuario usuario = usuario("{bcrypt}hash", true);
+        usuario.setRol(new RolEntity(1, "ADMINISTRADOR"));
+        when(usuarioRepository.findByEmail("persona@example.com")).thenReturn(Optional.of(usuario));
+
+        BadCredentialsException exception = assertThrows(BadCredentialsException.class,
+                () -> authService.iniciarSesion(loginRequest("persona@example.com", "correcta")));
+
+        assertEquals("Solo usuarios con rol Voluntario pueden acceder a la aplicación móvil.",
+                exception.getMessage());
+        verify(passwordEncoder, never()).matches(any(), any());
+        verify(jwtService, never()).generarToken(any(), any());
+    }
+
+    @Test
     void convierteContrasenaLegadaAlFormatoCodificadoDespuesDeUnLoginValido() {
         Usuario usuario = usuario("contrasena-legada", true);
         when(usuarioRepository.findByEmail("persona@example.com")).thenReturn(Optional.of(usuario));
