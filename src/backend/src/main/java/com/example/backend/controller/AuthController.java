@@ -27,8 +27,8 @@ public class AuthController {
     }
 
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<Map<String, String>> credencialesInvalidas() {
-        return ResponseEntity.status(401).body(Map.of("message", "Credenciales inválidas"));
+    public ResponseEntity<Map<String, String>> credencialesInvalidas(BadCredentialsException ex) {
+        return ResponseEntity.status(401).body(Map.of("message", ex.getMessage()));
     }
 
     // Solución Error 3: Respuesta específica para usuarios con cuenta desactivada
