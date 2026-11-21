@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.model.TurnoAssignmentRecord;
+import com.example.backend.model.TurnoAssignmentMobileRecord;
 
 import java.util.List;
 
@@ -13,6 +14,10 @@ public interface AsignacionTurnoService {
     ResultadoAsignacionTurno asignarVoluntarios(Integer idTurno, List<Integer> idVoluntarios);
 
     List<TurnoAssignmentRecord> listarAsignaciones(Integer idTurno);
+
+    List<TurnoAssignmentMobileRecord> obtenerAsignacionesDelVoluntario(Integer idVoluntario);
+
+    void responderAsignacion(Integer idTurno, Long idAsignacion, Integer idVoluntario, boolean aceptar);
 
     // HU2 Criterio 1: Confirmar la participación de un voluntario
     void confirmarAsignacion(Integer idTurno, Long idAsignacion);

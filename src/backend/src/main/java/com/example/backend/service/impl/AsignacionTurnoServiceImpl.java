@@ -1,15 +1,18 @@
 package com.example.backend.service.impl;
 
 import com.example.backend.exception.BusinessValidationException;
+import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.mail.NotificationTemplateType;
 import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Turno;
 import com.example.backend.model.TurnoAssignmentRecord;
+import com.example.backend.model.TurnoAssignmentMobileRecord;
 import com.example.backend.model.Voluntario;
 import com.example.backend.notification.NotificationOutboxService;
 import com.example.backend.repository.AsignacionTurnoRepository;
 import com.example.backend.repository.DisponibilidadRepository;
+import com.example.backend.repository.EstadosAsignacion;
 import com.example.backend.repository.TurnoRepository;
 import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.AsignacionTurnoService;
@@ -129,6 +132,35 @@ public class AsignacionTurnoServiceImpl implements AsignacionTurnoService {
             throw new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno);
         }
         return asignacionRepository.findAllByTurno(idTurno);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TurnoAssignmentMobileRecord> obtenerAsignacionesDelVoluntario(Integer idVoluntario) {
+        return asignacionRepository.findAllByVoluntario(idVoluntario);
+    }
+
+    @Override
+    @Transactional
+    public void responderAsignacion(
+            Integer idTurno, Long idAsignacion, Integer idVoluntario, boolean aceptar) {
+        Turno turno = turnoRepository.findByIdForUpdate(idTurno)
+                .orElseThrow(() -> new ResourceNotFoundException("Turno no encontrado con ID: " + idTurno));
+        validarTurnoActivo(turno);
+
+        LocalDateTime inicioTurno = LocalDateTime.of(turno.getFecha(), turno.getHoraInicio());
+        if (!LocalDateTime.now(clock).isBefore(inicioTurno)) {
+            throw new BusinessValidationException("No se puede responder a la asignación porque el turno ya inició.");
+        }
+
+        String nuevoEstado = aceptar
+                ? EstadosAsignacion.CONFIRMADA
+                : EstadosAsignacion.RECHAZADA;
+        if (asignacionRepository.respondByIdAndTurnoAndVoluntario(
+                idAsignacion, idTurno, idVoluntario, nuevoEstado) != 1) {
+            throw new ConflictException(
+                    "La asignación no está pendiente o no pertenece al voluntario autenticado.");
+        }
     }
 
     @Override

@@ -42,6 +42,7 @@ class _SessionGateState extends State<SessionGate> {
   bool _authenticated = false;
   String _role = '';
   String _email = '';
+  String _token = '';
 
   @override
   void initState() {
@@ -92,6 +93,7 @@ class _SessionGateState extends State<SessionGate> {
       setState(() {
         _email = profile['email']?.toString() ?? '';
         _role = role;
+        _token = token;
         _authenticated = true;
         _loading = false;
       });
@@ -134,6 +136,7 @@ class _SessionGateState extends State<SessionGate> {
     setState(() {
       _email = email;
       _role = role;
+      _token = token;
       _authenticated = true;
     });
   }
@@ -145,6 +148,7 @@ class _SessionGateState extends State<SessionGate> {
       _authenticated = false;
       _email = '';
       _role = '';
+      _token = '';
     });
   }
 
@@ -159,6 +163,7 @@ class _SessionGateState extends State<SessionGate> {
     return VolunteerHomePage(
       email: _email,
       role: _role,
+      token: _token,
       onLogout: _logout,
     );
   }
@@ -212,8 +217,7 @@ class _LoginPageState extends State<LoginPage> {
 
       if (response.statusCode != 200) {
         setState(() {
-          _error =
-              body['message']?.toString() ?? 'No se pudo iniciar sesión.';
+          _error = body['message']?.toString() ?? 'No se pudo iniciar sesión.';
         });
         return;
       }
@@ -233,8 +237,7 @@ class _LoginPageState extends State<LoginPage> {
       await widget.onLogin(token, role!, _emailController.text.trim());
     } catch (_) {
       setState(() {
-        _error =
-            'No se pudo conectar con el servidor. Verifica tu conexión.';
+        _error = 'No se pudo conectar con el servidor. Verifica tu conexión.';
       });
     } finally {
       if (mounted) setState(() => _loading = false);
@@ -285,8 +288,7 @@ class _LoginPageState extends State<LoginPage> {
                       key: const Key('passwordField'),
                       controller: _passwordController,
                       obscureText: _obscurePassword,
-                      onFieldSubmitted: (_) =>
-                          _loading ? null : _login(),
+                      onFieldSubmitted: (_) => _loading ? null : _login(),
                       decoration: InputDecoration(
                         labelText: 'Contraseña',
                         border: const OutlineInputBorder(),
@@ -349,18 +351,20 @@ class VolunteerHomePage extends StatelessWidget {
     super.key,
     required this.email,
     required this.role,
+    required this.token,
     required this.onLogout,
   });
 
   final String email;
   final String role;
+  final String token;
   final Future<void> Function() onLogout;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mi información'),
+        title: const Text('Mis asignaciones'),
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
@@ -369,24 +373,299 @@ class VolunteerHomePage extends StatelessWidget {
           ),
         ],
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const CircleAvatar(
-                radius: 38,
-                child: Icon(Icons.person, size: 42),
+      body: VolunteerAssignmentsPage(email: email, role: role, token: token),
+    );
+  }
+}
+
+class VolunteerAssignmentsPage extends StatefulWidget {
+  const VolunteerAssignmentsPage({
+    super.key,
+    required this.email,
+    required this.role,
+    required this.token,
+  });
+
+  final String email;
+  final String role;
+  final String token;
+
+  @override
+  State<VolunteerAssignmentsPage> createState() =>
+      _VolunteerAssignmentsPageState();
+}
+
+class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _tasks = [];
+  List<Map<String, dynamic>> _shifts = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+    _loadAssignments();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadAssignments() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+
+    try {
+      final headers = {'Authorization': 'Bearer ${widget.token}'};
+      final responses = await Future.wait([
+        http.get(
+          Uri.parse('$_apiBaseUrl/movil/asignaciones/tareas'),
+          headers: headers,
+        ),
+        http.get(
+          Uri.parse('$_apiBaseUrl/movil/asignaciones/turnos'),
+          headers: headers,
+        ),
+      ]);
+
+      for (final response in responses) {
+        if (response.statusCode != 200) {
+          throw Exception('No se pudieron cargar tus asignaciones.');
+        }
+      }
+
+      final taskResponse =
+          jsonDecode(utf8.decode(responses[0].bodyBytes)) as List<dynamic>;
+      final shiftResponse =
+          jsonDecode(utf8.decode(responses[1].bodyBytes)) as List<dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _tasks = taskResponse.cast<Map<String, dynamic>>();
+        _shifts = shiftResponse.cast<Map<String, dynamic>>();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _respond({
+    required bool isTask,
+    required Map<String, dynamic> assignment,
+    required bool accept,
+  }) async {
+    final entity = isTask ? 'la tarea' : 'el turno';
+    final decision = accept ? 'aceptar' : 'rechazar';
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${accept ? 'Aceptar' : 'Rechazar'} asignación'),
+        content: Text('¿Confirmas que deseas $decision $entity?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Volver'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final type = isTask ? 'tareas' : 'turnos';
+    final parentId = isTask ? assignment['idTarea'] : assignment['idTurno'];
+    final assignmentId = assignment['idAsignacion'];
+    final action = accept ? 'confirmar' : 'rechazar';
+    try {
+      final response = await http.patch(
+        Uri.parse(
+          '$_apiBaseUrl/movil/asignaciones/$type/$parentId/$assignmentId/$action',
+        ),
+        headers: {'Authorization': 'Bearer ${widget.token}'},
+      );
+      if (response.statusCode != 204) {
+        final content = utf8.decode(response.bodyBytes).trim();
+        String message = 'No se pudo actualizar la asignación.';
+        if (content.isNotEmpty) {
+          try {
+            final body = jsonDecode(content);
+            message = body is Map<String, dynamic>
+                ? body['message']?.toString() ?? message
+                : body.toString();
+          } on FormatException {
+            message = content;
+          }
+        }
+        throw Exception(message);
+      }
+      await _loadAssignments();
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('Exception: ', '')),
+        ),
+      );
+    }
+  }
+
+  bool _isPending(String? status) =>
+      status == null ||
+      status.toLowerCase() == 'asignado' ||
+      status.toLowerCase() == 'pendiente';
+
+  Widget _assignmentList(
+    List<Map<String, dynamic>> assignments, {
+    required bool isTask,
+  }) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _loadAssignments,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (assignments.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadAssignments,
+        child: ListView(
+          children: const [
+            SizedBox(height: 180),
+            Center(child: Text('No tienes asignaciones.')),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      onRefresh: _loadAssignments,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: assignments.length,
+        itemBuilder: (context, index) {
+          final assignment = assignments[index];
+          final status =
+              assignment['estado']?.toString() ??
+              assignment['estadoRespuesta']?.toString() ??
+              'Pendiente';
+          final pending = _isPending(status);
+          final title = isTask
+              ? assignment['titulo']?.toString() ?? 'Tarea'
+              : assignment['actividad']?.toString() ?? 'Turno';
+          final details = isTask
+              ? assignment['descripcion']?.toString() ?? ''
+              : _shiftSchedule(assignment);
+
+          return Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  if (details.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Text(details),
+                  ],
+                  const SizedBox(height: 8),
+                  Chip(label: Text(status)),
+                  if (pending) ...[
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        FilledButton.icon(
+                          onPressed: () => _respond(
+                            isTask: isTask,
+                            assignment: assignment,
+                            accept: true,
+                          ),
+                          icon: const Icon(Icons.check),
+                          label: const Text('Aceptar'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: () => _respond(
+                            isTask: isTask,
+                            assignment: assignment,
+                            accept: false,
+                          ),
+                          icon: const Icon(Icons.close),
+                          label: const Text('Rechazar'),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
-              const SizedBox(height: 16),
-              Text(email, style: Theme.of(context).textTheme.titleLarge),
-              const SizedBox(height: 8),
-              Chip(label: Text(role)),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  String _shiftSchedule(Map<String, dynamic> shift) {
+    final date = shift['fecha']?.toString() ?? '';
+    final start = shift['horaInicio']?.toString() ?? '';
+    final end = shift['horaFin']?.toString() ?? '';
+    return [
+      date,
+      '$start - $end',
+    ].where((part) => part.trim().isNotEmpty).join(' · ');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Material(
+          color: Theme.of(context).colorScheme.surface,
+          child: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(text: 'Tareas'),
+              Tab(text: 'Turnos'),
             ],
           ),
         ),
-      ),
+        Expanded(
+          child: TabBarView(
+            controller: _tabController,
+            children: [
+              _assignmentList(_tasks, isTask: true),
+              _assignmentList(_shifts, isTask: false),
+            ],
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: Text('${widget.email} · ${widget.role}'),
+        ),
+      ],
     );
   }
 }

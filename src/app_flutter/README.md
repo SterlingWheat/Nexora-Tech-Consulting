@@ -1,17 +1,26 @@
-# app_flutter
+# Nexora Voluntarios (Flutter)
 
-A new Flutter project.
+La app permite iniciar sesión con las credenciales de la plataforma, consultar
+las tareas y turnos asignados y aceptar o rechazar las asignaciones pendientes.
+Las respuestas se guardan en el backend compartido y se reflejan en la plataforma
+web.
 
-## Getting Started
+## Ejecutar
 
-This project is a starting point for a Flutter application.
+Desde esta carpeta:
 
-A few resources to get you started if this is your first Flutter project:
+```powershell
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:8080/api
+```
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+`10.0.2.2` apunta al equipo anfitrión desde el emulador Android. Para un
+dispositivo físico, usa la dirección IP accesible del servidor, por ejemplo:
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+```powershell
+flutter run --dart-define=API_BASE_URL=http://192.168.1.20:8080/api
+```
+
+La URL debe terminar en `/api`. El backend debe estar accesible desde el
+dispositivo. La sesión se conserva localmente; al abrir la app se verifica el
+JWT con `/api/perfil/me`, y las sesiones inválidas o expiradas vuelven al login.
