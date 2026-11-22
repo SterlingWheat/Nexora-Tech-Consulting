@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface NotificationOutboxRepository extends JpaRepository<NotificationOutboxMessage, Long> {
@@ -76,6 +77,26 @@ public interface NotificationOutboxRepository extends JpaRepository<Notification
             @Param("leaseExpiresBefore") LocalDateTime leaseExpiresBefore);
 
     List<NotificationOutboxMessage> findAllByClaimTokenOrderByCreatedAtAsc(String claimToken);
+
+    List<NotificationOutboxMessage> findAllByRecipientIgnoreCaseAndStatusOrderByCreatedAtDesc(
+            String recipient, String status);
+
+    Optional<NotificationOutboxMessage> findByIdAndRecipientIgnoreCaseAndStatus(
+            Long id, String recipient, String status);
+
+    @Modifying
+    @Query("""
+            UPDATE NotificationOutboxMessage message
+            SET message.readAt = :readAt
+            WHERE message.id = :id
+              AND LOWER(message.recipient) = LOWER(:recipient)
+              AND message.status = 'SENT'
+              AND message.readAt IS NULL
+            """)
+    int markAsRead(
+            @Param("id") Long id,
+            @Param("recipient") String recipient,
+            @Param("readAt") LocalDateTime readAt);
 
     @Modifying
     @Query("""

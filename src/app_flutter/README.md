@@ -29,3 +29,6 @@ flutter run --dart-define=API_BASE_URL=http://192.168.1.20:8080/api
 La URL debe terminar en `/api`. El backend debe estar accesible desde el
 dispositivo. La sesión se conserva localmente; al abrir la app se verifica el
 JWT con `/api/perfil/me`, y las sesiones inválidas o expiradas vuelven al login.
+
+La pestaña **Notificaciones** muestra los avisos enviados más recientes primero.
+Al abrir un aviso no leído, se guarda su estado como leído en el backend.
