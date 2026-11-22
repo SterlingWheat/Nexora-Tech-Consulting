@@ -5,10 +5,10 @@ import com.example.backend.exception.BusinessValidationException;
 import java.util.Locale;
 
 public enum NotificationTemplateType {
-    ASIGNACION("Asignaci n"),
+    ASIGNACION("Asignación"),
     RECORDATORIO("Recordatorio"),
     CAMBIO_TURNO("Cambio de turno"),
-    CANCELACION_ASIGNACION("Cancelaci n de asignaci n");
+    CANCELACION_ASIGNACION("Cancelación de asignación");
 
     private final String displayName;
 
@@ -24,7 +24,7 @@ public enum NotificationTemplateType {
         try {
             return valueOf(value.trim().toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException | NullPointerException exception) {
-            throw new BusinessValidationException("El tipo de plantilla no es v lido.");
+            throw new BusinessValidationException("El tipo de plantilla no es válido.");
         }
     }
 }

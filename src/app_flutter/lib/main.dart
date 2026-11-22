@@ -384,7 +384,11 @@ class _VolunteerHomePageState extends State<VolunteerHomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_selectedPage == 0 ? 'Mis asignaciones' : 'Mi perfil'),
+        title: Text(switch (_selectedPage) {
+          0 => 'Mis asignaciones',
+          1 => 'Notificaciones',
+          _ => 'Mi perfil',
+        }),
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
@@ -401,6 +405,10 @@ class _VolunteerHomePageState extends State<VolunteerHomePage> {
             role: widget.role,
             token: widget.token,
           ),
+          if (_selectedPage == 1)
+            NotificationsCenterPage(token: widget.token)
+          else
+            const SizedBox.shrink(),
           VolunteerProfilePage(
             token: widget.token,
             onProfileUpdated: widget.onProfileUpdated,
@@ -417,6 +425,11 @@ class _VolunteerHomePageState extends State<VolunteerHomePage> {
             icon: Icon(Icons.assignment_outlined),
             selectedIcon: Icon(Icons.assignment),
             label: 'Asignaciones',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.notifications_none),
+            selectedIcon: Icon(Icons.notifications),
+            label: 'Notificaciones',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -990,6 +1003,199 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
           child: Text('${widget.email} · ${widget.role}'),
         ),
       ],
+    );
+  }
+}
+
+class NotificationsCenterPage extends StatefulWidget {
+  const NotificationsCenterPage({super.key, required this.token});
+
+  final String token;
+
+  @override
+  State<NotificationsCenterPage> createState() =>
+      _NotificationsCenterPageState();
+}
+
+class _NotificationsCenterPageState extends State<NotificationsCenterPage> {
+  bool _loading = true;
+  String? _error;
+  List<Map<String, dynamic>> _notifications = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadNotifications();
+  }
+
+  Future<void> _loadNotifications() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/movil/notificaciones'),
+        headers: {'Authorization': 'Bearer ${widget.token}'},
+      );
+      if (response.statusCode != 200) {
+        throw Exception('No se pudieron cargar tus notificaciones.');
+      }
+      final decoded =
+          jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _notifications = decoded.cast<Map<String, dynamic>>();
+      });
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _openNotification(Map<String, dynamic> notification) async {
+    if (notification['leida'] != true) {
+      try {
+        final response = await http.patch(
+          Uri.parse(
+            '$_apiBaseUrl/movil/notificaciones/${notification['id']}/leida',
+          ),
+          headers: {'Authorization': 'Bearer ${widget.token}'},
+        );
+        if (response.statusCode != 204) {
+          final message = utf8.decode(response.bodyBytes).trim();
+          throw Exception(
+            message.isEmpty
+                ? 'No se pudo marcar la notificación como leída.'
+                : message,
+          );
+        }
+        if (!mounted) return;
+        setState(() {
+          notification['leida'] = true;
+        });
+      } catch (error) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(error.toString().replaceFirst('Exception: ', '')),
+          ),
+        );
+        return;
+      }
+    }
+
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(notification['tipo']?.toString() ?? 'Notificación'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(notification['actividad']?.toString() ?? ''),
+            if ((notification['fechaActividad']?.toString() ?? '')
+                .isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text('Fecha: ${notification['fechaActividad']}'),
+            ],
+            if ((notification['fechaAviso']?.toString() ?? '').isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Recibida: ${_formatDate(notification['fechaAviso'])}'),
+            ],
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cerrar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(Object? value) {
+    if (value == null) return '';
+    final date = DateTime.tryParse(value.toString())?.toLocal();
+    if (date == null) return value.toString();
+    String twoDigits(int number) => number.toString().padLeft(2, '0');
+    return '${twoDigits(date.day)}/${twoDigits(date.month)}/${date.year} '
+        '${twoDigits(date.hour)}:${twoDigits(date.minute)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _loadNotifications,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_notifications.isEmpty) {
+      return RefreshIndicator(
+        onRefresh: _loadNotifications,
+        child: ListView(
+          children: const [
+            SizedBox(height: 180),
+            Center(child: Text('No tienes avisos recientes.')),
+          ],
+        ),
+      );
+    }
+    return RefreshIndicator(
+      onRefresh: _loadNotifications,
+      child: ListView.separated(
+        padding: const EdgeInsets.all(16),
+        itemCount: _notifications.length,
+        separatorBuilder: (context, index) => const SizedBox(height: 8),
+        itemBuilder: (context, index) {
+          final notification = _notifications[index];
+          final isRead = notification['leida'] == true;
+          return Card(
+            child: ListTile(
+              key: Key('notification-${notification['id']}'),
+              onTap: () => _openNotification(notification),
+              leading: Icon(
+                isRead ? Icons.notifications_none : Icons.notifications_active,
+                color: isRead
+                    ? Theme.of(context).colorScheme.onSurfaceVariant
+                    : Theme.of(context).colorScheme.primary,
+              ),
+              title: Text(
+                notification['tipo']?.toString() ?? 'Notificación',
+                style: TextStyle(
+                  fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                ),
+              ),
+              subtitle: Text(
+                [
+                  notification['actividad']?.toString() ?? '',
+                  _formatDate(notification['fechaAviso']),
+                ].where((part) => part.isNotEmpty).join('\n'),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: isRead ? null : const Icon(Icons.circle, size: 10),
+            ),
+          );
+        },
+      ),
     );
   }
 }

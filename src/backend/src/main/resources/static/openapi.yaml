@@ -254,6 +254,15 @@ components:
         perfil:
           $ref: '#/components/schemas/PerfilMovilResponse'
         token: { type: string }
+    NotificacionMovilDTO:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        tipo: { type: string }
+        actividad: { type: string }
+        fechaActividad: { type: string }
+        fechaAviso: { type: string, format: date-time }
+        leida: { type: boolean }
 security:
   - bearerAuth: []
 paths:
@@ -915,6 +924,39 @@ paths:
       responses:
         '201':
           description: Voluntarios asignados correctamente
+  /api/movil/notificaciones:
+    get:
+      tags: [Aplicación móvil]
+      summary: Listar avisos enviados al voluntario autenticado del más reciente al más antiguo
+      responses:
+        '200':
+          description: Lista de notificaciones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/NotificacionMovilDTO'
+        '401':
+          description: No autorizado
+        '403':
+          description: Solo disponible para voluntarios
+  /api/movil/notificaciones/{id}/leida:
+    patch:
+      tags: [Aplicación móvil]
+      summary: Marcar un aviso propio como leído
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: Aviso marcado como leído
+        '403':
+          description: Solo disponible para voluntarios
+        '404':
+          description: Aviso no encontrado
   /api/movil/perfil/me:
     get:
       tags: [Aplicación móvil]

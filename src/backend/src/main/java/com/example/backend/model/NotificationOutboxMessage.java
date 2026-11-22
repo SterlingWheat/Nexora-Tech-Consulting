@@ -69,6 +69,9 @@ public class NotificationOutboxMessage {
     @Column(name = "sent_at")
     private LocalDateTime sentAt;
 
+    @Column(name = "read_at")
+    private LocalDateTime readAt;
+
     @Column(name = "last_error", length = 500)
     private String lastError;
 
