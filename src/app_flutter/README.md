@@ -5,6 +5,11 @@ las tareas y turnos asignados y aceptar o rechazar las asignaciones pendientes.
 Las respuestas se guardan en el backend compartido y se reflejan en la plataforma
 web.
 
+Desde la pestaña **Perfil**, el voluntario puede editar nombre, apellido,
+correo electrónico y teléfono. Documento y rol se muestran como solo lectura.
+Si se cambia el correo, el backend sincroniza la cuenta y devuelve un JWT nuevo
+para conservar la sesión móvil.
+
 ## Ejecutar
 
 Desde esta carpeta:

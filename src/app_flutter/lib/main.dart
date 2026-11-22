@@ -141,6 +141,16 @@ class _SessionGateState extends State<SessionGate> {
     });
   }
 
+  Future<void> _onProfileUpdated(String token, String email) async {
+    final preferences = await SharedPreferences.getInstance();
+    await preferences.setString('authToken', token);
+    if (!mounted) return;
+    setState(() {
+      _token = token;
+      _email = email;
+    });
+  }
+
   Future<void> _logout() async {
     await _clearSession();
     if (!mounted) return;
@@ -164,6 +174,7 @@ class _SessionGateState extends State<SessionGate> {
       email: _email,
       role: _role,
       token: _token,
+      onProfileUpdated: _onProfileUpdated,
       onLogout: _logout,
     );
   }
@@ -346,34 +357,347 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-class VolunteerHomePage extends StatelessWidget {
+class VolunteerHomePage extends StatefulWidget {
   const VolunteerHomePage({
     super.key,
     required this.email,
     required this.role,
     required this.token,
+    required this.onProfileUpdated,
     required this.onLogout,
   });
 
   final String email;
   final String role;
   final String token;
+  final Future<void> Function(String token, String email) onProfileUpdated;
   final Future<void> Function() onLogout;
+
+  @override
+  State<VolunteerHomePage> createState() => _VolunteerHomePageState();
+}
+
+class _VolunteerHomePageState extends State<VolunteerHomePage> {
+  int _selectedPage = 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Mis asignaciones'),
+        title: Text(_selectedPage == 0 ? 'Mis asignaciones' : 'Mi perfil'),
         actions: [
           IconButton(
             tooltip: 'Cerrar sesión',
-            onPressed: onLogout,
+            onPressed: widget.onLogout,
             icon: const Icon(Icons.logout),
           ),
         ],
       ),
-      body: VolunteerAssignmentsPage(email: email, role: role, token: token),
+      body: IndexedStack(
+        index: _selectedPage,
+        children: [
+          VolunteerAssignmentsPage(
+            email: widget.email,
+            role: widget.role,
+            token: widget.token,
+          ),
+          VolunteerProfilePage(
+            token: widget.token,
+            onProfileUpdated: widget.onProfileUpdated,
+          ),
+        ],
+      ),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: _selectedPage,
+        onDestinationSelected: (index) {
+          setState(() => _selectedPage = index);
+        },
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.assignment_outlined),
+            selectedIcon: Icon(Icons.assignment),
+            label: 'Asignaciones',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class VolunteerProfilePage extends StatefulWidget {
+  const VolunteerProfilePage({
+    super.key,
+    required this.token,
+    required this.onProfileUpdated,
+  });
+
+  final String token;
+  final Future<void> Function(String token, String email) onProfileUpdated;
+
+  @override
+  State<VolunteerProfilePage> createState() => _VolunteerProfilePageState();
+}
+
+class _VolunteerProfilePageState extends State<VolunteerProfilePage> {
+  final _formKey = GlobalKey<FormState>();
+  final _nameController = TextEditingController();
+  final _surnameController = TextEditingController();
+  final _emailController = TextEditingController();
+  final _phoneController = TextEditingController();
+  final _documentController = TextEditingController();
+  final _roleController = TextEditingController();
+  bool _loading = true;
+  bool _saving = false;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _surnameController.dispose();
+    _emailController.dispose();
+    _phoneController.dispose();
+    _documentController.dispose();
+    _roleController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadProfile() async {
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final response = await http.get(
+        Uri.parse('$_apiBaseUrl/movil/perfil/me'),
+        headers: {'Authorization': 'Bearer ${widget.token}'},
+      );
+      if (response.statusCode != 200) {
+        throw Exception('No se pudo cargar tu perfil.');
+      }
+      final profile =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      if (!mounted) return;
+      _nameController.text = profile['nombre']?.toString() ?? '';
+      _surnameController.text = profile['apellido']?.toString() ?? '';
+      _emailController.text = profile['email']?.toString() ?? '';
+      _phoneController.text = profile['telefono']?.toString() ?? '';
+      _documentController.text = profile['documento']?.toString() ?? '';
+      _roleController.text = profile['rol']?.toString() ?? '';
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _saveProfile() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() {
+      _saving = true;
+      _error = null;
+    });
+    try {
+      final response = await http.put(
+        Uri.parse('$_apiBaseUrl/movil/perfil/me'),
+        headers: {
+          'Authorization': 'Bearer ${widget.token}',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode({
+          'nombre': _nameController.text.trim(),
+          'apellido': _surnameController.text.trim(),
+          'email': _emailController.text.trim(),
+          'telefono': _phoneController.text.trim(),
+        }),
+      );
+      if (response.statusCode != 200) {
+        final content = utf8.decode(response.bodyBytes).trim();
+        throw Exception(
+          content.isEmpty ? 'No se pudo guardar tu perfil.' : content,
+        );
+      }
+      final result =
+          jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+      final profile = result['perfil'] as Map<String, dynamic>;
+      final token = result['token']?.toString();
+      if (token == null || token.isEmpty) {
+        throw const FormatException(
+          'El servidor no devolvió la sesión actualizada.',
+        );
+      }
+      await widget.onProfileUpdated(token, profile['email']?.toString() ?? '');
+      if (!mounted) return;
+      setState(() {
+        _nameController.text = profile['nombre']?.toString() ?? '';
+        _surnameController.text = profile['apellido']?.toString() ?? '';
+        _emailController.text = profile['email']?.toString() ?? '';
+        _phoneController.text = profile['telefono']?.toString() ?? '';
+        _documentController.text = profile['documento']?.toString() ?? '';
+        _roleController.text = profile['rol']?.toString() ?? '';
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Perfil actualizado correctamente.')),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        _error = error.toString().replaceFirst('Exception: ', '');
+      });
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String? _required(String? value, String field) {
+    if (value == null || value.trim().isEmpty) {
+      return 'El $field es obligatorio.';
+    }
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_error != null && _nameController.text.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error!, textAlign: TextAlign.center),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: _loadProfile,
+              child: const Text('Reintentar'),
+            ),
+          ],
+        ),
+      );
+    }
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(20),
+        children: [
+          Text(
+            'Datos personales',
+            style: Theme.of(context).textTheme.titleLarge,
+          ),
+          const SizedBox(height: 20),
+          TextFormField(
+            key: const Key('profileNameField'),
+            controller: _nameController,
+            maxLength: 100,
+            decoration: const InputDecoration(
+              labelText: 'Nombre',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) => _required(value, 'nombre'),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            key: const Key('profileSurnameField'),
+            controller: _surnameController,
+            maxLength: 100,
+            decoration: const InputDecoration(
+              labelText: 'Apellido',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) => _required(value, 'apellido'),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            key: const Key('profileEmailField'),
+            controller: _emailController,
+            keyboardType: TextInputType.emailAddress,
+            maxLength: 150,
+            decoration: const InputDecoration(
+              labelText: 'Correo electrónico',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              final requiredError = _required(value, 'correo');
+              if (requiredError != null) return requiredError;
+              if (!RegExp(
+                r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
+              ).hasMatch(value!.trim())) {
+                return 'Ingresa un correo válido.';
+              }
+              return null;
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            key: const Key('profilePhoneField'),
+            controller: _phoneController,
+            keyboardType: TextInputType.phone,
+            maxLength: 20,
+            decoration: const InputDecoration(
+              labelText: 'Teléfono',
+              hintText: 'Opcional',
+              border: OutlineInputBorder(),
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) return null;
+              return RegExp(r'^[0-9+()\-\s]{6,20}$').hasMatch(value)
+                  ? null
+                  : 'El teléfono no tiene un formato válido.';
+            },
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            key: const Key('profileDocumentField'),
+            controller: _documentController,
+            readOnly: true,
+            decoration: const InputDecoration(
+              labelText: 'Documento',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextFormField(
+            key: const Key('profileRoleField'),
+            controller: _roleController,
+            readOnly: true,
+            decoration: const InputDecoration(
+              labelText: 'Rol',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 12),
+          FilledButton(
+            key: const Key('saveProfileButton'),
+            onPressed: _saving ? null : _saveProfile,
+            child: _saving
+                ? const SizedBox(
+                    height: 20,
+                    width: 20,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Text('Guardar cambios'),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -230,6 +230,30 @@ components:
         horaInicio: { type: string, format: time }
         horaFin: { type: string, format: time }
         estado: { type: string }
+    PerfilMovilResponse:
+      type: object
+      properties:
+        idVoluntario: { type: integer }
+        nombre: { type: string }
+        apellido: { type: string }
+        documento: { type: string }
+        email: { type: string, format: email }
+        telefono: { type: string }
+        rol: { type: string }
+    PerfilMovilUpdateRequest:
+      type: object
+      required: [nombre, apellido, email]
+      properties:
+        nombre: { type: string, maxLength: 100 }
+        apellido: { type: string, maxLength: 100 }
+        email: { type: string, format: email, maxLength: 150 }
+        telefono: { type: string, maxLength: 20 }
+    PerfilMovilUpdateResponse:
+      type: object
+      properties:
+        perfil:
+          $ref: '#/components/schemas/PerfilMovilResponse'
+        token: { type: string }
 security:
   - bearerAuth: []
 paths:
@@ -891,6 +915,42 @@ paths:
       responses:
         '201':
           description: Voluntarios asignados correctamente
+  /api/movil/perfil/me:
+    get:
+      tags: [Aplicación móvil]
+      summary: Consultar el perfil del voluntario autenticado
+      responses:
+        '200':
+          description: Perfil de voluntario con documento y rol de solo lectura
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerfilMovilResponse'
+        '403':
+          description: Solo disponible para voluntarios
+    put:
+      tags: [Aplicación móvil]
+      summary: Actualizar nombre, apellido, correo y teléfono del voluntario autenticado
+      description: El documento y el rol no son editables. Devuelve un JWT renovado si se cambia el correo.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilMovilUpdateRequest'
+      responses:
+        '200':
+          description: Perfil actualizado y sesión renovada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PerfilMovilUpdateResponse'
+        '400':
+          description: Datos inválidos
+        '403':
+          description: Solo disponible para voluntarios
+        '409':
+          description: El correo ya está registrado
   /api/movil/asignaciones/tareas:
     get:
       tags: [Aplicación móvil]

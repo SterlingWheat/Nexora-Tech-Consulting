@@ -99,6 +99,41 @@ class VoluntarioServiceImplTest {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    void actualizarPerfil_normalizaCamposSinModificarDocumentoNiRolYActualizaLaCuenta() {
+        Usuario usuario = Usuario.builder()
+                .idUsuario(15)
+                .nombre("Nombre anterior")
+                .email("ana@correo.com")
+                .rol(new com.example.backend.model.RolEntity(4, "VOLUNTARIO"))
+                .build();
+        Voluntario voluntario = Voluntario.builder()
+                .idVoluntario(7)
+                .usuario(usuario)
+                .nombre("Ana")
+                .apellido("Quispe")
+                .documento("DOC-123")
+                .email("ana@correo.com")
+                .build();
+        when(repository.findByUsuarioIdUsuario(15)).thenReturn(Optional.of(voluntario));
+        when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
+        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
+
+        Voluntario actualizado = service.actualizarPerfil(
+                15, "  María ", "  López ", " MARIA@CORREO.COM ", "  12345678  ");
+
+        assertEquals("María", actualizado.getNombre());
+        assertEquals("López", actualizado.getApellido());
+        assertEquals("DOC-123", actualizado.getDocumento());
+        assertEquals("maria@correo.com", actualizado.getEmail());
+        assertEquals("12345678", actualizado.getTelefono());
+        assertEquals("María López", usuario.getNombre());
+        assertEquals("maria@correo.com", usuario.getEmail());
+        assertEquals("VOLUNTARIO", usuario.getRol().getNombre());
+        verify(usuarioRepository).save(usuario);
+        verify(repository).save(voluntario);
+    }
+
     // Criterio 3
     @Test
     void actualizar_conDatosValidos_guardaCambios() {

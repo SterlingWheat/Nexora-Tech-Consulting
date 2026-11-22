@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 
 @Service
 public class VoluntarioServiceImpl implements VoluntarioService {
@@ -88,6 +89,47 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         existente.setEmail(detalles.getEmail());
         existente.setTelefono(detalles.getTelefono());
         
+        return voluntarioRepository.save(existente);
+    }
+
+    @Override
+    @Transactional
+    public Voluntario actualizarPerfil(
+            Integer idUsuario, String nombre, String apellido, String email, String telefono) {
+        Voluntario existente = voluntarioRepository.findByUsuarioIdUsuario(idUsuario)
+                .orElseThrow(() -> new ResourceNotFoundException(
+                        "No se encontró el perfil de voluntario para el usuario autenticado."));
+
+        Voluntario cambios = Voluntario.builder()
+                .nombre(nombre)
+                .apellido(apellido)
+                .documento(existente.getDocumento())
+                .email(email)
+                .telefono(telefono)
+                .build();
+        normalizar(cambios);
+
+        if (voluntarioRepository.existsByEmailIgnoreCaseAndIdVoluntarioNot(
+                cambios.getEmail(), existente.getIdVoluntario())) {
+            throw new ConflictException(
+                    "Ya existe un voluntario registrado con el correo " + cambios.getEmail());
+        }
+        Usuario usuario = existente.getUsuario();
+        if (usuario == null || !Objects.equals(usuario.getIdUsuario(), idUsuario)) {
+            throw new ResourceNotFoundException(
+                    "No se encontró la cuenta de acceso del voluntario autenticado.");
+        }
+        if (usuarioRepository.existsByEmailIgnoreCaseAndIdUsuarioNot(cambios.getEmail(), idUsuario)) {
+            throw new ConflictException("El correo ya está registrado por otra cuenta.");
+        }
+
+        existente.setNombre(cambios.getNombre());
+        existente.setApellido(cambios.getApellido());
+        existente.setEmail(cambios.getEmail());
+        existente.setTelefono(cambios.getTelefono());
+        usuario.setNombre(cambios.getNombre() + " " + cambios.getApellido());
+        usuario.setEmail(cambios.getEmail());
+        usuarioRepository.save(usuario);
         return voluntarioRepository.save(existente);
     }
 
