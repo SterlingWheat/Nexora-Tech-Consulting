@@ -12,6 +12,8 @@ public interface VoluntarioService {
 
     Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles);
 
+    Voluntario actualizarPerfil(Integer idUsuario, String nombre, String apellido, String email, String telefono);
+
     Voluntario habilitarAcceso(Integer idVoluntario, String password);
 
     // Solución Error 2: Firma para permitir activar o desactivar al voluntario
