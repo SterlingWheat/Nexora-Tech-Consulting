@@ -41,7 +41,7 @@ import static org.mockito.Mockito.when;
 class AsignacionTurnoServiceImplTest {
 
     private static final ZoneId ZONA = ZoneId.of("America/La_Paz");
-    // "Ahora" fijo: 2026-10-23 10:00 hora de La Paz (Dos días antes del turno de prueba por defecto)
+    // "Ahora" fijo: 2026-10-23 10:00 hora de La Paz
     private static final Clock RELOJ = Clock.fixed(Instant.parse("2026-10-23T14:00:00Z"), ZONA);
 
     @Mock
@@ -71,7 +71,6 @@ class AsignacionTurnoServiceImplTest {
                 RELOJ);
     }
 
-    // El turno de prueba cae en domingo (25/10/2026); por defecto el voluntario SÍ tiene disponibilidad declarada
     private void stubDisponible(boolean disponible) {
         when(disponibilidadRepository
                 .existsByVoluntarioIdVoluntarioAndDiaSemanaAndHoraInicioLessThanEqualAndHoraFinGreaterThanEqual(
@@ -217,7 +216,6 @@ class AsignacionTurnoServiceImplTest {
         verifyNoInteractions(outboxService);
     }
 
-    // HU2 Criterio 1: Confirmar asignación
     @Test
     void confirmarAsignacion_actualizaEstadoExitosamente() {
         TurnoAssignmentRecord assignment =
@@ -232,10 +230,8 @@ class AsignacionTurnoServiceImplTest {
         verify(asignacionRepository).confirmByIdAndTurno(100L, 7);
     }
 
-    // HU2 Criterios 2 y 3: Cancelar antes de iniciar
     @Test
     void cancelarAsignacion_turnoNoIniciado_NotificaYActualizaEstadoSinEliminarRegistro() {
-        // turnoActivo() empieza el 2026-10-25 (el reloj está en 2026-10-23, válido)
         TurnoAssignmentRecord assignment =
                 new TurnoAssignmentRecord(100L, 7, 5, "Ana Paz", "ana@example.com", "Pendiente");
 
@@ -257,13 +253,12 @@ class AsignacionTurnoServiceImplTest {
         verify(asignacionRepository, never()).create(any(), any());
     }
 
-    // HU2 Criterio 3: Cancelar cuando el turno YA inició bloquea la acción
     @Test
     void cancelarAsignacion_turnoYaIniciado_lanzaExcepcionBloqueante() {
         Turno turnoIniciado = Turno.builder()
                 .idTurno(7)
-                .fecha(LocalDate.of(2026, 10, 23)) // Mismo día que RELOJ (2026-10-23 10:00:00)
-                .horaInicio(LocalTime.of(9, 0))    // Turno inició hace una hora
+                .fecha(LocalDate.of(2026, 10, 23))
+                .horaInicio(LocalTime.of(9, 0))
                 .horaFin(LocalTime.of(12, 0))
                 .actividad("Clasificar")
                 .estado(Turno.ESTADO_ACTIVO)

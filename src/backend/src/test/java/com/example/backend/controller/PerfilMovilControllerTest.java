@@ -72,6 +72,7 @@ class PerfilMovilControllerTest {
         usuarioActualizado.setNombre("María López");
         usuarioActualizado.setEmail("maria@example.com");
         Voluntario voluntario = voluntario(usuarioActualizado);
+        
         when(usuarioRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(usuario));
         when(voluntarioService.actualizarPerfil(15, "María", "López", "maria@example.com", "12345678"))
                 .thenReturn(voluntario);

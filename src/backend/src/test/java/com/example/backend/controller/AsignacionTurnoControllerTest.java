@@ -43,7 +43,7 @@ class AsignacionTurnoControllerTest {
     void post_asignaVoluntariosYDevuelveNuevosRegistros() throws Exception {
         when(service.asignarVoluntarios(8, List.of(5))).thenReturn(new ResultadoAsignacionTurno(
                 List.of(new TurnoAssignmentRecord(30L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")),
-                List.of()));
+                List.<String>of())); // Se fuerza el tipado a <String> para evitar que Java asuma <Object>
 
         mvc.perform(post("/api/turnos/8/asignaciones")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -91,7 +91,6 @@ class AsignacionTurnoControllerTest {
         verifyNoInteractions(service);
     }
 
-    // HU2 Criterio 1: Confirmar asignación
     @Test
     void patch_confirmaAsignacionYDevuelve204() throws Exception {
         mvc.perform(patch("/api/turnos/8/asignaciones/30/confirmar"))
@@ -100,7 +99,6 @@ class AsignacionTurnoControllerTest {
         verify(service).confirmarAsignacion(8, 30L);
     }
 
-    // HU2 Criterios 2 y 3: Cancelar asignación
     @Test
     void post_cancelaAsignacionConservandoSuRegistro() throws Exception {
         mvc.perform(post("/api/turnos/8/asignaciones/30/cancelar"))

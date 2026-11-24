@@ -12,7 +12,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -55,7 +54,6 @@ class VoluntarioGestionControllerTest {
                 .fechaCreacion(LocalDateTime.now()).build();
     }
 
-    // Criterio 1
     @Test
     void post_valido_devuelve201ConVoluntarioActivo() throws Exception {
         when(service.registrarVoluntario(any(), any(), any())).thenReturn(guardado());
@@ -66,7 +64,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(jsonPath("$.activo").value(true));
     }
 
-    // Criterio 2
     @Test
     void post_duplicado_devuelve409ConMensajeClaro() throws Exception {
         when(service.registrarVoluntario(any(), any(), any()))
@@ -77,7 +74,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(content().string(containsString("Ya existe un voluntario")));
     }
 
-    // Criterio 4
     @Test
     void post_camposObligatoriosVacios_devuelve400ConMensajes() throws Exception {
         String invalido = "{\"nombre\":\"\",\"apellido\":\"\",\"documento\":\"\",\"email\":\"\"}";
@@ -90,7 +86,6 @@ class VoluntarioGestionControllerTest {
         verify(service, never()).registrarVoluntario(any(), any(), any());
     }
 
-    // Criterio 4
     @Test
     void post_correoConFormatoInvalido_devuelve400() throws Exception {
         String invalido = VALIDO.replace("ana@correo.com", "no-es-correo");
@@ -100,7 +95,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(content().string(containsString("formato")));
     }
 
-    // Criterio 4
     @Test
     void post_telefonoInvalido_devuelve400() throws Exception {
         String invalido = VALIDO.replace("70012345", "abc");
@@ -110,7 +104,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(content().string(containsString("formato")));
     }
 
-    // El teléfono admite como máximo 20 caracteres (columna varchar(20))
     @Test
     void post_telefonoDeMasDe20Caracteres_devuelve400() throws Exception {
         String invalido = VALIDO.replace("70012345", "1234567890123456789012");
@@ -132,7 +125,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(status().isCreated());
     }
 
-    // Criterio 3
     @Test
     void put_valido_devuelve200ConFechaModificacion() throws Exception {
         Voluntario actualizado = guardado();
@@ -179,7 +171,6 @@ class VoluntarioGestionControllerTest {
         mvc.perform(get("/api/voluntarios/99/detalle")).andExpect(status().isNotFound());
     }
 
-    // Criterio 1: baja lógica deja al voluntario inactivo conservando su historial
     @Test
     void put_desactivar_devuelve200ConVoluntarioInactivo() throws Exception {
         Voluntario inactivo = guardado();
@@ -194,7 +185,6 @@ class VoluntarioGestionControllerTest {
         verify(service).cambiarEstado(1, false);
     }
 
-    // Criterio 3: la reactivación lo vuelve a dejar disponible
     @Test
     void put_activar_devuelve200ConVoluntarioActivo() throws Exception {
         when(service.cambiarEstado(1, true)).thenReturn(guardado());
@@ -214,7 +204,6 @@ class VoluntarioGestionControllerTest {
         mvc.perform(put("/api/voluntarios/99/desactivar")).andExpect(status().isNotFound());
     }
 
-    // KAN-27 Criterio 1: búsqueda por texto
     @Test
     void getFiltrar_conTexto_devuelve200ConResultadosPaginados() throws Exception {
         Pageable pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("nombre").ascending());
@@ -227,7 +216,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(jsonPath("$.totalElements").value(1));
     }
 
-    // KAN-27 Criterio 2: filtros de estado y disponibilidad combinados
     @Test
     void getFiltrar_conEstadoYDisponibilidad_propagaAmbosFiltros() throws Exception {
         Pageable pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("nombre").ascending());
@@ -241,7 +229,6 @@ class VoluntarioGestionControllerTest {
         verify(service).buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
     }
 
-    // KAN-27 Criterio 3: paginación explícita por page/size
     @Test
     void getFiltrar_conPageYSize_losUsaParaPaginar() throws Exception {
         Pageable pageable = PageRequest.of(2, 5, org.springframework.data.domain.Sort.by("nombre").ascending());
@@ -254,7 +241,6 @@ class VoluntarioGestionControllerTest {
                 .andExpect(jsonPath("$.number").value(2));
     }
 
-    // KAN-27: un tamaño de página fuera de rango se acota a un máximo razonable (protege AC3)
     @Test
     void getFiltrar_conSizeExcesivo_loAcotaA100() throws Exception {
         Pageable pageable = PageRequest.of(0, 100, org.springframework.data.domain.Sort.by("nombre").ascending());
@@ -267,7 +253,6 @@ class VoluntarioGestionControllerTest {
         verify(service).buscarVoluntarios(null, null, null, pageable);
     }
 
-    // KAN-27: un diaSemana con un valor fuera del enum es un 400 explícito, no un 500
     @Test
     void getFiltrar_conDiaSemanaInvalido_devuelve400() throws Exception {
         mvc.perform(get("/api/voluntarios/filtrar").param("diaSemana", "NOEXISTE"))

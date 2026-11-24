@@ -1,5 +1,6 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.LoginRequest;
 import com.example.backend.service.AuthService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -28,7 +29,7 @@ class AuthControllerTest {
 
     @Test
     void responde401ConMensajeGenericoParaCredencialesInvalidas() throws Exception {
-        when(authService.iniciarSesion(any()))
+        when(authService.iniciarSesion(any(LoginRequest.class)))
                 .thenThrow(new BadCredentialsException("Credenciales inválidas"));
 
         mockMvc.perform(post("/api/auth/login")

@@ -254,5 +254,4 @@ class PasswordResetServiceTest {
         request.setPassword(password);
         return request;
     }
-
 }

@@ -175,7 +175,7 @@ class TaskRoleAccessTest {
     void gestorPuedeAsignarTurnos() throws Exception {
         when(asignacionTurnoService.asignarVoluntarios(8, List.of(5))).thenReturn(new ResultadoAsignacionTurno(
                 List.of(new TurnoAssignmentRecord(40L, 8, 5, "Ana Paz", "ana@example.com", "Pendiente")),
-                List.of()));
+                List.<String>of()));
 
         mockMvc.perform(post("/api/turnos/8/asignaciones")
                         .with(user("gestor").roles("GESTOR_TAREAS"))
@@ -427,7 +427,6 @@ class TaskRoleAccessTest {
         verifyNoInteractions(usuarioRepository);
     }
 
-    // KAN-26: solo Administrador/TI pueden dar de baja o reactivar voluntarios
     @Test
     void administradorPuedeDesactivarVoluntario() throws Exception {
         when(voluntarioService.cambiarEstado(1, false)).thenReturn(voluntario(1, false));
