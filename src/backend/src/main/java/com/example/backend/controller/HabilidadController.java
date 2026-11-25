@@ -14,8 +14,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/admin/habilidades")
 @RequiredArgsConstructor
-// Solo los administradores o gestores deben poder manipular el catálogo maestro de habilidades.
-@PreAuthorize("hasRole('ADMIN')") 
+// Administradores (y gestores de tareas en lectura) pueden gestionar el catálogo de habilidades.
+@PreAuthorize("hasAnyRole('ADMINISTRADOR', 'ADMIN')")
 public class HabilidadController {
 
     private final HabilidadService habilidadService;
@@ -28,7 +28,7 @@ public class HabilidadController {
 
     @PutMapping("/{id}")
     public ResponseEntity<HabilidadDTO> updateHabilidad(
-            @PathVariable Long id, 
+            @PathVariable Long id,
             @Valid @RequestBody HabilidadDTO habilidadDTO) {
         HabilidadDTO updated = habilidadService.updateHabilidad(id, habilidadDTO);
         return ResponseEntity.ok(updated);
@@ -41,13 +41,13 @@ public class HabilidadController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'GESTOR_TAREAS')") // Lectura más permisiva si se requiere
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'ADMIN', 'GESTOR_TAREAS')")
     public ResponseEntity<HabilidadDTO> getHabilidadById(@PathVariable Long id) {
         return ResponseEntity.ok(habilidadService.getHabilidadById(id));
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'GESTOR_TAREAS')")
+    @PreAuthorize("hasAnyRole('ADMINISTRADOR', 'ADMIN', 'GESTOR_TAREAS')")
     public ResponseEntity<List<HabilidadDTO>> getAllHabilidades() {
         return ResponseEntity.ok(habilidadService.getAllHabilidades());
     }
