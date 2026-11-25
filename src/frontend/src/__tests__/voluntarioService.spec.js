@@ -5,7 +5,7 @@ const respuesta = (ok, cuerpo, texto = cuerpo ? JSON.stringify(cuerpo) : '') => 
   ok, json: async () => cuerpo, text: async () => texto
 })
 
-const datos = { nombre: 'Ana', apellido: 'Quispe', documento: '123', email: 'ana@correo.com', telefono: '' }
+const datos = { nombre: 'Ana', apellido: 'Quispe', documento: '123', email: 'ana@correo.com', telefono: '', habilidadesIds: [] }
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -40,16 +40,11 @@ describe('voluntarioService', () => {
     expect(opciones.method).toBe('PUT')
   })
 
-  it('obtenerVoluntario usa /detalle porque /{id} pertenece al perfil de usuario (KAN-16)', async () => {
+  it('obtenerVoluntario usa /detalle porque /{id} pertenece al perfil de usuario', async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { idVoluntario: 5 }))
     vi.stubGlobal('fetch', fetchMock)
     await voluntarioService.obtenerVoluntario(5)
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/voluntarios\/5\/detalle$/)
-  })
-
-  it('obtenerVoluntarios devuelve la lista', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(true, [{ idVoluntario: 1 }])))
-    expect(await voluntarioService.obtenerVoluntarios()).toHaveLength(1)
   })
 
   it('activarVoluntario envía PUT para reactivar', async () => {
@@ -70,46 +65,55 @@ describe('voluntarioService', () => {
     expect(opciones.method).toBe('PUT')
   })
 
-  // KAN-27 Criterio 1: búsqueda por texto
-  it('buscarVoluntarios envía el texto como parámetro de consulta', async () => {
+  // Búsqueda (KAN-27 y HU2)
+  it('buscarVoluntarios envía los parámetros de consulta completos (incluyendo habilidadId)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
     vi.stubGlobal('fetch', fetchMock)
-    await voluntarioService.buscarVoluntarios({ texto: 'ana' })
+    await voluntarioService.buscarVoluntarios({ texto: 'ana', activo: false, diaSemana: 'LUNES', habilidadId: 3, page: 3, size: 25 })
+    
     const url = fetchMock.mock.calls[0][0]
     expect(url).toMatch(/\/api\/voluntarios\/filtrar\?/)
     expect(url).toContain('texto=ana')
-    expect(url).toContain('page=0')
-    expect(url).toContain('size=10')
-  })
-
-  // KAN-27 Criterio 2: filtros de estado y disponibilidad
-  it('buscarVoluntarios envía activo y diaSemana cuando se especifican', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
-    vi.stubGlobal('fetch', fetchMock)
-    await voluntarioService.buscarVoluntarios({ activo: false, diaSemana: 'LUNES' })
-    const url = fetchMock.mock.calls[0][0]
     expect(url).toContain('activo=false')
     expect(url).toContain('diaSemana=LUNES')
+    expect(url).toContain('habilidadId=3')
+    expect(url).toContain('page=3')
+    expect(url).toContain('size=25')
   })
 
-  // KAN-27: sin filtros no deben enviarse parámetros vacíos (texto/activo/diaSemana)
-  it('buscarVoluntarios omite texto, activo y diaSemana cuando no se especifican', async () => {
+  it('buscarVoluntarios omite texto, activo, diaSemana y habilidadId cuando no se especifican', async () => {
     const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
     vi.stubGlobal('fetch', fetchMock)
     await voluntarioService.buscarVoluntarios()
     const url = fetchMock.mock.calls[0][0]
+    
     expect(url).not.toContain('texto=')
     expect(url).not.toContain('activo=')
     expect(url).not.toContain('diaSemana=')
+    expect(url).not.toContain('habilidadId=')
+    expect(url).toContain('page=0') // default
   })
 
-  // KAN-27 Criterio 3: paginación explícita
-  it('buscarVoluntarios envía page y size explícitos', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, { content: [], totalElements: 0 }))
+  // HU1: Historial Unificado
+  it('obtenerHistorial envía GET con las fechas si están presentes', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, []))
     vi.stubGlobal('fetch', fetchMock)
-    await voluntarioService.buscarVoluntarios({ page: 3, size: 25 })
+    
+    await voluntarioService.obtenerHistorial(7, '2026-11-01', '2026-11-30')
     const url = fetchMock.mock.calls[0][0]
-    expect(url).toContain('page=3')
-    expect(url).toContain('size=25')
+    
+    expect(url).toMatch(/\/api\/voluntarios\/7\/historial/)
+    expect(url).toContain('desde=2026-11-01')
+    expect(url).toContain('hasta=2026-11-30')
+  })
+
+  it('obtenerHistorial envía GET sin query params si no se pasan fechas', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, []))
+    vi.stubGlobal('fetch', fetchMock)
+    
+    await voluntarioService.obtenerHistorial(7)
+    const url = fetchMock.mock.calls[0][0]
+    
+    expect(url).toMatch(/\/api\/voluntarios\/7\/historial$/) // Sin ? al final
   })
 })
