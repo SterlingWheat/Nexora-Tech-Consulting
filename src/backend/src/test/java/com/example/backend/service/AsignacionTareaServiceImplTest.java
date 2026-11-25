@@ -274,4 +274,51 @@ class AsignacionTareaServiceImplTest {
         assertTrue(ex.getMessage().contains("No se pueden asignar voluntarios a una tarea Finalizada o Cancelada"));
         verify(voluntarioRepository, never()).findById(any());
     }
+
+    // RF-38 (KAN-35) Criterio 1: la app móvil muestra las tareas del voluntario con fecha y detalle
+    @Test
+    void obtenerAsignacionesDelVoluntario_devuelveTituloDescripcionEstadoYFecha() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(10);
+        tarea.setTitulo("Limpieza de sala");
+        tarea.setDescripcion("Barrer y trapear");
+
+        java.time.LocalDateTime fecha = java.time.LocalDateTime.of(2026, 11, 20, 9, 0);
+        AsignacionTarea asignacion = AsignacionTarea.builder()
+                .idAsignacion(101)
+                .tarea(tarea)
+                .estadoRespuesta("Pendiente")
+                .fechaAsignacion(fecha)
+                .build();
+        when(asignacionTareaRepository.findByVoluntarioIdVoluntario(5)).thenReturn(List.of(asignacion));
+
+        var resultado = asignacionService.obtenerAsignacionesDelVoluntario(5);
+
+        assertEquals(1, resultado.size());
+        assertEquals("Limpieza de sala", resultado.get(0).titulo());
+        assertEquals("Barrer y trapear", resultado.get(0).descripcion());
+        assertEquals("Pendiente", resultado.get(0).estado());
+        assertEquals(fecha, resultado.get(0).fechaAsignacion());
+    }
+
+    // RF-38 (KAN-35) Criterio 1: se ordenan por fecha para que la agenda tenga sentido en la app móvil
+    @Test
+    void obtenerAsignacionesDelVoluntario_lasOrdenaPorFechaDeAsignacionAscendente() {
+        Tarea tarea = new Tarea();
+        tarea.setIdTarea(10);
+        tarea.setTitulo("Tarea");
+
+        AsignacionTarea masReciente = AsignacionTarea.builder().idAsignacion(2).tarea(tarea)
+                .fechaAsignacion(java.time.LocalDateTime.of(2026, 12, 1, 0, 0)).build();
+        AsignacionTarea masAntigua = AsignacionTarea.builder().idAsignacion(1).tarea(tarea)
+                .fechaAsignacion(java.time.LocalDateTime.of(2026, 11, 1, 0, 0)).build();
+        AsignacionTarea sinFecha = AsignacionTarea.builder().idAsignacion(3).tarea(tarea)
+                .fechaAsignacion(null).build();
+        when(asignacionTareaRepository.findByVoluntarioIdVoluntario(5))
+                .thenReturn(List.of(masReciente, masAntigua, sinFecha));
+
+        var resultado = asignacionService.obtenerAsignacionesDelVoluntario(5);
+
+        assertEquals(List.of(1, 2, 3), resultado.stream().map(dto -> dto.idAsignacion()).toList());
+    }
 }

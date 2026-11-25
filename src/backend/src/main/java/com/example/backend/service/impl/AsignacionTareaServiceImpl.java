@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
 @Service
@@ -214,7 +215,10 @@ public class AsignacionTareaServiceImpl implements AsignacionTareaService {
     @Override
     @Transactional(readOnly = true)
     public List<AsignacionTareaMovilDTO> obtenerAsignacionesDelVoluntario(Integer idVoluntario) {
+        // RF-38 Criterio 1: la app móvil muestra las tareas con fecha; se ordenan por fecha de asignación
         return asignacionTareaRepository.findByVoluntarioIdVoluntario(idVoluntario).stream()
+                .sorted(Comparator.comparing(AsignacionTarea::getFechaAsignacion,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(asignacion -> new AsignacionTareaMovilDTO(
                         asignacion.getIdAsignacion(),
                         asignacion.getTarea().getIdTarea(),
