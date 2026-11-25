@@ -75,6 +75,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.DELETE, "/api/turnos/**").hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.GET, "/api/turnos/*/asignaciones")
                             .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
+                        // RF-30 (KAN-53): calendario general de turnos, para supervisión de cobertura
+                        .requestMatchers(HttpMethod.GET, "/api/turnos/calendario")
+                            .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.GET, "/api/turnos/**").authenticated()
                         
                         // Gestión de Voluntarios (Solución Error 1 - Restricción general por roles)

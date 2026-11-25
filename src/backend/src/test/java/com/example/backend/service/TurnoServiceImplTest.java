@@ -28,6 +28,8 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -289,5 +291,57 @@ class TurnoServiceImplTest {
         
         // Verifica HU1 C3: Auditoría
         verify(historialTurnoService).registrarAccion(eq(7), eq(88), contains("cancelado completamente"));
+    }
+
+    // RF-30 (KAN-53) Criterio 1: el calendario general consulta por rango de fechas
+    @Test
+    void listarTurnosPorRango_consultaElRepositorioConElRangoYCompletaCupos() {
+        Turno t = turno("2026-10-25", "08:00", "12:00", 5);
+        t.setIdTurno(9);
+        when(repository.buscarTurnosPorRango(LocalDate.parse("2026-10-20"), LocalDate.parse("2026-10-26"), null, null))
+                .thenReturn(List.of(t));
+        when(repository.contarCuposOcupados(List.of(9))).thenReturn(List.of(new CupoOcupado() {
+            public Integer getIdTurno() { return 9; }
+            public Long getTotal() { return 2L; }
+        }));
+
+        List<Turno> resultado = service.listarTurnos(
+                LocalDate.parse("2026-10-20"), LocalDate.parse("2026-10-26"), null, null);
+
+        assertEquals(1, resultado.size());
+        assertEquals(2, resultado.get(0).getCuposOcupados());
+        assertEquals(3, resultado.get(0).getCuposLibres());
+    }
+
+    // RF-30 (KAN-53) Criterio 2: el filtro de actividad se normaliza a un patrón LIKE en minúsculas
+    @Test
+    void listarTurnosPorRango_conActividad_armaElPatronEnMinusculas() {
+        when(repository.buscarTurnosPorRango(any(), any(), eq("%alimentos%"), isNull())).thenReturn(List.of());
+
+        service.listarTurnos(LocalDate.parse("2026-10-20"), LocalDate.parse("2026-10-26"), "  Alimentos  ", null);
+
+        verify(repository).buscarTurnosPorRango(any(), any(), eq("%alimentos%"), isNull());
+    }
+
+    @Test
+    void listarTurnosPorRango_conIdVoluntario_sePasaAlRepositorio() {
+        when(repository.buscarTurnosPorRango(any(), any(), isNull(), eq(5))).thenReturn(List.of());
+
+        service.listarTurnos(LocalDate.parse("2026-10-20"), LocalDate.parse("2026-10-26"), null, 5);
+
+        verify(repository).buscarTurnosPorRango(any(), any(), isNull(), eq(5));
+    }
+
+    @Test
+    void listarTurnosPorRango_hastaAnteriorADesde_lanzaValidacion() {
+        assertThrows(BusinessValidationException.class, () ->
+                service.listarTurnos(LocalDate.parse("2026-10-26"), LocalDate.parse("2026-10-20"), null, null));
+        verify(repository, never()).buscarTurnosPorRango(any(), any(), any(), any());
+    }
+
+    @Test
+    void listarTurnosPorRango_rangoMayorA180Dias_lanzaValidacion() {
+        assertThrows(BusinessValidationException.class, () ->
+                service.listarTurnos(LocalDate.parse("2026-01-01"), LocalDate.parse("2026-12-31"), null, null));
     }
 }
