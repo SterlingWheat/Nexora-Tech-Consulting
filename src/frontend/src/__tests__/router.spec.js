@@ -60,6 +60,29 @@ describe('router authentication guard', () => {
     await router.push('/')
   })
 
+  // RF-30 (KAN-53)
+  it('restricts the general shifts calendar to ADMINISTRADOR and GESTOR_TAREAS', async () => {
+    setActivePinia(createPinia())
+    const authStore = useAuthStore()
+    authStore.token = 'signed-token'
+
+    for (const rol of ['TI', 'VOLUNTARIO']) {
+      authStore.rol = rol
+      await router.push('/turnos/calendario')
+      expect(router.currentRoute.value.name).toBe('tareas')
+      expect(router.currentRoute.value.query.acceso).toBe('denegado')
+    }
+
+    for (const rol of ['ADMINISTRADOR', 'GESTOR_TAREAS']) {
+      authStore.rol = rol
+      await router.push('/turnos/calendario')
+      expect(router.currentRoute.value.name).toBe('calendario-turnos')
+    }
+
+    authStore.logout()
+    await router.push('/')
+  })
+
   it('allows every authenticated role to view their own profile, but only admins to view others', async () => {
     setActivePinia(createPinia())
     const authStore = useAuthStore()

@@ -192,4 +192,46 @@ class TurnoControllerTest {
                 .andExpect(jsonPath("$.idTurno").value(1))
                 .andExpect(jsonPath("$.estado").value("CANCELADO"));
     }
+
+    // RF-30 (KAN-53) Criterio 1
+    @Test
+    void getCalendario_rangoValido_devuelveLosTurnosConCuposLibres() throws Exception {
+        when(service.listarTurnos(LocalDate.of(2026, 10, 20), LocalDate.of(2026, 10, 26), null, null))
+                .thenReturn(List.of(turno(2)));
+
+        mvc.perform(get("/api/turnos/calendario")
+                        .param("desde", "2026-10-20").param("hasta", "2026-10-26"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].idTurno").value(1))
+                .andExpect(jsonPath("$[0].cuposOcupados").value(2))
+                .andExpect(jsonPath("$[0].cuposLibres").value(3));
+    }
+
+    // RF-30 (KAN-53) Criterio 2: los filtros se pasan al servicio
+    @Test
+    void getCalendario_conFiltros_sePasanAlServicio() throws Exception {
+        when(service.listarTurnos(eq(LocalDate.of(2026, 10, 20)), eq(LocalDate.of(2026, 10, 26)),
+                eq("alimentos"), eq(5))).thenReturn(List.of());
+
+        mvc.perform(get("/api/turnos/calendario")
+                        .param("desde", "2026-10-20").param("hasta", "2026-10-26")
+                        .param("actividad", "alimentos").param("idVoluntario", "5"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$").isEmpty());
+    }
+
+    @Test
+    void getCalendario_rangoInvalido_devuelve400() throws Exception {
+        when(service.listarTurnos(any(), any(), any(), any()))
+                .thenThrow(new BusinessValidationException("La fecha 'hasta' debe ser igual o posterior a 'desde'"));
+
+        mvc.perform(get("/api/turnos/calendario")
+                        .param("desde", "2026-10-26").param("hasta", "2026-10-20"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void getCalendario_sinFechas_devuelve400() throws Exception {
+        mvc.perform(get("/api/turnos/calendario")).andExpect(status().isBadRequest());
+    }
 }

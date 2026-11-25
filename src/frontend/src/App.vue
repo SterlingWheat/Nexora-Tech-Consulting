@@ -10,6 +10,12 @@
         <nav v-if="authStore.isAuthenticated" class="nav-links" aria-label="Navegación principal">
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
+
+          <RouterLink v-if="puedeGestionarTareas" to="/turnos/calendario" class="nav-btn">
+            Calendario de turnos
+          </RouterLink>
+
+          <!-- Enlace correcto para la gestión del padrón de voluntarios -->
           <RouterLink to="/voluntarios" class="nav-btn">Voluntarios</RouterLink>
 
           <RouterLink

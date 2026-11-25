@@ -62,4 +62,21 @@ public interface TurnoRepository extends JpaRepository<Turno, Integer> {
     List<UpcomingTurnoAssignment> findUpcomingAssignments(
             @Param("startsAt") LocalDateTime startsAt,
             @Param("endsAt") LocalDateTime endsAt);
+
+    /**
+     * RF-30 (KAN-53): turnos dentro de un rango de fechas (para las vistas día/semana/mes del calendario
+     * general), con filtro opcional por actividad o por voluntario asignado.
+     */
+    @Query(value = "select distinct t.* from turno t "
+            + "left join asignacion_turno a on a.id_turno = t.id_turno "
+            + "and (a.estado is null or a.estado not in (" + EstadosAsignacion.NO_VIGENTES_SQL + ")) "
+            + "where t.fecha between :desde and :hasta "
+            + "and (:actividad is null or lower(t.actividad) like :actividad) "
+            + "and (:idVoluntario is null or a.id_voluntario = :idVoluntario) "
+            + "order by t.fecha, t.hora_inicio",
+            nativeQuery = true)
+    List<Turno> buscarTurnosPorRango(@Param("desde") LocalDate desde,
+                                      @Param("hasta") LocalDate hasta,
+                                      @Param("actividad") String actividad,
+                                      @Param("idVoluntario") Integer idVoluntario);
 }

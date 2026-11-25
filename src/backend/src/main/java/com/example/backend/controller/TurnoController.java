@@ -7,11 +7,13 @@ import com.example.backend.model.Usuario;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.service.TurnoService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -67,6 +69,21 @@ public class TurnoController {
     @GetMapping
     public ResponseEntity<List<TurnoResponseDTO>> listarTurnos() {
         return ResponseEntity.ok(turnoService.listarTurnos().stream().map(this::aDTO).collect(Collectors.toList()));
+    }
+
+    // RF-30 (KAN-53) Criterios 1 y 2: turnos por rango de fechas (día/semana/mes) y filtros,
+    // con cuposLibres ya calculado para resaltar los turnos con cupos sin cubrir
+    @GetMapping("/calendario")
+    public ResponseEntity<List<TurnoResponseDTO>> calendarioDeTurnos(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            @RequestParam(required = false) String actividad,
+            @RequestParam(required = false) Integer idVoluntario) {
+
+        List<TurnoResponseDTO> turnos = turnoService.listarTurnos(desde, hasta, actividad, idVoluntario).stream()
+                .map(this::aDTO)
+                .collect(Collectors.toList());
+        return ResponseEntity.ok(turnos);
     }
 
     @GetMapping("/{id}")
