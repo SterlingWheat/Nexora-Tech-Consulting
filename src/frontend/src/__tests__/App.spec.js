@@ -31,5 +31,6 @@ describe('App', () => {
     expect(wrapper.find('a[href="/perfil"]').exists()).toBe(true)
     expect(wrapper.find('a[href="/tareas/nueva"]').exists()).toBe(canManageTasks)
     expect(wrapper.find('a[href="/usuarios"]').exists()).toBe(canManageUsers)
+    expect(wrapper.find('a[href="/habilidades"]').exists()).toBe(canManageUsers)
   })
 })
