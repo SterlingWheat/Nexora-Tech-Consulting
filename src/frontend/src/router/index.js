@@ -55,6 +55,13 @@ const routes = [
     component: () => import('../views/NotificationTemplatesView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
   },
+  // HU2: Nueva ruta para gestionar el catálogo de habilidades
+  {
+    path: '/habilidades',
+    name: 'habilidades',
+    component: () => import('../views/HabilidadesView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
+  },
   {
     path: '/usuarios/:id/perfil',
     name: 'perfil-voluntario',

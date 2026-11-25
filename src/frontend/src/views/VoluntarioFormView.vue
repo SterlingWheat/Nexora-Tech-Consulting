@@ -39,7 +39,27 @@
             <input id="telefono" type="tel" v-model="formulario.telefono" placeholder="Ej: 70012345" maxlength="20" />
           </div>
 
-          <!-- Solo mostramos opción de crear cuenta si es un registro NUEVO -->
+          <!-- HU2: Selector de Habilidades -->
+          <div class="vol-campo">
+            <label>Habilidades / Especialidades</label>
+            <div v-if="habilidadesDisponibles.length === 0" class="vol-info-habilidades">
+              No hay habilidades en el catálogo.
+            </div>
+            <div v-else class="vol-habilidades-grid">
+              <label v-for="hab in habilidadesDisponibles" :key="hab.id" class="vol-habilidad-item">
+                <input 
+                  type="checkbox" 
+                  :value="hab.id" 
+                  v-model="formulario.habilidadesIds"
+                />
+                <div class="vol-habilidad-texto">
+                  <strong>{{ hab.nombre }}</strong>
+                  <small v-if="hab.descripcion">{{ hab.descripcion }}</small>
+                </div>
+              </label>
+            </div>
+          </div>
+
           <div v-if="!esEdicion" class="vol-campo-checkbox">
             <label>
               <input type="checkbox" v-model="formulario.crearCuenta" />
@@ -71,6 +91,7 @@
 import { ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { voluntarioService } from '../services/voluntarioService'
+import { habilidadService } from '../services/habilidadService'
 
 const router = useRouter()
 const route = useRoute()
@@ -79,6 +100,9 @@ const esEdicion = ref(!!route.params.id)
 const cargando = ref(false)
 const error = ref('')
 
+// HU2: Catálogo de habilidades
+const habilidadesDisponibles = ref([])
+
 const formulario = ref({
   nombre: '',
   apellido: '',
@@ -86,7 +110,8 @@ const formulario = ref({
   email: '',
   telefono: '',
   crearCuenta: false,
-  password: ''
+  password: '',
+  habilidadesIds: [] // HU2: Array de IDs de habilidades
 })
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -108,7 +133,14 @@ const validar = () => {
 }
 
 onMounted(async () => {
+  try {
+    habilidadesDisponibles.value = await habilidadService.obtenerHabilidades()
+  } catch (err) {
+    console.error("No se pudo cargar el catálogo de habilidades:", err)
+  }
+
   if (!esEdicion.value) return
+  
   try {
     const v = await voluntarioService.obtenerVoluntario(route.params.id)
     formulario.value = {
@@ -118,7 +150,9 @@ onMounted(async () => {
       email: v.email,
       telefono: v.telefono || '',
       crearCuenta: false,
-      password: ''
+      password: '',
+      // HU2: Extraer IDs de habilidades mapeados
+      habilidadesIds: v.habilidades ? v.habilidades.map(h => h.id) : []
     }
   } catch (err) {
     error.value = 'Error al cargar los datos: ' + err.message
@@ -136,7 +170,8 @@ const guardarVoluntario = async () => {
       apellido: formulario.value.apellido.trim(),
       documento: formulario.value.documento.trim(),
       email: formulario.value.email.trim(),
-      telefono: formulario.value.telefono.trim()
+      telefono: formulario.value.telefono.trim(),
+      habilidadesIds: formulario.value.habilidadesIds // HU2
     }
     
     if (esEdicion.value) {
@@ -172,7 +207,7 @@ const volver = () => {
   background: var(--crema-claro);
 }
 .vol-contenedor {
-  width: min(600px, 100%);
+  width: min(650px, 100%);
   background: white;
   border-radius: 30px;
   box-shadow: 0 20px 60px rgba(81, 72, 62, 0.07);
@@ -222,7 +257,10 @@ const volver = () => {
   font-size: 12px;
   font-weight: 700;
 }
-.vol-campo input {
+.vol-campo input[type="text"],
+.vol-campo input[type="email"],
+.vol-campo input[type="password"],
+.vol-campo input[type="tel"] {
   width: 100%;
   box-sizing: border-box;
   padding: 15px 17px;
@@ -238,6 +276,55 @@ const volver = () => {
 .vol-campo input:focus {
   border-color: var(--salvia);
 }
+
+/* HU2: Grid de Habilidades */
+.vol-info-habilidades {
+  font-size: 12px;
+  color: var(--texto-suave);
+  padding: 10px;
+  background: #f9f9f9;
+  border-radius: 10px;
+  border: 1px dashed #ccc;
+}
+.vol-habilidades-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+  margin-top: 5px;
+}
+.vol-habilidad-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--crema-claro);
+  border: 1px solid var(--crema);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+.vol-habilidad-item:hover {
+  border-color: var(--salvia-claro);
+}
+.vol-habilidad-item input {
+  margin-top: 2px;
+  cursor: pointer;
+}
+.vol-habilidad-texto {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.vol-habilidad-texto strong {
+  font-size: 12px;
+  color: var(--texto);
+}
+.vol-habilidad-texto small {
+  font-size: 11px;
+  color: var(--texto-suave);
+  line-height: 1.3;
+}
+
 .vol-campo-checkbox {
   display: flex;
   align-items: center;
