@@ -886,12 +886,24 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
       );
     }
     if (assignments.isEmpty) {
+      // RF-38/39 (KAN-35) Criterio 3: mensaje vacío amigable y propio de cada sección
+      final emptyMessage = isTask
+          ? 'Todavía no tienes tareas asignadas.\n¡Vuelve a revisar más tarde!'
+          : 'Todavía no tienes turnos asignados.\n¡Vuelve a revisar más tarde!';
       return RefreshIndicator(
         onRefresh: _loadAssignments,
         child: ListView(
-          children: const [
-            SizedBox(height: 180),
-            Center(child: Text('No tienes asignaciones.')),
+          children: [
+            const SizedBox(height: 140),
+            Icon(
+              isTask ? Icons.task_alt : Icons.event_available,
+              size: 48,
+              color: Theme.of(context).colorScheme.outline,
+            ),
+            const SizedBox(height: 12),
+            Center(
+              child: Text(emptyMessage, textAlign: TextAlign.center),
+            ),
           ],
         ),
       );
@@ -915,6 +927,8 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
           final details = isTask
               ? assignment['descripcion']?.toString() ?? ''
               : _shiftSchedule(assignment);
+          // RF-38 (KAN-35) Criterio 1: la tarea muestra su fecha de asignación
+          final date = isTask ? _taskDate(assignment) : '';
 
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
@@ -924,6 +938,15 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: Theme.of(context).textTheme.titleMedium),
+                  if (date.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      date,
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.outline,
+                      ),
+                    ),
+                  ],
                   if (details.isNotEmpty) ...[
                     const SizedBox(height: 8),
                     Text(details),
@@ -963,6 +986,17 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
         },
       ),
     );
+  }
+
+  // RF-38 (KAN-35) Criterio 1: formatea la fecha de asignación de la tarea (ISO -> dd/MM/yyyy)
+  String _taskDate(Map<String, dynamic> task) {
+    final raw = task['fechaAsignacion']?.toString();
+    if (raw == null || raw.isEmpty) return '';
+    final parsed = DateTime.tryParse(raw);
+    if (parsed == null) return '';
+    final day = parsed.day.toString().padLeft(2, '0');
+    final month = parsed.month.toString().padLeft(2, '0');
+    return '$day/$month/${parsed.year}';
   }
 
   String _shiftSchedule(Map<String, dynamic> shift) {
