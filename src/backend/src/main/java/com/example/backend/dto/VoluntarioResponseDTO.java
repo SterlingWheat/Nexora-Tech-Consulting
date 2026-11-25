@@ -2,6 +2,7 @@ package com.example.backend.dto;
 
 import lombok.Data;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 public class VoluntarioResponseDTO {
@@ -15,4 +16,7 @@ public class VoluntarioResponseDTO {
     private Boolean activo;
     private LocalDateTime fechaCreacion;
     private LocalDateTime fechaModificacion;
+
+    // Campo añadido para HU2: Retorna los detalles de las habilidades asignadas
+    private List<HabilidadDTO> habilidades;
 }

@@ -6,6 +6,8 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "voluntario")
@@ -20,7 +22,6 @@ public class Voluntario {
     @Column(name = "id_voluntario")
     private Integer idVoluntario;
 
-    // Agregada la relación con Usuario que figura en el diagrama[cite: 3]
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_usuario")
     private Usuario usuario;
@@ -28,11 +29,9 @@ public class Voluntario {
     @Column(name = "nombres", nullable = false, length = 100)
     private String nombre;
 
-    // Corregido para apuntar a la columna en singular "apellido" según la BD[cite: 1, 3]
     @Column(name = "apellido", nullable = false, length = 100)
     private String apellido;
 
-    // Columnas requeridas por el frontend, deben crearse en la BD[cite: 1, 3]
     @Column(unique = true, length = 30)
     private String documento;
 
@@ -42,7 +41,6 @@ public class Voluntario {
     @Column(length = 20)
     private String telefono;
 
-    // Mapeo de la columna carrera_profesion existente en la BD[cite: 3]
     @Column(name = "carrera_profesion", length = 100)
     private String carreraProfesion;
 
@@ -50,12 +48,21 @@ public class Voluntario {
     @Builder.Default
     private Boolean activo = true;
 
-    // Mapeado a la columna "fecha_registro" de la BD en lugar de fecha_creacion[cite: 3]
     @Column(name = "fecha_registro", updatable = false)
     private LocalDateTime fechaCreacion;
 
     @Column(name = "fecha_modificacion")
     private LocalDateTime fechaModificacion;
+
+    // Relación añadida para HU2: Catálogo de habilidades
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "voluntario_habilidad",
+        joinColumns = @JoinColumn(name = "voluntario_id", referencedColumnName = "id_voluntario"),
+        inverseJoinColumns = @JoinColumn(name = "habilidad_id", referencedColumnName = "id")
+    )
+    @Builder.Default
+    private Set<Habilidad> habilidades = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {

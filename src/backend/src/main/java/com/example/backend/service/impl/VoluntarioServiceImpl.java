@@ -1,13 +1,16 @@
 package com.example.backend.service.impl;
 
+import com.example.backend.dto.HistorialUnificadoResponseDTO;
 import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.DiaSemana;
+import com.example.backend.model.Habilidad;
 import com.example.backend.model.RolEntity;
 import com.example.backend.model.Usuario;
 import com.example.backend.model.Voluntario;
 import com.example.backend.notification.AccountEmailNotificationEvent;
+import com.example.backend.repository.HabilidadRepository;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
@@ -19,6 +22,9 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 
@@ -30,22 +36,27 @@ public class VoluntarioServiceImpl implements VoluntarioService {
     private final RolRepository rolRepository;
     private final PasswordEncoder passwordEncoder;
     private final ApplicationEventPublisher eventPublisher;
+    
+    // HU2: Repositorio inyectado para validar y asignar habilidades
+    private final HabilidadRepository habilidadRepository;
 
     public VoluntarioServiceImpl(VoluntarioRepository voluntarioRepository,
                                  UsuarioRepository usuarioRepository,
                                  RolRepository rolRepository,
                                  PasswordEncoder passwordEncoder,
-                                 ApplicationEventPublisher eventPublisher) {
+                                 ApplicationEventPublisher eventPublisher,
+                                 HabilidadRepository habilidadRepository) {
         this.voluntarioRepository = voluntarioRepository;
         this.usuarioRepository = usuarioRepository;
         this.rolRepository = rolRepository;
         this.passwordEncoder = passwordEncoder;
         this.eventPublisher = eventPublisher;
+        this.habilidadRepository = habilidadRepository;
     }
 
     @Override
     @Transactional
-    public Voluntario registrarVoluntario(Voluntario voluntario, Boolean crearCuenta, String password) {
+    public Voluntario registrarVoluntario(Voluntario voluntario, Boolean crearCuenta, String password, List<Long> habilidadesIds) {
         normalizar(voluntario);
 
         if (voluntarioRepository.existsByDocumentoIgnoreCase(voluntario.getDocumento())) {
@@ -61,6 +72,14 @@ public class VoluntarioServiceImpl implements VoluntarioService {
             crearCuentaAcceso(voluntario, password);
         }
 
+        // HU2: Asignación de Habilidades en la creación
+        if (habilidadesIds != null && !habilidadesIds.isEmpty()) {
+            List<Habilidad> habilidades = habilidadRepository.findAllById(habilidadesIds);
+            voluntario.setHabilidades(new HashSet<>(habilidades));
+        } else {
+            voluntario.setHabilidades(new HashSet<>());
+        }
+
         Voluntario guardado = voluntarioRepository.save(voluntario);
 
         if (Boolean.TRUE.equals(crearCuenta)) {
@@ -72,7 +91,7 @@ public class VoluntarioServiceImpl implements VoluntarioService {
 
     @Override
     @Transactional
-    public Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles) {
+    public Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles, List<Long> habilidadesIds) {
         Voluntario existente = obtenerVoluntarioPorId(idVoluntario);
         normalizar(detalles);
 
@@ -88,6 +107,14 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         existente.setDocumento(detalles.getDocumento());
         existente.setEmail(detalles.getEmail());
         existente.setTelefono(detalles.getTelefono());
+
+        // HU2: Actualización de Habilidades
+        if (habilidadesIds != null) {
+            List<Habilidad> habilidades = habilidadRepository.findAllById(habilidadesIds);
+            existente.setHabilidades(new HashSet<>(habilidades));
+        } else {
+            existente.getHabilidades().clear();
+        }
         
         return voluntarioRepository.save(existente);
     }
@@ -149,7 +176,6 @@ public class VoluntarioServiceImpl implements VoluntarioService {
         return actualizado;
     }
 
-    // Soluci n Error 2: Mantiene la consistencia de acceso entre el Voluntario y su Usuario si lo posee
     @Override
     @Transactional
     public Voluntario cambiarEstado(Integer idVoluntario, boolean activo) {
@@ -183,14 +209,14 @@ public class VoluntarioServiceImpl implements VoluntarioService {
 
     private void crearCuentaAcceso(Voluntario voluntario, String password) {
         if (password == null || password.trim().length() < 8) {
-            throw new BusinessValidationException("La contrase a es obligatoria y debe tener al menos 8 caracteres.");
+            throw new BusinessValidationException("La contraseña es obligatoria y debe tener al menos 8 caracteres.");
         }
         if (usuarioRepository.existsByEmailIgnoreCase(voluntario.getEmail())) {
-            throw new ConflictException("El correo del voluntario ya est  siendo usado por otro usuario del sistema.");
+            throw new ConflictException("El correo del voluntario ya está siendo usado por otro usuario del sistema.");
         }
         
         RolEntity rol = rolRepository.findByNombre("VOLUNTARIO")
-                .orElseThrow(() -> new BusinessValidationException("El rol VOLUNTARIO no est  configurado en la base de datos."));
+                .orElseThrow(() -> new BusinessValidationException("El rol VOLUNTARIO no está configurado en la base de datos."));
         
         Usuario nuevoUsuario = Usuario.builder()
                 .nombre(voluntario.getNombre() + " " + voluntario.getApellido())
@@ -217,15 +243,21 @@ public class VoluntarioServiceImpl implements VoluntarioService {
                 .orElseThrow(() -> new ResourceNotFoundException("Voluntario no encontrado con ID: " + idVoluntario));
     }
 
-    // KAN-27 Criterios 1, 2 y 3: delega el filtrado y la paginación a la base de datos
     @Override
     @Transactional(readOnly = true)
-    public Page<Voluntario> buscarVoluntarios(String texto, Boolean activo, DiaSemana diaSemana, Pageable pageable) {
+    public Page<Voluntario> buscarVoluntarios(String texto, Boolean activo, DiaSemana diaSemana, Long habilidadId, Pageable pageable) {
         String textoNormalizado = (texto == null || texto.isBlank()) ? null : texto.trim();
-        // El patrón LIKE se arma aquí (no con CONCAT en el HQL) para evitar el bug de Postgres/Hibernate
-        // con parámetros nulos dentro de CONCAT (ver comentario en VoluntarioRepository.buscarVoluntarios).
         String patron = textoNormalizado == null ? null : "%" + textoNormalizado.toLowerCase() + "%";
-        return voluntarioRepository.buscarVoluntarios(patron, activo, diaSemana, pageable);
+        return voluntarioRepository.buscarVoluntarios(patron, activo, diaSemana, habilidadId, pageable);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HistorialUnificadoResponseDTO> obtenerHistorialUnificado(
+            Integer idVoluntario, LocalDate desde, LocalDate hasta) {
+        obtenerVoluntarioPorId(idVoluntario);
+        List<HistorialUnificadoResponseDTO> historial = new ArrayList<>();
+        return historial;
     }
 
     private void normalizar(Voluntario v) {

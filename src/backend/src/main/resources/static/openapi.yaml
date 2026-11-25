@@ -53,6 +53,23 @@ components:
         email: { type: string }
         password: { type: string }
         rol: { type: string }
+    HabilidadDTO:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        nombre: { type: string, maxLength: 100 }
+        descripcion: { type: string, maxLength: 255 }
+    HistorialUnificadoResponseDTO:
+      type: object
+      properties:
+        participacionId: { type: integer, format: int64 }
+        tipo: { type: string }
+        nombre: { type: string }
+        fecha: { type: string, format: date }
+        horaInicio: { type: string, format: time }
+        horaFin: { type: string, format: time }
+        estado: { type: string }
+        observaciones: { type: string }
     VoluntarioRequestDTO:
       type: object
       required: [nombre, apellido, documento, email]
@@ -64,6 +81,11 @@ components:
         telefono: { type: string }
         crearCuenta: { type: boolean }
         password: { type: string }
+        habilidadesIds:
+          type: array
+          items:
+            type: integer
+            format: int64
     VoluntarioResponseDTO:
       type: object
       properties:
@@ -77,6 +99,10 @@ components:
         activo: { type: boolean }
         fechaCreacion: { type: string, format: date-time }
         fechaModificacion: { type: string, format: date-time }
+        habilidades:
+          type: array
+          items:
+            $ref: '#/components/schemas/HabilidadDTO'
     HabilitarAccesoRequestDTO:
       type: object
       required: [password]
@@ -303,6 +329,96 @@ paths:
           description: Fallo al enviar el correo.
         '503':
           description: Configuración SMTP incompleta.
+
+  /api/admin/habilidades:
+    get:
+      tags: [Habilidades]
+      summary: Listar todas las habilidades
+      responses:
+        '200':
+          description: Lista de habilidades devuelta
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HabilidadDTO'
+    post:
+      tags: [Habilidades]
+      summary: Crear una nueva habilidad
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabilidadDTO'
+      responses:
+        '201':
+          description: Habilidad creada exitosamente
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabilidadDTO'
+        '409':
+          description: Conflicto (Nombre duplicado)
+
+  /api/admin/habilidades/{id}:
+    get:
+      tags: [Habilidades]
+      summary: Obtener habilidad por ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: Habilidad encontrada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabilidadDTO'
+        '404':
+          description: Habilidad no encontrada
+    put:
+      tags: [Habilidades]
+      summary: Actualizar una habilidad
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabilidadDTO'
+      responses:
+        '200':
+          description: Habilidad actualizada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HabilidadDTO'
+        '404':
+          description: Habilidad no encontrada
+        '409':
+          description: Conflicto (Nombre duplicado)
+    delete:
+      tags: [Habilidades]
+      summary: Eliminar una habilidad
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '204':
+          description: Habilidad eliminada exitosamente
+        '404':
+          description: Habilidad no encontrada
+
   /api/auth/login:
     post:
       tags: [Auth]
@@ -559,6 +675,37 @@ paths:
       responses:
         '200':
           description: Voluntario desactivado exitosamente
+
+  /api/voluntarios/{id}/historial:
+    get:
+      tags: [Historial]
+      summary: Listar el historial de tareas y turnos de un voluntario
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: desde
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: hasta
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Historial devuelto
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistorialUnificadoResponseDTO'
+
   /api/voluntarios/{idVoluntario}/disponibilidad:
     get:
       tags: [Disponibilidad]
@@ -836,6 +983,38 @@ paths:
       responses:
         '200':
           description: Página de tareas devuelta
+  /api/voluntarios/filtrar:
+    get:
+      tags: [Voluntarios]
+      summary: Filtrar voluntarios con paginación
+      parameters:
+        - name: texto
+          in: query
+          schema: { type: string }
+        - name: activo
+          in: query
+          schema: { type: boolean }
+        - name: diaSemana
+          in: query
+          schema: { type: string }
+        - name: habilidadId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: page
+          in: query
+          schema: { type: integer, default: 0 }
+        - name: size
+          in: query
+          schema: { type: integer, default: 10 }
+        - name: sortBy
+          in: query
+          schema: { type: string, default: "nombre" }
+        - name: sortDir
+          in: query
+          schema: { type: string, default: "asc" }
+      responses:
+        '200':
+          description: Página de voluntarios devuelta
   /api/tareas/categorias:
     get:
       tags: [Tareas]
