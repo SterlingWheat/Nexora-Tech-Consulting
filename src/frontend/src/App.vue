@@ -12,7 +12,11 @@
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
           
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
-          
+
+          <RouterLink v-if="puedeVerCalendario" to="/calendario-disponibilidad" class="nav-btn">
+            Calendario
+          </RouterLink>
+
           <!-- Enlace correcto para la gestión del padrón de voluntarios -->
           <RouterLink to="/voluntarios" class="nav-btn">Voluntarios</RouterLink>
           
@@ -61,6 +65,10 @@ const router = useRouter()
 
 const puedeGestionarTareas = computed(() =>
   ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol)
+)
+
+const puedeVerCalendario = computed(() =>
+  ['ADMINISTRADOR', 'TI', 'GESTOR_TAREAS'].includes(authStore.rol)
 )
 
 const cerrarSesion = async () => {
