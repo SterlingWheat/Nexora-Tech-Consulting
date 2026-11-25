@@ -107,6 +107,12 @@ const routes = [
     meta: { requiresAuth: true }
   },
   {
+    path: '/turnos/calendario',
+    name: 'calendario-turnos',
+    component: () => import('../views/CalendarioTurnosView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
+  },
+  {
     path: '/turnos/nuevo',
     name: 'nuevo-turno',
     component: () => import('../views/TurnoFormView.vue'),
