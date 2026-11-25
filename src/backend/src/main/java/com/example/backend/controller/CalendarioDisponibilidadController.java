@@ -30,7 +30,7 @@ public class CalendarioDisponibilidadController {
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
             @RequestParam(required = false) Integer idVoluntario,
-            @RequestParam(required = false) Integer idHabilidad) {
+            @RequestParam(required = false) Long idHabilidad) {
 
         List<DisponibilidadService.Ocurrencia> ocurrencias =
                 disponibilidadService.obtenerCalendario(desde, hasta, idVoluntario, idHabilidad);

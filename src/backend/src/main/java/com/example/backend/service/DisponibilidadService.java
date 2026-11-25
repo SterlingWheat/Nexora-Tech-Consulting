@@ -23,5 +23,5 @@ public interface DisponibilidadService {
     Resultado reemplazarDisponibilidad(Integer idVoluntario, List<Disponibilidad> franjas);
 
     // RF-23 Criterios 1 y 2: franjas por voluntario, dentro de un rango de fechas, con filtro opcional de voluntario/habilidad
-    List<Ocurrencia> obtenerCalendario(LocalDate desde, LocalDate hasta, Integer idVoluntario, Integer idHabilidad);
+    List<Ocurrencia> obtenerCalendario(LocalDate desde, LocalDate hasta, Integer idVoluntario, Long idHabilidad);
 }

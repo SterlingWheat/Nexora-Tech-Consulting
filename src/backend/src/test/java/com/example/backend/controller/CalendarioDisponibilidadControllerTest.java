@@ -68,7 +68,7 @@ class CalendarioDisponibilidadControllerTest {
     // Criterio 2
     @Test
     void get_conFiltroDeHabilidad_sePasaAlServicio() throws Exception {
-        when(service.obtenerCalendario(any(), any(), isNull(), eq(3))).thenReturn(List.of());
+        when(service.obtenerCalendario(any(), any(), isNull(), eq(3L))).thenReturn(List.of());
 
         mvc.perform(get(URL).param("desde", "2026-11-23").param("hasta", "2026-11-29").param("idHabilidad", "3"))
                 .andExpect(status().isOk());

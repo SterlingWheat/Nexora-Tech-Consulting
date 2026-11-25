@@ -62,7 +62,7 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<Ocurrencia> obtenerCalendario(LocalDate desde, LocalDate hasta, Integer idVoluntario, Integer idHabilidad) {
+    public List<Ocurrencia> obtenerCalendario(LocalDate desde, LocalDate hasta, Integer idVoluntario, Long idHabilidad) {
         if (hasta.isBefore(desde)) {
             throw new BusinessValidationException("La fecha 'hasta' (" + hasta + ") debe ser igual o posterior a 'desde' (" + desde + ")");
         }
@@ -77,7 +77,7 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         if (idVoluntario != null) {
             franjas = disponibilidadRepository.findByVoluntarioIdVoluntarioOrderByDiaSemanaAscHoraInicioAsc(idVoluntario);
         } else if (idHabilidad != null) {
-            franjas = disponibilidadRepository.findByVoluntarioHabilidadesIdHabilidad(idHabilidad);
+            franjas = disponibilidadRepository.findByVoluntarioHabilidadesId(idHabilidad);
         } else {
             franjas = disponibilidadRepository.findAll();
         }

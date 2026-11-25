@@ -6,7 +6,7 @@ vi.mock('../services/voluntarioService', () => ({
 }))
 
 vi.mock('../services/habilidadService', () => ({
-  habilidadService: { listar: vi.fn() },
+  habilidadService: { obtenerHabilidades: vi.fn() },
 }))
 
 vi.mock('../services/calendarioDisponibilidadService', () => ({
@@ -22,11 +22,11 @@ const VOLUNTARIOS = [
   { idVoluntario: 1, nombre: 'Ana', apellido: 'Pérez' },
   { idVoluntario: 2, nombre: 'Ben', apellido: 'Diaz' },
 ]
-const HABILIDADES = [{ idHabilidad: 3, nombre: 'Cocina' }]
+const HABILIDADES = [{ id: 3, nombre: 'Cocina' }]
 
 async function montar(franjas = []) {
   voluntarioService.obtenerVoluntarios.mockResolvedValue(VOLUNTARIOS)
-  habilidadService.listar.mockResolvedValue(HABILIDADES)
+  habilidadService.obtenerHabilidades.mockResolvedValue(HABILIDADES)
   calendarioDisponibilidadService.obtenerCalendario.mockResolvedValue({
     desde: '2026-11-23', hasta: '2026-11-29', franjas,
   })
@@ -102,9 +102,23 @@ describe('CalendarioDisponibilidadView', () => {
     )
   })
 
+  // El catálogo de habilidades solo lo puede listar Administrador/Gestor de Tareas (KAN 39-40);
+  // si TI no tiene acceso, el filtro de habilidad queda vacío pero el resto de la página funciona
+  it('si el catálogo de habilidades falla (p. ej. 403 para TI), el resto de la vista sigue funcionando', async () => {
+    voluntarioService.obtenerVoluntarios.mockResolvedValue(VOLUNTARIOS)
+    habilidadService.obtenerHabilidades.mockRejectedValue(new Error('Acceso denegado'))
+    calendarioDisponibilidadService.obtenerCalendario.mockResolvedValue({ franjas: [] })
+
+    const wrapper = mount(CalendarioDisponibilidadView)
+    await flushPromises()
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.findAll('select')[1].findAll('option')).toHaveLength(1)
+  })
+
   it('muestra el error devuelto por el backend', async () => {
     voluntarioService.obtenerVoluntarios.mockResolvedValue(VOLUNTARIOS)
-    habilidadService.listar.mockResolvedValue(HABILIDADES)
+    habilidadService.obtenerHabilidades.mockResolvedValue(HABILIDADES)
     calendarioDisponibilidadService.obtenerCalendario.mockRejectedValue(new Error('El rango del calendario no puede superar los 60 días'))
 
     const wrapper = mount(CalendarioDisponibilidadView)

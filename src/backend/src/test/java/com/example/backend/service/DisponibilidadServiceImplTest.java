@@ -217,11 +217,11 @@ class DisponibilidadServiceImplTest {
     // RF-23 Criterio 2
     @Test
     void calendario_conIdHabilidad_usaLaConsultaPorHabilidad() {
-        when(disponibilidadRepository.findByVoluntarioHabilidadesIdHabilidad(3)).thenReturn(List.of());
+        when(disponibilidadRepository.findByVoluntarioHabilidadesId(3L)).thenReturn(List.of());
 
-        service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), null, 3);
+        service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), null, 3L);
 
-        verify(disponibilidadRepository).findByVoluntarioHabilidadesIdHabilidad(3);
+        verify(disponibilidadRepository).findByVoluntarioHabilidadesId(3L);
         verify(disponibilidadRepository, never()).findAll();
     }
 

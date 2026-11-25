@@ -20,7 +20,7 @@
           <span>Habilidad</span>
           <select v-model="idHabilidad">
             <option value="">Todas</option>
-            <option v-for="h in habilidades" :key="h.idHabilidad" :value="h.idHabilidad">
+            <option v-for="h in habilidades" :key="h.id" :value="h.id">
               {{ h.nombre }}
             </option>
           </select>
@@ -128,14 +128,17 @@ const semanaSiguiente = () => {
 
 const cargarFiltros = async () => {
   try {
-    const [listaVoluntarios, listaHabilidades] = await Promise.all([
-      voluntarioService.obtenerVoluntarios(),
-      habilidadService.listar()
-    ])
-    voluntarios.value = listaVoluntarios
-    habilidades.value = listaHabilidades
+    voluntarios.value = await voluntarioService.obtenerVoluntarios()
   } catch (err) {
     error.value = err.message
+  }
+
+  // El catálogo de habilidades solo lo puede listar Administrador/Gestor de Tareas;
+  // si TI no tiene acceso, el filtro de habilidad simplemente queda vacío (no rompe la página)
+  try {
+    habilidades.value = await habilidadService.obtenerHabilidades()
+  } catch {
+    habilidades.value = []
   }
 }
 

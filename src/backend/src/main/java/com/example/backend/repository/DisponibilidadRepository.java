@@ -18,5 +18,6 @@ public interface DisponibilidadRepository extends JpaRepository<Disponibilidad, 
             Integer idVoluntario, DiaSemana diaSemana, LocalTime horaInicio, LocalTime horaFin);
 
     // RF-23 Criterio 2: disponibilidad de los voluntarios que tienen una habilidad dada, para el calendario
-    List<Disponibilidad> findByVoluntarioHabilidadesIdHabilidad(Integer idHabilidad);
+    // (Habilidad.id es Long: ver el catálogo de habilidades agregado en la rama de KAN 39-40)
+    List<Disponibilidad> findByVoluntarioHabilidadesId(Long idHabilidad);
 }

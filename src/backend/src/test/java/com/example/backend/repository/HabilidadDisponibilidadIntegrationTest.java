@@ -24,10 +24,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * RF-23 (KAN-30): pruebas de integración contra la base de datos real configurada en .env
- * (sin mocks). Verifica que el mapeo JPA de Habilidad/Voluntario y la consulta derivada
- * findByVoluntarioHabilidadesIdHabilidad generan SQL válido contra Postgres, y que la
- * expansión del calendario funciona con datos realmente persistidos. Cada prueba corre en
- * una transacción que se revierte al finalizar, así que no deja datos en la base real.
+ * (sin mocks). Verifica que el mapeo JPA de Habilidad/Voluntario (catálogo agregado en
+ * KAN 39-40) y la consulta derivada findByVoluntarioHabilidadesId generan SQL válido contra
+ * Postgres, y que la expansión del calendario funciona con datos realmente persistidos. Cada
+ * prueba corre en una transacción que se revierte al finalizar, así que no deja datos en la
+ * base real.
  */
 @DataJpaTest
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -80,12 +81,12 @@ class HabilidadDisponibilidadIntegrationTest {
 
         Voluntario recargado = voluntarioRepository.findById(voluntario.getIdVoluntario()).orElseThrow();
         assertEquals(1, recargado.getHabilidades().size());
-        assertEquals(cocina.getIdHabilidad(), recargado.getHabilidades().iterator().next().getIdHabilidad());
+        assertEquals(cocina.getId(), recargado.getHabilidades().iterator().next().getId());
     }
 
     // RF-23 Criterio 2: consulta derivada que recorre voluntario -> habilidades (ManyToMany) -> disponibilidad
     @Test
-    void disponibilidadRepository_findByVoluntarioHabilidadesIdHabilidad_soloDevuelveFranjasDeEsaHabilidad() {
+    void disponibilidadRepository_findByVoluntarioHabilidadesId_soloDevuelveFranjasDeEsaHabilidad() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
         Habilidad logistica = habilidadRepository.save(Habilidad.builder().nombre("Logistica-" + sufijo).build());
 
@@ -102,7 +103,7 @@ class HabilidadDisponibilidadIntegrationTest {
         entityManager.flush();
         entityManager.clear();
 
-        List<Disponibilidad> resultado = disponibilidadRepository.findByVoluntarioHabilidadesIdHabilidad(logistica.getIdHabilidad());
+        List<Disponibilidad> resultado = disponibilidadRepository.findByVoluntarioHabilidadesId(logistica.getId());
 
         assertEquals(1, resultado.size());
         assertEquals(conHabilidad.getIdVoluntario(), resultado.get(0).getVoluntario().getIdVoluntario());
