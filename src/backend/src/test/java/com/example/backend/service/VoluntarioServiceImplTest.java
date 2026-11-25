@@ -1,11 +1,14 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.HistorialUnificadoResponseDTO;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.DiaSemana;
+import com.example.backend.model.Habilidad;
 import com.example.backend.model.Usuario;
 import com.example.backend.model.Voluntario;
 import com.example.backend.notification.AccountEmailNotificationEvent;
+import com.example.backend.repository.HabilidadRepository;
 import com.example.backend.repository.RolRepository;
 import com.example.backend.repository.UsuarioRepository;
 import com.example.backend.repository.VoluntarioRepository;
@@ -22,6 +25,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -44,12 +48,14 @@ class VoluntarioServiceImplTest {
     private PasswordEncoder passwordEncoder;
     @Mock
     private ApplicationEventPublisher eventPublisher;
+    @Mock
+    private HabilidadRepository habilidadRepository;
 
     private VoluntarioServiceImpl service;
 
     @BeforeEach
     void setUp() {
-        service = new VoluntarioServiceImpl(repository, usuarioRepository, rolRepository, passwordEncoder, eventPublisher);
+        service = new VoluntarioServiceImpl(repository, usuarioRepository, rolRepository, passwordEncoder, eventPublisher, habilidadRepository);
     }
 
     private Voluntario nuevo() {
@@ -62,38 +68,39 @@ class VoluntarioServiceImplTest {
         return v;
     }
 
-    // Criterio 1
     @Test
-    void registrar_conDatosValidos_quedaActivoYNormalizado() {
+    void registrar_conDatosValidosYHabilidades_quedaActivoNormalizadoYConHabilidades() {
         when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
+        Habilidad habilidad = Habilidad.builder().id(1L).nombre("Primeros Auxilios").build();
+        when(habilidadRepository.findAllById(List.of(1L))).thenReturn(List.of(habilidad));
 
-        Voluntario guardado = service.registrarVoluntario(nuevo(), false, null);
+        Voluntario guardado = service.registrarVoluntario(nuevo(), false, null, List.of(1L));
 
         assertTrue(guardado.getActivo());
         assertEquals("Ana", guardado.getNombre());
         assertEquals("1234567", guardado.getDocumento());
         assertEquals("ana@correo.com", guardado.getEmail());
         assertNull(guardado.getTelefono());
+        assertEquals(1, guardado.getHabilidades().size());
+        assertTrue(guardado.getHabilidades().contains(habilidad));
     }
 
-    // Criterio 2
     @Test
     void registrar_documentoDuplicado_lanzaConflictoYNoGuarda() {
         when(repository.existsByDocumentoIgnoreCase("1234567")).thenReturn(true);
 
-        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo(), false, null));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo(), false, null, null));
 
         assertTrue(ex.getMessage().contains("documento"));
         verify(repository, never()).save(any());
     }
 
-    // Criterio 2
     @Test
     void registrar_correoDuplicado_lanzaConflictoYNoGuarda() {
         when(repository.existsByDocumentoIgnoreCase(any())).thenReturn(false);
         when(repository.existsByEmailIgnoreCase("ana@correo.com")).thenReturn(true);
 
-        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo(), false, null));
+        ConflictException ex = assertThrows(ConflictException.class, () -> service.registrarVoluntario(nuevo(), false, null, null));
 
         assertTrue(ex.getMessage().contains("correo"));
         verify(repository, never()).save(any());
@@ -115,6 +122,7 @@ class VoluntarioServiceImplTest {
                 .documento("DOC-123")
                 .email("ana@correo.com")
                 .build();
+        
         when(repository.findByUsuarioIdUsuario(15)).thenReturn(Optional.of(voluntario));
         when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
         when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
@@ -134,7 +142,6 @@ class VoluntarioServiceImplTest {
         verify(repository).save(voluntario);
     }
 
-    // Criterio 3
     @Test
     void actualizar_conDatosValidos_guardaCambios() {
         Voluntario existente = Voluntario.builder().idVoluntario(1).nombre("Viejo").apellido("Apellido")
@@ -143,7 +150,7 @@ class VoluntarioServiceImplTest {
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
 
-        Voluntario resultado = service.actualizarVoluntario(1, nuevo());
+        Voluntario resultado = service.actualizarVoluntario(1, nuevo(), null);
 
         assertEquals("Ana", resultado.getNombre());
         assertEquals("ana@correo.com", resultado.getEmail());
@@ -155,7 +162,7 @@ class VoluntarioServiceImplTest {
     void actualizar_inexistente_lanzaNoEncontrado() {
         when(repository.findById(99)).thenReturn(Optional.empty());
 
-        assertThrows(ResourceNotFoundException.class, () -> service.actualizarVoluntario(99, nuevo()));
+        assertThrows(ResourceNotFoundException.class, () -> service.actualizarVoluntario(99, nuevo(), null));
         verify(repository, never()).save(any());
     }
 
@@ -167,7 +174,7 @@ class VoluntarioServiceImplTest {
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.existsByDocumentoIgnoreCaseAndIdVoluntarioNot("1234567", 1)).thenReturn(true);
 
-        assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo()));
+        assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo(), null));
         verify(repository, never()).save(any());
     }
 
@@ -179,11 +186,10 @@ class VoluntarioServiceImplTest {
         when(repository.findById(1)).thenReturn(Optional.of(existente));
         when(repository.existsByEmailIgnoreCaseAndIdVoluntarioNot("ana@correo.com", 1)).thenReturn(true);
 
-        assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo()));
+        assertThrows(ConflictException.class, () -> service.actualizarVoluntario(1, nuevo(), null));
         verify(repository, never()).save(any());
     }
 
-    // Criterio 1: baja lógica conserva el registro, solo cambia el estado
     @Test
     void cambiarEstado_aInactivo_conservaElRegistroYSoloActualizaElEstado() {
         Voluntario voluntario = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Quispe")
@@ -200,7 +206,6 @@ class VoluntarioServiceImplTest {
         verify(eventPublisher, never()).publishEvent(any());
     }
 
-    // Criterio 3: reactivación vuelve a estar disponible
     @Test
     void cambiarEstado_aActivo_reactivaAlVoluntario() {
         Voluntario voluntario = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Quispe")
@@ -241,54 +246,61 @@ class VoluntarioServiceImplTest {
         verify(repository, never()).save(any());
     }
 
-    // KAN-27 Criterio 1: búsqueda por texto delegada al repositorio como patrón LIKE ya armado, normalizando espacios
     @Test
     void buscarVoluntarios_conTextoConEspacios_armaElPatronLikeEnMinusculas() {
         Pageable pageable = PageRequest.of(0, 10);
         Page<Voluntario> pagina = new PageImpl<>(List.of(nuevo()), pageable, 1);
-        when(repository.buscarVoluntarios(eq("%ana%"), isNull(), isNull(), eq(pageable))).thenReturn(pagina);
+        when(repository.buscarVoluntarios(eq("%ana%"), isNull(), isNull(), isNull(), eq(pageable))).thenReturn(pagina);
 
-        Page<Voluntario> resultado = service.buscarVoluntarios("  Ana  ", null, null, pageable);
+        Page<Voluntario> resultado = service.buscarVoluntarios("  Ana  ", null, null, null, pageable);
 
         assertEquals(1, resultado.getTotalElements());
-        verify(repository).buscarVoluntarios("%ana%", null, null, pageable);
+        verify(repository).buscarVoluntarios("%ana%", null, null, null, pageable);
     }
 
-    // KAN-27 Criterio 1: un texto vacío o en blanco no debe filtrar (se envía null al repositorio)
     @Test
     void buscarVoluntarios_conTextoEnBlanco_envianNullAlRepositorio() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(repository.buscarVoluntarios(isNull(), isNull(), isNull(), eq(pageable)))
+        when(repository.buscarVoluntarios(isNull(), isNull(), isNull(), isNull(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        service.buscarVoluntarios("   ", null, null, pageable);
+        service.buscarVoluntarios("   ", null, null, null, pageable);
 
-        verify(repository).buscarVoluntarios(null, null, null, pageable);
+        verify(repository).buscarVoluntarios(null, null, null, null, pageable);
     }
 
-    // KAN-27 Criterio 2: filtros de estado y disponibilidad se propagan tal cual al repositorio
     @Test
-    void buscarVoluntarios_conFiltrosDeEstadoYDisponibilidad_losPropagaAlRepositorio() {
+    void buscarVoluntarios_conFiltrosDeEstadoYDisponibilidadYCatologo_losPropagaAlRepositorio() {
         Pageable pageable = PageRequest.of(0, 10);
-        when(repository.buscarVoluntarios(isNull(), eq(true), eq(DiaSemana.LUNES), eq(pageable)))
+        when(repository.buscarVoluntarios(isNull(), eq(true), eq(DiaSemana.LUNES), eq(1L), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        service.buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
+        service.buscarVoluntarios(null, true, DiaSemana.LUNES, 1L, pageable);
 
-        verify(repository).buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
+        verify(repository).buscarVoluntarios(null, true, DiaSemana.LUNES, 1L, pageable);
     }
 
-    // KAN-27 Criterio 3: el resultado conserva la metadata de paginación del repositorio
     @Test
     void buscarVoluntarios_devuelveLaPaginaTalComoLaEntregaElRepositorio() {
         Pageable pageable = PageRequest.of(2, 10);
         Page<Voluntario> pagina = new PageImpl<>(List.of(nuevo(), nuevo()), pageable, 37);
-        when(repository.buscarVoluntarios(any(), any(), any(), eq(pageable))).thenReturn(pagina);
+        when(repository.buscarVoluntarios(any(), any(), any(), any(), eq(pageable))).thenReturn(pagina);
 
-        Page<Voluntario> resultado = service.buscarVoluntarios(null, null, null, pageable);
+        Page<Voluntario> resultado = service.buscarVoluntarios(null, null, null, null, pageable);
 
         assertEquals(37, resultado.getTotalElements());
         assertEquals(4, resultado.getTotalPages());
         assertEquals(2, resultado.getNumber());
+    }
+
+    @Test
+    void obtenerHistorialUnificado_verificaExistenciaVoluntario_retornaLista() {
+        Voluntario existente = Voluntario.builder().idVoluntario(1).build();
+        when(repository.findById(1)).thenReturn(Optional.of(existente));
+        
+        List<HistorialUnificadoResponseDTO> historial = service.obtenerHistorialUnificado(1, LocalDate.now(), LocalDate.now());
+        
+        assertNotNull(historial);
+        verify(repository).findById(1);
     }
 }

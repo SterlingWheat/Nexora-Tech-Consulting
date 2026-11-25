@@ -1,29 +1,34 @@
 package com.example.backend.service;
 
+import com.example.backend.dto.HistorialUnificadoResponseDTO;
 import com.example.backend.model.DiaSemana;
 import com.example.backend.model.Voluntario;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+
+import java.time.LocalDate;
 import java.util.List;
 
 public interface VoluntarioService {
 
-    Voluntario registrarVoluntario(Voluntario voluntario, Boolean crearCuenta, String password);
+    // HU2: Modificados para recibir el array de IDs de habilidades
+    Voluntario registrarVoluntario(Voluntario voluntario, Boolean crearCuenta, String password, List<Long> habilidadesIds);
 
-    Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles);
+    Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles, List<Long> habilidadesIds);
 
     Voluntario actualizarPerfil(Integer idUsuario, String nombre, String apellido, String email, String telefono);
 
     Voluntario habilitarAcceso(Integer idVoluntario, String password);
 
-    // Solución Error 2: Firma para permitir activar o desactivar al voluntario
-    // y sincronizar el estado con el sistema de usuarios.
     Voluntario cambiarEstado(Integer idVoluntario, boolean activo);
 
     List<Voluntario> listarVoluntarios();
 
     Voluntario obtenerVoluntarioPorId(Integer idVoluntario);
 
-    // KAN-27 Criterios 1, 2 y 3: búsqueda paginada por texto, estado y día de disponibilidad
-    Page<Voluntario> buscarVoluntarios(String texto, Boolean activo, DiaSemana diaSemana, Pageable pageable);
+    // HU2: Agregado filtro por habilidadId
+    Page<Voluntario> buscarVoluntarios(String texto, Boolean activo, DiaSemana diaSemana, Long habilidadId, Pageable pageable);
+
+    // HU1: Método base para el historial unificado de participaciones
+    List<HistorialUnificadoResponseDTO> obtenerHistorialUnificado(Integer idVoluntario, LocalDate desde, LocalDate hasta);
 }

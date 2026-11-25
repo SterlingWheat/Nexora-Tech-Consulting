@@ -87,4 +87,40 @@ describe('turnoService', () => {
     expect(fetchMock.mock.calls[0][0]).toMatch(/\/api\/turnos\/1\/asignaciones\/30\/cancelar$/)
     expect(fetchMock.mock.calls[0][1].method).toBe('POST')
   })
+
+  // RF-30 (KAN-53) Criterio 1
+  it('obtenerCalendario envía desde y hasta como parámetros de consulta', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, []))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await turnoService.obtenerCalendario({ desde: '2026-11-20', hasta: '2026-11-26' })
+
+    const url = fetchMock.mock.calls[0][0]
+    expect(url).toMatch(/\/turnos\/calendario\?/)
+    expect(url).toMatch(/desde=2026-11-20/)
+    expect(url).toMatch(/hasta=2026-11-26/)
+    expect(url).not.toMatch(/actividad/)
+    expect(url).not.toMatch(/idVoluntario/)
+  })
+
+  // RF-30 (KAN-53) Criterio 2
+  it('obtenerCalendario incluye actividad e idVoluntario cuando se filtran', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(respuesta(true, []))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await turnoService.obtenerCalendario({
+      desde: '2026-11-20', hasta: '2026-11-26', actividad: 'alimentos', idVoluntario: 5
+    })
+
+    const url = fetchMock.mock.calls[0][0]
+    expect(url).toMatch(/actividad=alimentos/)
+    expect(url).toMatch(/idVoluntario=5/)
+  })
+
+  it('obtenerCalendario propaga el mensaje de error del backend', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(respuesta(false, null, "La fecha 'hasta' debe ser igual o posterior a 'desde'")))
+
+    await expect(turnoService.obtenerCalendario({ desde: '2026-11-26', hasta: '2026-11-20' }))
+      .rejects.toThrow("La fecha 'hasta' debe ser igual o posterior a 'desde'")
+  })
 })

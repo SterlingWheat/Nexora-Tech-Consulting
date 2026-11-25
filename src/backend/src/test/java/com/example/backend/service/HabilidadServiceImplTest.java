@@ -1,21 +1,20 @@
 package com.example.backend.service;
 
-import com.example.backend.exception.ConflictException;
+import com.example.backend.dto.HabilidadDTO;
+import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Habilidad;
-import com.example.backend.model.Voluntario;
 import com.example.backend.repository.HabilidadRepository;
-import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.impl.HabilidadServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -26,87 +25,106 @@ class HabilidadServiceImplTest {
 
     @Mock
     private HabilidadRepository habilidadRepository;
-    @Mock
-    private VoluntarioRepository voluntarioRepository;
 
-    private HabilidadServiceImpl service;
+    @InjectMocks
+    private HabilidadServiceImpl habilidadService;
+
+    private Habilidad habilidad;
+    private HabilidadDTO habilidadDTO;
 
     @BeforeEach
     void setUp() {
-        service = new HabilidadServiceImpl(habilidadRepository, voluntarioRepository);
-    }
+        habilidad = Habilidad.builder()
+                .id(1L)
+                .nombre("Primeros Auxilios")
+                .descripcion("Capacidad para brindar atención médica básica")
+                .build();
 
-    private static Habilidad habilidad(Integer id, String nombre) {
-        return Habilidad.builder().idHabilidad(id).nombre(nombre).build();
-    }
-
-    @Test
-    void listarHabilidades_devuelveOrdenadasPorNombre() {
-        when(habilidadRepository.findAll()).thenReturn(List.of(habilidad(2, "Traducción"), habilidad(1, "Cocina")));
-
-        List<Habilidad> resultado = service.listarHabilidades();
-
-        assertEquals(List.of("Cocina", "Traducción"), resultado.stream().map(Habilidad::getNombre).toList());
+        habilidadDTO = HabilidadDTO.builder()
+                .nombre("Primeros Auxilios")
+                .descripcion("Capacidad para brindar atención médica básica")
+                .build();
     }
 
     @Test
-    void crearHabilidad_nombreNuevo_seGuarda() {
-        when(habilidadRepository.existsByNombreIgnoreCase("Logística")).thenReturn(false);
-        when(habilidadRepository.save(any())).thenAnswer(i -> i.getArgument(0));
+    void createHabilidad_Success() {
+        when(habilidadRepository.existsByNombreIgnoreCase("Primeros Auxilios")).thenReturn(false);
+        when(habilidadRepository.save(any(Habilidad.class))).thenReturn(habilidad);
 
-        Habilidad creada = service.crearHabilidad("  Logística  ");
+        HabilidadDTO result = habilidadService.createHabilidad(habilidadDTO);
 
-        assertEquals("Logística", creada.getNombre());
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+        assertEquals("Primeros Auxilios", result.getNombre());
+        verify(habilidadRepository, times(1)).save(any(Habilidad.class));
     }
 
     @Test
-    void crearHabilidad_nombreDuplicado_lanzaConflicto() {
-        when(habilidadRepository.existsByNombreIgnoreCase("Cocina")).thenReturn(true);
+    void createHabilidad_NombreDuplicado_ThrowsException() {
+        when(habilidadRepository.existsByNombreIgnoreCase("Primeros Auxilios")).thenReturn(true);
 
-        assertThrows(ConflictException.class, () -> service.crearHabilidad("Cocina"));
-        verify(habilidadRepository, never()).save(any());
+        assertThrows(BusinessValidationException.class, () -> habilidadService.createHabilidad(habilidadDTO));
+        verify(habilidadRepository, never()).save(any(Habilidad.class));
     }
 
     @Test
-    void asignarHabilidades_voluntarioYHabilidadesExisten_lasAsigna() {
-        Voluntario voluntario = Voluntario.builder().idVoluntario(1).build();
-        when(voluntarioRepository.findById(1)).thenReturn(Optional.of(voluntario));
-        when(habilidadRepository.findById(10)).thenReturn(Optional.of(habilidad(10, "Cocina")));
-        when(habilidadRepository.findById(20)).thenReturn(Optional.of(habilidad(20, "Logística")));
+    void updateHabilidad_Success() {
+        when(habilidadRepository.findById(1L)).thenReturn(Optional.of(habilidad));
+        when(habilidadRepository.findByNombreIgnoreCase("Primeros Auxilios")).thenReturn(Optional.empty());
+        when(habilidadRepository.save(any(Habilidad.class))).thenReturn(habilidad);
 
-        List<Habilidad> resultado = service.asignarHabilidades(1, List.of(10, 20));
+        HabilidadDTO result = habilidadService.updateHabilidad(1L, habilidadDTO);
 
-        assertEquals(2, resultado.size());
-        assertEquals(Set.of("Cocina", "Logística"), Set.copyOf(resultado.stream().map(Habilidad::getNombre).toList()));
-        assertEquals(2, voluntario.getHabilidades().size());
-        verify(voluntarioRepository).save(voluntario);
+        assertNotNull(result);
+        assertEquals("Primeros Auxilios", result.getNombre());
+        verify(habilidadRepository, times(1)).save(habilidad);
     }
 
     @Test
-    void asignarHabilidades_voluntarioInexistente_lanzaNoEncontrado() {
-        when(voluntarioRepository.findById(9)).thenReturn(Optional.empty());
+    void updateHabilidad_NombreDuplicadoEnOtraHabilidad_ThrowsException() {
+        Habilidad otraHabilidad = Habilidad.builder().id(2L).nombre("Primeros Auxilios").build();
+        
+        when(habilidadRepository.findById(1L)).thenReturn(Optional.of(habilidad));
+        when(habilidadRepository.findByNombreIgnoreCase("Primeros Auxilios")).thenReturn(Optional.of(otraHabilidad));
 
-        assertThrows(ResourceNotFoundException.class, () -> service.asignarHabilidades(9, List.of(10)));
-        verify(habilidadRepository, never()).findById(any());
+        assertThrows(BusinessValidationException.class, () -> habilidadService.updateHabilidad(1L, habilidadDTO));
+        verify(habilidadRepository, never()).save(any(Habilidad.class));
     }
 
     @Test
-    void asignarHabilidades_habilidadInexistente_lanzaNoEncontrado() {
-        when(voluntarioRepository.findById(1)).thenReturn(Optional.of(Voluntario.builder().idVoluntario(1).build()));
-        when(habilidadRepository.findById(99)).thenReturn(Optional.empty());
+    void deleteHabilidad_Success() {
+        when(habilidadRepository.findById(1L)).thenReturn(Optional.of(habilidad));
 
-        assertThrows(ResourceNotFoundException.class, () -> service.asignarHabilidades(1, List.of(99)));
-        verify(voluntarioRepository, never()).save(any());
+        habilidadService.deleteHabilidad(1L);
+
+        verify(habilidadRepository, times(1)).delete(habilidad);
     }
 
     @Test
-    void obtenerHabilidadesDeVoluntario_devuelveLasAsignadasOrdenadas() {
-        Voluntario voluntario = Voluntario.builder().idVoluntario(1)
-                .habilidades(Set.of(habilidad(2, "Traducción"), habilidad(1, "Cocina"))).build();
-        when(voluntarioRepository.findById(1)).thenReturn(Optional.of(voluntario));
+    void getHabilidadById_Success() {
+        when(habilidadRepository.findById(1L)).thenReturn(Optional.of(habilidad));
 
-        List<Habilidad> resultado = service.obtenerHabilidadesDeVoluntario(1);
+        HabilidadDTO result = habilidadService.getHabilidadById(1L);
 
-        assertEquals(List.of("Cocina", "Traducción"), resultado.stream().map(Habilidad::getNombre).toList());
+        assertNotNull(result);
+        assertEquals(1L, result.getId());
+    }
+
+    @Test
+    void getHabilidadById_NotFound_ThrowsException() {
+        when(habilidadRepository.findById(99L)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> habilidadService.getHabilidadById(99L));
+    }
+
+    @Test
+    void getAllHabilidades_Success() {
+        when(habilidadRepository.findAll()).thenReturn(List.of(habilidad));
+
+        List<HabilidadDTO> result = habilidadService.getAllHabilidades();
+
+        assertFalse(result.isEmpty());
+        assertEquals(1, result.size());
+        assertEquals("Primeros Auxilios", result.get(0).getNombre());
     }
 }

@@ -6,19 +6,21 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-@Entity
-@Table(name = "habilidad")
 @Data
+@Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@Builder
+@Entity
+@Table(name = "habilidad")
 public class Habilidad {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "id_habilidad")
-    private Integer idHabilidad;
+    private Long id;
 
     @Column(nullable = false, unique = true, length = 100)
     private String nombre;
+
+    @Column(length = 255)
+    private String descripcion;
 }

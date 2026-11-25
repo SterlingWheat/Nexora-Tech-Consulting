@@ -65,5 +65,16 @@ export const turnoService = {
   // Criterio 1 y 2: crea el turno o rechaza fecha pasada / horario inválido
   crearTurno(turno) {
     return request('/turnos', { method: 'POST', body: turno, mensajeError: 'Error al crear el turno' });
+  },
+
+  // RF-30 (KAN-53) Criterios 1 y 2: turnos por rango de fechas (día/semana/mes) con filtros opcionales
+  obtenerCalendario({ desde, hasta, actividad, idVoluntario } = {}) {
+    const query = new URLSearchParams({ desde, hasta });
+    if (actividad) query.set('actividad', actividad);
+    if (idVoluntario) query.set('idVoluntario', idVoluntario);
+
+    return request(`/turnos/calendario?${query.toString()}`, {
+      mensajeError: 'Error al obtener el calendario de turnos'
+    });
   }
 };

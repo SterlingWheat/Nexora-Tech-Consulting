@@ -5,7 +5,7 @@
         <span class="vols-etiqueta">PADRÓN DE VOLUNTARIOS</span>
         <h1>Gestión de <em>voluntarios.</em></h1>
         <p>
-          Registra voluntarios y mantén sus datos personales al día. 
+          Registra voluntarios, mantén sus datos personales al día y consulta su historial. 
           Habilita su acceso si necesitan ingresar al sistema.
         </p>
       </div>
@@ -14,7 +14,7 @@
         <div class="vols-tarjeta-encabezado">
           <div>
             <h2>Listado de voluntarios</h2>
-            <p>Consulta, edita o habilita cuentas de acceso.</p>
+            <p>Consulta, edita, filtra por habilidades o habilita cuentas de acceso.</p>
           </div>
           <button class="vols-boton-nuevo" @click="irANuevo">Registrar Voluntario</button>
         </div>
@@ -41,9 +41,17 @@
             </button>
           </div>
 
-          <select v-model="diaSemana" class="vols-filtro-dia" aria-label="Filtrar por día de disponibilidad">
+          <select v-model="diaSemana" class="vols-filtro-select" aria-label="Filtrar por día de disponibilidad">
             <option value="">Cualquier disponibilidad</option>
             <option v-for="dia in DIAS" :key="dia.valor" :value="dia.valor">Disponible el {{ dia.etiqueta }}</option>
+          </select>
+
+          <!-- HU2: Filtro por habilidad -->
+          <select v-model="habilidadFiltro" class="vols-filtro-select" aria-label="Filtrar por habilidad">
+            <option value="">Cualquier habilidad</option>
+            <option v-for="hab in catalogoHabilidades" :key="hab.id" :value="hab.id">
+              Habilidad: {{ hab.nombre }}
+            </option>
           </select>
         </div>
 
@@ -90,7 +98,9 @@
                     <button class="vols-boton-editar" @click="editar(v.idVoluntario)">Editar</button>
                     <button class="vols-boton-editar vols-boton-disp" @click="verDisponibilidad(v.idVoluntario)">Disponibilidad</button>
                     
-                    <!-- Botón lógico de Habilitar Acceso si idUsuario es null -->
+                    <!-- HU1: Botón para ver historial -->
+                    <button class="vols-boton-editar vols-boton-historial" @click="abrirModalHistorial(v)">Ver Historial</button>
+                    
                     <button 
                       v-if="!v.idUsuario" 
                       class="vols-boton-editar btn-habilitar" 
@@ -99,7 +109,6 @@
                       Habilitar acceso
                     </button>
                     
-                    <!-- Solución Error 2: Botones para desactivar y activar directamente desde aquí -->
                     <button 
                       v-if="v.activo" 
                       class="vols-boton-editar btn-desactivar" 
@@ -172,6 +181,13 @@
         </div>
       </div>
     </div>
+
+    <!-- HU1: Modal de Historial Unificado -->
+    <HistorialVoluntarioModal 
+      :visible="modalHistorialVisible" 
+      :voluntario="voluntarioSeleccionadoHistorial" 
+      @close="cerrarModalHistorial" 
+    />
   </section>
 </template>
 
@@ -179,8 +195,10 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { voluntarioService } from '../services/voluntarioService'
+import { habilidadService } from '../services/habilidadService'
 import { DIAS } from '../services/disponibilidadService'
 import Paginacion from '../components/Paginacion.vue'
+import HistorialVoluntarioModal from '../components/HistorialVoluntarioModal.vue' // HU1
 
 const router = useRouter()
 const voluntarios = ref([])
@@ -198,7 +216,10 @@ const voluntarioParaActivar = ref(null)
 const errorActivar = ref('')
 const activandoConfirmacion = ref(false)
 
-// KAN-27: búsqueda por texto, filtros de estado/disponibilidad y paginación
+// HU1: Modal de historial
+const modalHistorialVisible = ref(false)
+const voluntarioSeleccionadoHistorial = ref(null)
+
 const PAGE_SIZE = 10
 const filtrosEstado = [
   { valor: 'todos', etiqueta: 'Todos' },
@@ -208,18 +229,31 @@ const filtrosEstado = [
 const texto = ref('')
 const filtroEstado = ref('todos')
 const diaSemana = ref('')
+
+// HU2: Catalogo de Habilidades para el filtro
+const habilidadFiltro = ref('')
+const catalogoHabilidades = ref([])
+
 const paginaActual = ref(0)
 const totalPaginas = ref(0)
 const totalElementos = ref(0)
 
 const hayFiltrosActivos = computed(() =>
-  Boolean(texto.value.trim()) || filtroEstado.value !== 'todos' || Boolean(diaSemana.value)
+  Boolean(texto.value.trim()) || filtroEstado.value !== 'todos' || Boolean(diaSemana.value) || Boolean(habilidadFiltro.value)
 )
 
 const activoParaFiltro = () => {
   if (filtroEstado.value === 'activos') return true
   if (filtroEstado.value === 'inactivos') return false
   return null
+}
+
+const cargarHabilidades = async () => {
+  try {
+    catalogoHabilidades.value = await habilidadService.obtenerHabilidades()
+  } catch (err) {
+    console.error('Error al cargar catálogo de habilidades:', err)
+  }
 }
 
 const cargarVoluntarios = async (page = 0) => {
@@ -230,6 +264,7 @@ const cargarVoluntarios = async (page = 0) => {
       texto: texto.value.trim() || undefined,
       activo: activoParaFiltro(),
       diaSemana: diaSemana.value || undefined,
+      habilidadId: habilidadFiltro.value || undefined, // HU2: Añadido al payload
       page,
       size: PAGE_SIZE,
     })
@@ -244,20 +279,33 @@ const cargarVoluntarios = async (page = 0) => {
   }
 }
 
-// Debounce de la búsqueda por texto para no disparar una petición por cada tecla
 let debounceId = null
 watch(texto, () => {
   clearTimeout(debounceId)
   debounceId = setTimeout(() => cargarVoluntarios(0), 350)
 })
 
-watch([filtroEstado, diaSemana], () => cargarVoluntarios(0))
+watch([filtroEstado, diaSemana, habilidadFiltro], () => cargarVoluntarios(0))
 
-onMounted(() => cargarVoluntarios(0))
+onMounted(async () => {
+  await cargarHabilidades()
+  await cargarVoluntarios(0)
+})
 
 const irANuevo = () => router.push('/voluntarios/nuevo')
 const editar = (id) => router.push(`/voluntarios/editar/${id}`)
 const verDisponibilidad = (id) => router.push(`/voluntarios/${id}/disponibilidad`)
+
+// HU1: Lógica para abrir modal historial
+const abrirModalHistorial = (voluntario) => {
+  voluntarioSeleccionadoHistorial.value = voluntario
+  modalHistorialVisible.value = true
+}
+
+const cerrarModalHistorial = () => {
+  modalHistorialVisible.value = false
+  voluntarioSeleccionadoHistorial.value = null
+}
 
 const abrirModalAcceso = (voluntario) => {
   voluntarioSeleccionado.value = voluntario
@@ -282,8 +330,8 @@ const confirmarAcceso = async () => {
   errorModal.value = ''
   try {
     await voluntarioService.habilitarAcceso(voluntarioSeleccionado.value.idVoluntario, passwordTemporal.value)
-    modalVisible.value = false // Modificamos la variable directamente para forzar el cierre
-    await cargarVoluntarios(paginaActual.value) // Refresca la página actual
+    modalVisible.value = false
+    await cargarVoluntarios(paginaActual.value)
   } catch (err) {
     errorModal.value = err.message
   } finally {
@@ -291,7 +339,6 @@ const confirmarAcceso = async () => {
   }
 }
 
-// Solución Error 2: Funciones para Activar y Desactivar voluntarios
 const abrirModalActivar = (voluntario) => {
   voluntarioParaActivar.value = voluntario
   errorActivar.value = ''
@@ -454,7 +501,7 @@ const desactivar = async (idVoluntario) => {
   color: white;
   border-color: var(--verde-oscuro);
 }
-.vols-filtro-dia {
+.vols-filtro-select {
   padding: 9px 14px;
   border: 1px solid var(--crema);
   border-radius: 30px;
@@ -556,6 +603,13 @@ const desactivar = async (idVoluntario) => {
 }
 .vols-boton-editar:hover {
   background: var(--crema);
+}
+.vols-boton-historial {
+  border-color: #6C5CE7;
+  color: #6C5CE7;
+}
+.vols-boton-historial:hover {
+  background: #F1F0FD;
 }
 .btn-habilitar {
   border-color: #4B6E91;

@@ -1,77 +1,94 @@
 package com.example.backend.service.impl;
 
-import com.example.backend.exception.ConflictException;
+import com.example.backend.dto.HabilidadDTO;
+import com.example.backend.exception.BusinessValidationException;
 import com.example.backend.exception.ResourceNotFoundException;
 import com.example.backend.model.Habilidad;
-import com.example.backend.model.Voluntario;
 import com.example.backend.repository.HabilidadRepository;
-import com.example.backend.repository.VoluntarioRepository;
 import com.example.backend.service.HabilidadService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class HabilidadServiceImpl implements HabilidadService {
 
     private final HabilidadRepository habilidadRepository;
-    private final VoluntarioRepository voluntarioRepository;
-
-    public HabilidadServiceImpl(HabilidadRepository habilidadRepository, VoluntarioRepository voluntarioRepository) {
-        this.habilidadRepository = habilidadRepository;
-        this.voluntarioRepository = voluntarioRepository;
-    }
 
     @Override
-    @Transactional(readOnly = true)
-    public List<Habilidad> listarHabilidades() {
-        List<Habilidad> habilidades = new ArrayList<>(habilidadRepository.findAll());
-        habilidades.sort(Comparator.comparing(Habilidad::getNombre));
-        return habilidades;
+    @Transactional
+    public HabilidadDTO createHabilidad(HabilidadDTO habilidadDTO) {
+        if (habilidadRepository.existsByNombreIgnoreCase(habilidadDTO.getNombre().trim())) {
+            throw new BusinessValidationException("Ya existe una habilidad con el nombre: " + habilidadDTO.getNombre());
+        }
+
+        Habilidad habilidad = Habilidad.builder()
+                .nombre(habilidadDTO.getNombre().trim())
+                .descripcion(habilidadDTO.getDescripcion())
+                .build();
+
+        Habilidad saved = habilidadRepository.save(habilidad);
+        return mapToDTO(saved);
     }
 
     @Override
     @Transactional
-    public Habilidad crearHabilidad(String nombre) {
-        String nombreNormalizado = nombre.trim();
-        if (habilidadRepository.existsByNombreIgnoreCase(nombreNormalizado)) {
-            throw new ConflictException("Ya existe una habilidad con el nombre '" + nombreNormalizado + "'");
-        }
-        return habilidadRepository.save(Habilidad.builder().nombre(nombreNormalizado).build());
+    public HabilidadDTO updateHabilidad(Long id, HabilidadDTO habilidadDTO) {
+        Habilidad habilidad = getEntityById(id);
+
+        // Validar que el nuevo nombre no exista ya en OTRA habilidad
+        habilidadRepository.findByNombreIgnoreCase(habilidadDTO.getNombre().trim())
+                .ifPresent(existing -> {
+                    if (!existing.getId().equals(id)) {
+                        throw new BusinessValidationException("Ya existe otra habilidad con el nombre: " + habilidadDTO.getNombre());
+                    }
+                });
+
+        habilidad.setNombre(habilidadDTO.getNombre().trim());
+        habilidad.setDescripcion(habilidadDTO.getDescripcion());
+
+        Habilidad updated = habilidadRepository.save(habilidad);
+        return mapToDTO(updated);
+    }
+
+    @Override
+    @Transactional
+    public void deleteHabilidad(Long id) {
+        Habilidad habilidad = getEntityById(id);
+        // Al tener CascadeType.REMOVE / ON DELETE CASCADE en tabla intermedia,
+        // esto removerá la habilidad y limpiará sus asociaciones en voluntario_habilidad.
+        habilidadRepository.delete(habilidad);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<Habilidad> obtenerHabilidadesDeVoluntario(Integer idVoluntario) {
-        return exigirVoluntario(idVoluntario).getHabilidades().stream()
-                .sorted(Comparator.comparing(Habilidad::getNombre))
+    public HabilidadDTO getHabilidadById(Long id) {
+        return mapToDTO(getEntityById(id));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<HabilidadDTO> getAllHabilidades() {
+        return habilidadRepository.findAll().stream()
+                .map(this::mapToDTO)
                 .collect(Collectors.toList());
     }
 
-    @Override
-    @Transactional
-    public List<Habilidad> asignarHabilidades(Integer idVoluntario, List<Integer> idsHabilidades) {
-        Voluntario voluntario = exigirVoluntario(idVoluntario);
-
-        Set<Habilidad> habilidades = new HashSet<>();
-        for (Integer idHabilidad : idsHabilidades) {
-            habilidades.add(habilidadRepository.findById(idHabilidad)
-                    .orElseThrow(() -> new ResourceNotFoundException("Habilidad no encontrada con ID: " + idHabilidad)));
-        }
-
-        voluntario.setHabilidades(habilidades);
-        voluntarioRepository.save(voluntario);
-        return habilidades.stream().sorted(Comparator.comparing(Habilidad::getNombre)).collect(Collectors.toList());
+    // Métodos auxiliares
+    private Habilidad getEntityById(Long id) {
+        return habilidadRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Habilidad no encontrada con id: " + id));
     }
 
-    private Voluntario exigirVoluntario(Integer idVoluntario) {
-        return voluntarioRepository.findById(idVoluntario)
-                .orElseThrow(() -> new ResourceNotFoundException("Voluntario no encontrado con ID: " + idVoluntario));
+    private HabilidadDTO mapToDTO(Habilidad habilidad) {
+        return HabilidadDTO.builder()
+                .id(habilidad.getId())
+                .nombre(habilidad.getNombre())
+                .descripcion(habilidad.getDescripcion())
+                .build();
     }
 }

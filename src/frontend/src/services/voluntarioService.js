@@ -39,15 +39,32 @@ export const voluntarioService = {
     });
   },
 
-  // KAN-27 Criterios 1, 2 y 3: búsqueda por texto, filtros de estado/disponibilidad y paginación
-  buscarVoluntarios({ texto, activo, diaSemana, page = 0, size = 10 } = {}) {
+  // HU2: Se añade 'habilidadId' a los parámetros de búsqueda
+  buscarVoluntarios({ texto, activo, diaSemana, habilidadId, page = 0, size = 10 } = {}) {
     const query = new URLSearchParams({ page, size });
     if (texto) query.set('texto', texto);
     if (activo !== null && activo !== undefined) query.set('activo', activo);
     if (diaSemana) query.set('diaSemana', diaSemana);
+    if (habilidadId) query.set('habilidadId', habilidadId);
 
     return request(`/voluntarios/filtrar?${query.toString()}`, {
       mensajeError: 'Error al buscar voluntarios'
+    });
+  },
+
+  // HU1: Nuevo método para consultar el historial unificado de tareas y turnos
+  obtenerHistorial(idVoluntario, fechaDesde, fechaHasta) {
+    const query = new URLSearchParams();
+    if (fechaDesde) query.set('desde', fechaDesde);
+    if (fechaHasta) query.set('hasta', fechaHasta);
+    
+    const queryString = query.toString();
+    const url = queryString 
+      ? `/voluntarios/${idVoluntario}/historial?${queryString}` 
+      : `/voluntarios/${idVoluntario}/historial`;
+      
+    return request(url, {
+      mensajeError: 'Error al cargar el historial del voluntario.'
     });
   }
 };

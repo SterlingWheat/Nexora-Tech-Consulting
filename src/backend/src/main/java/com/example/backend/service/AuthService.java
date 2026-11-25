@@ -45,8 +45,6 @@ public class AuthService {
 
         Usuario usuario = usuarioOpt.get();
 
-        // Solución Error 3: Se lanza una excepción específica para que el AuthController 
-        // pueda responder con un mensaje personalizado indicando que la cuenta está inactiva.
         if (!Boolean.TRUE.equals(usuario.getActivo())) {
             throw new UsuarioInactivoException("Usuario Inactivo. Tu cuenta ha sido deshabilitada.");
         }
@@ -54,7 +52,11 @@ public class AuthService {
         String nombreRol = (usuario.getRol() != null && usuario.getRol().getNombre() != null)
                 ? usuario.getRol().getNombre().trim().toUpperCase()
                 : "";
-        if (!"VOLUNTARIO".equals(nombreRol)) {
+
+        boolean esMovil = request.getPlataforma() != null
+                && "MOVIL".equalsIgnoreCase(request.getPlataforma().trim());
+
+        if (esMovil && !"VOLUNTARIO".equals(nombreRol)) {
             throw new BadCredentialsException("Solo usuarios con rol Voluntario pueden acceder a la aplicación móvil.");
         }
 

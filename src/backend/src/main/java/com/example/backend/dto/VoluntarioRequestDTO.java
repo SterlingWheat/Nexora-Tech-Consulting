@@ -6,6 +6,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
+import java.util.List;
+
 @Data
 public class VoluntarioRequestDTO {
     @NotBlank(message = "El nombre es obligatorio")
@@ -31,4 +33,7 @@ public class VoluntarioRequestDTO {
     // Campos opcionales para fusionar la creación de usuario
     private Boolean crearCuenta;
     private String password;
+
+    // Campo añadido para HU2: IDs de las habilidades asignadas al voluntario
+    private List<Long> habilidadesIds;
 }

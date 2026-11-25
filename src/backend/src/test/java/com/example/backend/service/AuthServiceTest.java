@@ -50,6 +50,21 @@ class AuthServiceTest {
     }
 
     @Test
+    void iniciaSesionEnWebConRolAdministrador() {
+        Usuario usuario = usuario("{bcrypt}hash", true);
+        usuario.setRol(new RolEntity(1, "ADMINISTRADOR"));
+        when(usuarioRepository.findByEmail("persona@example.com")).thenReturn(Optional.of(usuario));
+        when(passwordEncoder.matches("correcta", "{bcrypt}hash")).thenReturn(true);
+        when(jwtService.generarToken("persona@example.com", "ADMINISTRADOR")).thenReturn("jwt-admin");
+
+        var response = authService.iniciarSesion(
+                loginRequest("persona@example.com", "correcta"));
+
+        assertEquals("jwt-admin", response.getToken());
+        assertEquals("ADMINISTRADOR", response.getRol());
+    }
+
+    @Test
     void rechazaUsuarioInexistenteConErrorGenerico() {
         when(usuarioRepository.findByEmail("persona@example.com")).thenReturn(Optional.empty());
 
@@ -79,13 +94,16 @@ class AuthServiceTest {
     }
 
     @Test
-    void rechazaUsuariosQueNoSonVoluntarios() {
+    void rechazaUsuariosQueNoSonVoluntariosEnAplicacionMovil() {
         Usuario usuario = usuario("{bcrypt}hash", true);
         usuario.setRol(new RolEntity(1, "ADMINISTRADOR"));
         when(usuarioRepository.findByEmail("persona@example.com")).thenReturn(Optional.of(usuario));
 
+        LoginRequest requestMovil = loginRequest("persona@example.com", "correcta");
+        requestMovil.setPlataforma("MOVIL");
+
         BadCredentialsException exception = assertThrows(BadCredentialsException.class,
-                () -> authService.iniciarSesion(loginRequest("persona@example.com", "correcta")));
+                () -> authService.iniciarSesion(requestMovil));
 
         assertEquals("Solo usuarios con rol Voluntario pueden acceder a la aplicación móvil.",
                 exception.getMessage());

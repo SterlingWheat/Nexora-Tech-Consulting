@@ -21,6 +21,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -189,6 +190,26 @@ public class TurnoServiceImpl implements TurnoService {
     @Transactional(readOnly = true)
     public List<Turno> listarTurnos() {
         List<Turno> turnos = turnoRepository.findAllByOrderByFechaAscHoraInicioAsc();
+        completarCuposOcupados(turnos);
+        return turnos;
+    }
+
+    // RF-30 (KAN-53) límite razonable para no expandir un rango de fechas enorme
+    private static final long RANGO_MAXIMO_DIAS = 180;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Turno> listarTurnos(LocalDate desde, LocalDate hasta, String actividad, Integer idVoluntario) {
+        if (hasta.isBefore(desde)) {
+            throw new BusinessValidationException(
+                    "La fecha 'hasta' (" + hasta + ") debe ser igual o posterior a 'desde' (" + desde + ")");
+        }
+        if (ChronoUnit.DAYS.between(desde, hasta) > RANGO_MAXIMO_DIAS) {
+            throw new BusinessValidationException("El rango del calendario no puede superar los " + RANGO_MAXIMO_DIAS + " días");
+        }
+
+        String patron = (actividad == null || actividad.isBlank()) ? null : "%" + actividad.trim().toLowerCase() + "%";
+        List<Turno> turnos = turnoRepository.buscarTurnosPorRango(desde, hasta, patron, idVoluntario);
         completarCuposOcupados(turnos);
         return turnos;
     }

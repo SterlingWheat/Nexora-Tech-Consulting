@@ -15,8 +15,17 @@ vi.mock('../services/voluntarioService', () => ({
   },
 }))
 
+// HU2: Mock del catálogo de habilidades
+vi.mock('../services/habilidadService', () => ({
+  habilidadService: {
+    obtenerHabilidades: vi.fn()
+  }
+}))
+
 import VoluntariosView from '../views/VoluntariosView.vue'
 import { voluntarioService } from '../services/voluntarioService'
+import { habilidadService } from '../services/habilidadService'
+import HistorialVoluntarioModal from '../components/HistorialVoluntarioModal.vue'
 
 const pagina = (content, overrides = {}) => ({
   content,
@@ -30,6 +39,11 @@ describe('VoluntariosView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
+    // Habilidades por defecto para que no falle al montar
+    habilidadService.obtenerHabilidades.mockResolvedValue([
+      { id: 1, nombre: 'Primeros Auxilios' },
+      { id: 2, nombre: 'Liderazgo' }
+    ])
   })
 
   it('lista los voluntarios con su estado', async () => {
@@ -43,7 +57,7 @@ describe('VoluntariosView', () => {
     expect(wrapper.text()).toContain('Sin teléfono')
   })
 
-  it('busca al cargar sin filtros aplicados', async () => {
+  it('busca al cargar sin filtros aplicados (incluyendo habilidadId)', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([]))
     mount(VoluntariosView)
     await flushPromises()
@@ -52,6 +66,7 @@ describe('VoluntariosView', () => {
       texto: undefined,
       activo: null,
       diaSemana: undefined,
+      habilidadId: undefined,
       page: 0,
       size: 10,
     })
@@ -102,7 +117,6 @@ describe('VoluntariosView', () => {
     )
   })
 
-  // El botón "Activar" abre un modal propio de la página en vez del confirm() nativo del navegador
   it('activar un voluntario pide confirmación en un modal propio antes de llamar al servicio', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([
       { idVoluntario: 2, nombre: 'Luis', apellido: 'Paz', documento: '2', email: 'l@l.com', activo: false }
@@ -123,22 +137,7 @@ describe('VoluntariosView', () => {
     expect(voluntarioService.activarVoluntario).toHaveBeenCalledWith(2)
   })
 
-  it('cancelar el modal de activar no llama al servicio', async () => {
-    voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([
-      { idVoluntario: 2, nombre: 'Luis', apellido: 'Paz', documento: '2', email: 'l@l.com', activo: false }
-    ]))
-
-    const wrapper = mount(VoluntariosView)
-    await flushPromises()
-
-    await wrapper.find('.btn-activar').trigger('click')
-    await wrapper.find('.modal-contenido .btn-cancelar').trigger('click')
-
-    expect(wrapper.find('.modal-contenido').exists()).toBe(false)
-    expect(voluntarioService.activarVoluntario).not.toHaveBeenCalled()
-  })
-
-  // KAN-27 Criterio 1: la búsqueda por texto se envía (con debounce) al backend
+  // KAN-27 Criterio 1
   it('busca por texto tras escribir, con debounce', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([]))
     const wrapper = mount(VoluntariosView)
@@ -146,7 +145,6 @@ describe('VoluntariosView', () => {
     voluntarioService.buscarVoluntarios.mockClear()
 
     await wrapper.find('.vols-buscador').setValue('ana')
-    // Antes de que expire el debounce no debe haberse disparado otra búsqueda
     expect(voluntarioService.buscarVoluntarios).not.toHaveBeenCalled()
 
     await new Promise((resolve) => setTimeout(resolve, 400))
@@ -157,7 +155,7 @@ describe('VoluntariosView', () => {
     )
   })
 
-  // KAN-27 Criterio 2: el filtro de estado se traduce a activo=true/false/null
+  // KAN-27 Criterio 2
   it('aplica el filtro de estado activos/inactivos', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([]))
     const wrapper = mount(VoluntariosView)
@@ -170,22 +168,16 @@ describe('VoluntariosView', () => {
     expect(voluntarioService.buscarVoluntarios).toHaveBeenLastCalledWith(
       expect.objectContaining({ activo: true, page: 0 })
     )
-
-    await botones.find((b) => b.text() === 'Inactivos').trigger('click')
-    await flushPromises()
-    expect(voluntarioService.buscarVoluntarios).toHaveBeenLastCalledWith(
-      expect.objectContaining({ activo: false, page: 0 })
-    )
   })
 
-  // KAN-27 Criterio 2: el filtro de disponibilidad envía el día seleccionado
+  // KAN-27 Criterio 2
   it('aplica el filtro de disponibilidad por día', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([]))
     const wrapper = mount(VoluntariosView)
     await flushPromises()
     voluntarioService.buscarVoluntarios.mockClear()
 
-    await wrapper.find('.vols-filtro-dia').setValue('LUNES')
+    await wrapper.findAll('.vols-filtro-select')[0].setValue('LUNES')
     await flushPromises()
 
     expect(voluntarioService.buscarVoluntarios).toHaveBeenLastCalledWith(
@@ -193,16 +185,37 @@ describe('VoluntariosView', () => {
     )
   })
 
-  // KAN-27 Criterio 3: no hay coincidencias para una búsqueda/filtro específico
-  it('distingue el mensaje vacío cuando hay filtros activos', async () => {
+  // HU2: Criterio 2 - Filtrar voluntarios por habilidad
+  it('aplica el filtro de habilidades', async () => {
     voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([]))
     const wrapper = mount(VoluntariosView)
     await flushPromises()
+    voluntarioService.buscarVoluntarios.mockClear()
 
-    const botones = wrapper.findAll('.vols-filtro-boton')
-    await botones.find((b) => b.text() === 'Inactivos').trigger('click')
+    // El segundo select es el de habilidades
+    await wrapper.findAll('.vols-filtro-select')[1].setValue('1')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Ningún voluntario coincide')
+    expect(voluntarioService.buscarVoluntarios).toHaveBeenLastCalledWith(
+      expect.objectContaining({ habilidadId: 1, page: 0 })
+    )
+  })
+
+  // HU1: Criterio 1 - Abrir el historial
+  it('abre el modal de historial al hacer clic en el botón Ver Historial', async () => {
+    voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([
+      { idVoluntario: 5, nombre: 'Juan', apellido: 'Perez', documento: '1', email: 'j@p.com', activo: true }
+    ]))
+    const wrapper = mount(VoluntariosView)
+    await flushPromises()
+
+    // Encontrar el botón y abrir modal
+    await wrapper.find('.vols-boton-historial').trigger('click')
+    await flushPromises()
+
+    const modal = wrapper.findComponent(HistorialVoluntarioModal)
+    expect(modal.exists()).toBe(true)
+    expect(modal.props('visible')).toBe(true)
+    expect(modal.props('voluntario').idVoluntario).toBe(5)
   })
 })

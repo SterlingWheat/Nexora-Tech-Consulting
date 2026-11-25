@@ -1,6 +1,5 @@
 <template>
   <div class="app">
-    <!-- Cabecera simple integrada con la paleta de colores del proyecto -->
     <header class="app-cabecera">
       <div class="cabecera-contenedor">
         <RouterLink to="/tareas" class="logo-link">
@@ -8,20 +7,34 @@
           <small>Tareas Operativas</small>
         </RouterLink>
 
-        <nav v-if="authStore.isAuthenticated" class="nav-links">
+        <nav v-if="authStore.isAuthenticated" class="nav-links" aria-label="Navegación principal">
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
-          
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
 
           <RouterLink v-if="puedeVerCalendario" to="/calendario-disponibilidad" class="nav-btn">
             Calendario
           </RouterLink>
 
+          <RouterLink v-if="puedeGestionarTareas" to="/turnos/calendario" class="nav-btn">
+            Calendario de turnos
+          </RouterLink>
+
           <!-- Enlace correcto para la gestión del padrón de voluntarios -->
           <RouterLink to="/voluntarios" class="nav-btn">Voluntarios</RouterLink>
-          
-          <!-- Se corrige la etiqueta: esta ruta administra cuentas/roles del sistema -->
-          <RouterLink v-if="authStore.rol === 'ADMINISTRADOR'" to="/usuarios" class="nav-btn">
+
+          <RouterLink
+            v-if="authStore.rol === 'ADMINISTRADOR'"
+            to="/habilidades"
+            class="nav-btn"
+          >
+            Habilidades
+          </RouterLink>
+
+          <RouterLink
+            v-if="authStore.rol === 'ADMINISTRADOR'"
+            to="/usuarios"
+            class="nav-btn"
+          >
             Usuarios
           </RouterLink>
 
@@ -32,23 +45,26 @@
           >
             Plantillas de correo
           </RouterLink>
-          
+
           <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
 
-          <RouterLink
-            v-if="puedeGestionarTareas"
-            to="/tareas/nueva"
-            class="nav-btn-nuevo"
-          >
-            + Nueva Tarea
-          </RouterLink>
-          
-          <button class="nav-btn-cerrar" type="button" @click="cerrarSesion">Cerrar sesión</button>
+          <div class="nav-acciones">
+            <RouterLink
+              v-if="puedeGestionarTareas"
+              to="/tareas/nueva"
+              class="nav-btn-nuevo"
+            >
+              + Nueva Tarea
+            </RouterLink>
+
+            <button class="nav-btn-cerrar" type="button" @click="cerrarSesion">
+              Cerrar sesión
+            </button>
+          </div>
         </nav>
       </div>
     </header>
 
-    <!-- Aquí Vue Router renderiza automáticamente la vista correspondiente -->
     <main class="app-contenido">
       <RouterView />
     </main>
@@ -86,7 +102,6 @@ onUnmounted(() => window.removeEventListener('auth:expired', manejarSesionExpira
 </script>
 
 <style>
-/* Estilos globales y layout base */
 :root {
   --salvia: #A5AA94;
   --salvia-claro: #C4C9B2;
@@ -113,17 +128,22 @@ body {
 }
 
 .app-cabecera {
-  background: white;
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(8px);
   border-bottom: 1px solid var(--crema);
-  padding: 16px 24px;
+  padding: 12px 24px;
 }
 
 .cabecera-contenedor {
-  width: min(1150px, 100%);
+  width: min(1360px, 100%);
   margin: 0 auto;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 20px;
 }
 
 .logo-link {
@@ -131,10 +151,13 @@ body {
   color: var(--texto);
   display: flex;
   flex-direction: column;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 
 .logo-link strong {
   font-size: 18px;
+  line-height: 1.2;
   color: var(--verde-oscuro);
 }
 
@@ -146,8 +169,10 @@ body {
 
 .nav-links {
   display: flex;
-  gap: 12px;
   align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  flex-wrap: nowrap;
 }
 
 .nav-btn {
@@ -155,13 +180,28 @@ body {
   color: var(--texto);
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 16px;
+  padding: 8px 12px;
   border-radius: 20px;
-  transition: background 0.2s;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
 }
 
 .nav-btn:hover {
   background: var(--crema);
+}
+
+.nav-btn.router-link-active {
+  background: var(--crema-claro);
+  color: var(--verde-oscuro);
+}
+
+.nav-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: 8px;
+  padding-left: 12px;
+  border-left: 1px solid var(--crema);
 }
 
 .nav-btn-nuevo {
@@ -170,22 +210,47 @@ body {
   color: white;
   font-size: 13px;
   font-weight: 600;
-  padding: 8px 18px;
+  padding: 8px 16px;
   border-radius: 20px;
-  transition: opacity 0.2s;
+  white-space: nowrap;
+  transition: opacity 0.2s, transform 0.15s;
 }
 
 .nav-btn-nuevo:hover {
-  opacity: 0.9;
+  opacity: 0.92;
+  transform: translateY(-1px);
 }
 
 .nav-btn-cerrar {
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--crema);
+  background: var(--crema-claro);
   color: var(--texto);
   font: inherit;
   font-size: 13px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+.nav-btn-cerrar:hover {
+  background: #fff0eb;
+  border-color: #e9b0a5;
+  color: #a34d41;
+}
+
+@media (max-width: 1120px) {
+  .nav-links {
+    flex-wrap: wrap;
+  }
+
+  .nav-acciones {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: 0;
+  }
 }
 
 .app-contenido {

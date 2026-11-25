@@ -1,6 +1,8 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.HabilidadDTO;
 import com.example.backend.dto.HabilitarAccesoRequestDTO;
+import com.example.backend.dto.HistorialUnificadoResponseDTO;
 import com.example.backend.dto.VoluntarioRequestDTO;
 import com.example.backend.dto.VoluntarioResponseDTO;
 import com.example.backend.model.DiaSemana;
@@ -13,12 +15,14 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -36,7 +40,6 @@ public class VoluntarioGestionController {
         this.usuarioRepository = usuarioRepository;
     }
 
-    // Solución Error 1: Evitar que un voluntario acceda o modifique a otro voluntario
     private void verificarPermiso(Integer idVoluntario, Authentication authentication) {
         if (authentication != null && authentication.getAuthorities().stream()
                 .anyMatch(a -> a.getAuthority().equals("ROLE_VOLUNTARIO"))) {
@@ -52,7 +55,8 @@ public class VoluntarioGestionController {
         Voluntario guardado = voluntarioService.registrarVoluntario(
                 mapearAEntidad(request), 
                 request.getCrearCuenta(), 
-                request.getPassword()
+                request.getPassword(),
+                request.getHabilidadesIds() // HU2: Habilidades asignadas
         );
         return new ResponseEntity<>(mapearADTO(guardado), HttpStatus.CREATED);
     }
@@ -63,10 +67,12 @@ public class VoluntarioGestionController {
             @Valid @RequestBody VoluntarioRequestDTO request,
             Authentication authentication) {
         verificarPermiso(id, authentication);
-        return ResponseEntity.ok(mapearADTO(voluntarioService.actualizarVoluntario(id, mapearAEntidad(request))));
+        return ResponseEntity.ok(mapearADTO(voluntarioService.actualizarVoluntario(
+                id, 
+                mapearAEntidad(request), 
+                request.getHabilidadesIds()))); // HU2: Actualización de Habilidades
     }
 
-    // Solución Error 2: Endpoints para activar/desactivar directamente en el padrón de voluntarios
     @PutMapping("/{id}/activar")
     public ResponseEntity<VoluntarioResponseDTO> activarVoluntario(@PathVariable Integer id) {
         return ResponseEntity.ok(mapearADTO(voluntarioService.cambiarEstado(id, true)));
@@ -93,12 +99,13 @@ public class VoluntarioGestionController {
         return ResponseEntity.ok(voluntarios);
     }
 
-    // KAN-27 Criterios 1, 2 y 3: búsqueda por texto, filtros de estado/disponibilidad y paginación
+    // KAN-27 y HU2: Se añade el parámetro habilidadId al endpoint de filtrado paginado
     @GetMapping("/filtrar")
     public ResponseEntity<Page<VoluntarioResponseDTO>> filtrarVoluntarios(
             @RequestParam(required = false) String texto,
             @RequestParam(required = false) Boolean activo,
             @RequestParam(required = false) DiaSemana diaSemana,
+            @RequestParam(required = false) Long habilidadId, // HU2: Parámetro de catálogo
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "nombre") String sortBy,
@@ -108,7 +115,7 @@ public class VoluntarioGestionController {
         Sort sort = sortDir.equalsIgnoreCase("desc") ? Sort.by(sortBy).descending() : Sort.by(sortBy).ascending();
         Pageable pageable = PageRequest.of(Math.max(page, 0), tamanioSeguro, sort);
 
-        Page<Voluntario> resultado = voluntarioService.buscarVoluntarios(texto, activo, diaSemana, pageable);
+        Page<Voluntario> resultado = voluntarioService.buscarVoluntarios(texto, activo, diaSemana, habilidadId, pageable);
         return ResponseEntity.ok(resultado.map(this::mapearADTO));
     }
 
@@ -139,6 +146,18 @@ public class VoluntarioGestionController {
         return ResponseEntity.ok(usuario);
     }
 
+    // HU1: Endpoint unificado para consultar el historial de tareas y turnos del voluntario
+    @GetMapping("/{id}/historial")
+    public ResponseEntity<List<HistorialUnificadoResponseDTO>> obtenerHistorialVoluntario(
+            @PathVariable Integer id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate desde,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate hasta,
+            Authentication authentication) {
+        verificarPermiso(id, authentication);
+        List<HistorialUnificadoResponseDTO> historial = voluntarioService.obtenerHistorialUnificado(id, desde, hasta);
+        return ResponseEntity.ok(historial);
+    }
+
     private Voluntario mapearAEntidad(VoluntarioRequestDTO request) {
         Voluntario v = new Voluntario();
         v.setNombre(request.getNombre());
@@ -159,7 +178,6 @@ public class VoluntarioGestionController {
         dto.setEmail(v.getEmail());
         dto.setTelefono(v.getTelefono());
         
-        // Solución Error 2: El voluntario se marca inactivo visualmente si su usuario lo está
         boolean esActivo = v.getActivo() != null && v.getActivo();
         if (v.getUsuario() != null && !v.getUsuario().getActivo()) {
             esActivo = false;
@@ -168,6 +186,20 @@ public class VoluntarioGestionController {
         
         dto.setFechaCreacion(v.getFechaCreacion());
         dto.setFechaModificacion(v.getFechaModificacion());
+
+        // HU2: Mapear la colección de habilidades a DTO
+        if (v.getHabilidades() != null && !v.getHabilidades().isEmpty()) {
+            dto.setHabilidades(v.getHabilidades().stream()
+                    .map(h -> HabilidadDTO.builder()
+                            .id(h.getId())
+                            .nombre(h.getNombre())
+                            .descripcion(h.getDescripcion())
+                            .build())
+                    .collect(Collectors.toList()));
+        } else {
+            dto.setHabilidades(List.of());
+        }
+
         return dto;
     }
 }

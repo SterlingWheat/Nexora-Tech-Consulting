@@ -55,6 +55,13 @@ const routes = [
     component: () => import('../views/NotificationTemplatesView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
   },
+  // HU2: Nueva ruta para gestionar el catálogo de habilidades
+  {
+    path: '/habilidades',
+    name: 'habilidades',
+    component: () => import('../views/HabilidadesView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
+  },
   {
     path: '/usuarios/:id/perfil',
     name: 'perfil-voluntario',
@@ -111,6 +118,12 @@ const routes = [
     name: 'calendario-disponibilidad',
     component: () => import('../views/CalendarioDisponibilidadView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'TI', 'GESTOR_TAREAS'] }
+  },
+  {
+    path: '/turnos/calendario',
+    name: 'calendario-turnos',
+    component: () => import('../views/CalendarioTurnosView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   },
   {
     path: '/turnos/nuevo',

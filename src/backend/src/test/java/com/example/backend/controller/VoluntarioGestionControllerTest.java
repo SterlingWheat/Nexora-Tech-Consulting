@@ -1,5 +1,6 @@
 package com.example.backend.controller;
 
+import com.example.backend.dto.HistorialUnificadoResponseDTO;
 import com.example.backend.exception.ConflictException;
 import com.example.backend.exception.GlobalExceptionHandler;
 import com.example.backend.exception.ResourceNotFoundException;
@@ -19,6 +20,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -34,7 +36,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class VoluntarioGestionControllerTest {
 
     private static final String VALIDO = """
-            {"nombre":"Ana","apellido":"Quispe","documento":"1234567","email":"ana@correo.com","telefono":"70012345"}
+            {"nombre":"Ana","apellido":"Quispe","documento":"1234567","email":"ana@correo.com","telefono":"70012345", "habilidadesIds":[1, 2]}
             """;
 
     @Mock
@@ -56,7 +58,7 @@ class VoluntarioGestionControllerTest {
 
     @Test
     void post_valido_devuelve201ConVoluntarioActivo() throws Exception {
-        when(service.registrarVoluntario(any(), any(), any())).thenReturn(guardado());
+        when(service.registrarVoluntario(any(), any(), any(), any())).thenReturn(guardado());
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
                 .andExpect(status().isCreated())
@@ -66,7 +68,7 @@ class VoluntarioGestionControllerTest {
 
     @Test
     void post_duplicado_devuelve409ConMensajeClaro() throws Exception {
-        when(service.registrarVoluntario(any(), any(), any()))
+        when(service.registrarVoluntario(any(), any(), any(), any()))
                 .thenThrow(new ConflictException("Ya existe un voluntario registrado con el documento 1234567"));
 
         mvc.perform(post("/api/voluntarios").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
@@ -83,7 +85,7 @@ class VoluntarioGestionControllerTest {
                 .andExpect(content().string(containsString("El nombre es obligatorio")))
                 .andExpect(content().string(containsString("El documento es obligatorio")));
 
-        verify(service, never()).registrarVoluntario(any(), any(), any());
+        verify(service, never()).registrarVoluntario(any(), any(), any(), any());
     }
 
     @Test
@@ -112,12 +114,12 @@ class VoluntarioGestionControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(content().string(containsString("formato")));
 
-        verify(service, never()).registrarVoluntario(any(), any(), any());
+        verify(service, never()).registrarVoluntario(any(), any(), any(), any());
     }
 
     @Test
     void post_telefonoDeExactamente20Caracteres_esValido() throws Exception {
-        when(service.registrarVoluntario(any(), any(), any())).thenReturn(guardado());
+        when(service.registrarVoluntario(any(), any(), any(), any())).thenReturn(guardado());
 
         String limite = VALIDO.replace("70012345", "12345678901234567890");
 
@@ -130,7 +132,7 @@ class VoluntarioGestionControllerTest {
         Voluntario actualizado = guardado();
         actualizado.setFechaModificacion(LocalDateTime.now());
 
-        when(service.actualizarVoluntario(eq(1), any())).thenReturn(actualizado);
+        when(service.actualizarVoluntario(eq(1), any(), any())).thenReturn(actualizado);
 
         mvc.perform(put("/api/voluntarios/1").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
                 .andExpect(status().isOk())
@@ -139,7 +141,7 @@ class VoluntarioGestionControllerTest {
 
     @Test
     void put_inexistente_devuelve404() throws Exception {
-        when(service.actualizarVoluntario(eq(99), any()))
+        when(service.actualizarVoluntario(eq(99), any(), any()))
                 .thenThrow(new ResourceNotFoundException("Voluntario no encontrado con ID: 99"));
 
         mvc.perform(put("/api/voluntarios/99").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
@@ -148,7 +150,7 @@ class VoluntarioGestionControllerTest {
 
     @Test
     void put_duplicado_devuelve409() throws Exception {
-        when(service.actualizarVoluntario(eq(1), any()))
+        when(service.actualizarVoluntario(eq(1), any(), any()))
                 .thenThrow(new ConflictException("Ya existe un voluntario registrado con el correo ana@correo.com"));
 
         mvc.perform(put("/api/voluntarios/1").contentType(MediaType.APPLICATION_JSON).content(VALIDO))
@@ -207,7 +209,7 @@ class VoluntarioGestionControllerTest {
     @Test
     void getFiltrar_conTexto_devuelve200ConResultadosPaginados() throws Exception {
         Pageable pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("nombre").ascending());
-        when(service.buscarVoluntarios(eq("ana"), isNull(), isNull(), eq(pageable)))
+        when(service.buscarVoluntarios(eq("ana"), isNull(), isNull(), isNull(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(guardado()), pageable, 1));
 
         mvc.perform(get("/api/voluntarios/filtrar").param("texto", "ana"))
@@ -217,22 +219,25 @@ class VoluntarioGestionControllerTest {
     }
 
     @Test
-    void getFiltrar_conEstadoYDisponibilidad_propagaAmbosFiltros() throws Exception {
+    void getFiltrar_conEstadoDisponibilidadYHabilidad_propagaAmbosFiltros() throws Exception {
         Pageable pageable = PageRequest.of(0, 10, org.springframework.data.domain.Sort.by("nombre").ascending());
-        when(service.buscarVoluntarios(isNull(), eq(true), eq(DiaSemana.LUNES), eq(pageable)))
+        when(service.buscarVoluntarios(isNull(), eq(true), eq(DiaSemana.LUNES), eq(1L), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
-        mvc.perform(get("/api/voluntarios/filtrar").param("activo", "true").param("diaSemana", "LUNES"))
+        mvc.perform(get("/api/voluntarios/filtrar")
+                        .param("activo", "true")
+                        .param("diaSemana", "LUNES")
+                        .param("habilidadId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content").isEmpty());
 
-        verify(service).buscarVoluntarios(null, true, DiaSemana.LUNES, pageable);
+        verify(service).buscarVoluntarios(null, true, DiaSemana.LUNES, 1L, pageable);
     }
 
     @Test
     void getFiltrar_conPageYSize_losUsaParaPaginar() throws Exception {
         Pageable pageable = PageRequest.of(2, 5, org.springframework.data.domain.Sort.by("nombre").ascending());
-        when(service.buscarVoluntarios(any(), any(), any(), eq(pageable)))
+        when(service.buscarVoluntarios(any(), any(), any(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 37));
 
         mvc.perform(get("/api/voluntarios/filtrar").param("page", "2").param("size", "5"))
@@ -244,13 +249,13 @@ class VoluntarioGestionControllerTest {
     @Test
     void getFiltrar_conSizeExcesivo_loAcotaA100() throws Exception {
         Pageable pageable = PageRequest.of(0, 100, org.springframework.data.domain.Sort.by("nombre").ascending());
-        when(service.buscarVoluntarios(any(), any(), any(), eq(pageable)))
+        when(service.buscarVoluntarios(any(), any(), any(), any(), eq(pageable)))
                 .thenReturn(new PageImpl<>(List.of(), pageable, 0));
 
         mvc.perform(get("/api/voluntarios/filtrar").param("size", "5000"))
                 .andExpect(status().isOk());
 
-        verify(service).buscarVoluntarios(null, null, null, pageable);
+        verify(service).buscarVoluntarios(null, null, null, null, pageable);
     }
 
     @Test
@@ -259,5 +264,23 @@ class VoluntarioGestionControllerTest {
                 .andExpect(status().isBadRequest());
 
         verifyNoInteractions(service);
+    }
+
+    @Test
+    void obtenerHistorial_valido_devuelveLista() throws Exception {
+        HistorialUnificadoResponseDTO dto = HistorialUnificadoResponseDTO.builder()
+                .participacionId(1L)
+                .tipo("TAREA")
+                .nombre("Mantenimiento")
+                .fecha(LocalDate.now())
+                .estado("COMPLETADA")
+                .build();
+                
+        when(service.obtenerHistorialUnificado(eq(1), isNull(), isNull())).thenReturn(List.of(dto));
+
+        mvc.perform(get("/api/voluntarios/1/historial"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.size()").value(1))
+                .andExpect(jsonPath("$[0].tipo").value("TAREA"));
     }
 }
