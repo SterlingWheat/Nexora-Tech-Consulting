@@ -77,6 +77,16 @@ public class SecurityConfig {
                             .hasAnyRole("ADMINISTRADOR", "GESTOR_TAREAS")
                         .requestMatchers(HttpMethod.GET, "/api/turnos/**").authenticated()
                         
+                        // RF-23: calendario de disponibilidad, consulta propia de la gestión de turnos
+                        .requestMatchers(HttpMethod.GET, "/api/disponibilidad/calendario")
+                            .hasAnyRole("ADMINISTRADOR", "TI", "GESTOR_TAREAS")
+
+                        // Catálogo de habilidades: lectura para cualquier usuario autenticado, alta solo para Administrador/TI
+                        .requestMatchers(HttpMethod.GET, "/api/habilidades/**").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/habilidades/**").hasAnyRole("ADMINISTRADOR", "TI")
+                        .requestMatchers(HttpMethod.PUT, "/api/voluntarios/*/habilidades")
+                            .hasAnyRole("ADMINISTRADOR", "TI", "GESTOR_TAREAS")
+
                         // Gestión de Voluntarios (Solución Error 1 - Restricción general por roles)
                         .requestMatchers(HttpMethod.POST, "/api/voluntarios/*/habilitar-acceso").hasAnyRole("ADMINISTRADOR", "TI")
                         .requestMatchers(HttpMethod.POST, "/api/voluntarios").hasAnyRole("ADMINISTRADOR", "TI", "GESTOR_TAREAS")

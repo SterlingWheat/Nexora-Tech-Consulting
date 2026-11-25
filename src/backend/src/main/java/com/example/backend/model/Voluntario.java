@@ -5,7 +5,10 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "voluntario")
@@ -56,6 +59,15 @@ public class Voluntario {
 
     @Column(name = "fecha_modificacion")
     private LocalDateTime fechaModificacion;
+
+    // RF-23: habilidades del voluntario, usadas para filtrar el calendario de disponibilidad
+    @ToString.Exclude
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "voluntario_habilidad",
+            joinColumns = @JoinColumn(name = "id_voluntario"),
+            inverseJoinColumns = @JoinColumn(name = "id_habilidad"))
+    @Builder.Default
+    private Set<Habilidad> habilidades = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {
