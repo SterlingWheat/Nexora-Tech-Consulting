@@ -9,6 +9,17 @@ const String _apiBaseUrl = String.fromEnvironment(
   defaultValue: 'http://10.0.2.2:8080/api',
 );
 
+/// Punto de inyección para pruebas: por defecto usa el cliente real de `http`,
+/// pero las pruebas de widgets pueden reemplazarlo para simular respuestas
+/// del backend sin hacer peticiones de red reales (KAN-35).
+@visibleForTesting
+Future<http.Response> Function(Uri url, {Map<String, String>? headers})
+httpGetOverride = http.get;
+
+@visibleForTesting
+Future<http.Response> Function(Uri url, {Map<String, String>? headers})
+httpPatchOverride = http.patch;
+
 void main() {
   runApp(const MyApp());
 }
@@ -762,11 +773,11 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
     try {
       final headers = {'Authorization': 'Bearer ${widget.token}'};
       final responses = await Future.wait([
-        http.get(
+        httpGetOverride(
           Uri.parse('$_apiBaseUrl/movil/asignaciones/tareas'),
           headers: headers,
         ),
-        http.get(
+        httpGetOverride(
           Uri.parse('$_apiBaseUrl/movil/asignaciones/turnos'),
           headers: headers,
         ),
@@ -828,7 +839,7 @@ class _VolunteerAssignmentsPageState extends State<VolunteerAssignmentsPage>
     final assignmentId = assignment['idAsignacion'];
     final action = accept ? 'confirmar' : 'rechazar';
     try {
-      final response = await http.patch(
+      final response = await httpPatchOverride(
         Uri.parse(
           '$_apiBaseUrl/movil/asignaciones/$type/$parentId/$assignmentId/$action',
         ),
