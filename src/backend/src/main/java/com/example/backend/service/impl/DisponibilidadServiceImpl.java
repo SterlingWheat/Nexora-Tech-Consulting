@@ -11,7 +11,9 @@ import com.example.backend.service.DisponibilidadService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -53,6 +55,53 @@ public class DisponibilidadServiceImpl implements DisponibilidadService {
         disponibilidadRepository.flush();
         List<Disponibilidad> guardadas = disponibilidadRepository.saveAll(unificadas);
         return new Resultado(guardadas, advertencias);
+    }
+
+    // RF-23: límite razonable para evitar consultas que expandan un rango de fechas enorme
+    private static final long RANGO_MAXIMO_DIAS = 60;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Ocurrencia> obtenerCalendario(LocalDate desde, LocalDate hasta, Integer idVoluntario, Long idHabilidad) {
+        if (hasta.isBefore(desde)) {
+            throw new BusinessValidationException("La fecha 'hasta' (" + hasta + ") debe ser igual o posterior a 'desde' (" + desde + ")");
+        }
+        if (ChronoUnit.DAYS.between(desde, hasta) > RANGO_MAXIMO_DIAS) {
+            throw new BusinessValidationException("El rango del calendario no puede superar los " + RANGO_MAXIMO_DIAS + " días");
+        }
+        if (idVoluntario != null) {
+            exigirVoluntario(idVoluntario);
+        }
+
+        List<Disponibilidad> franjas;
+        if (idVoluntario != null) {
+            franjas = disponibilidadRepository.findByVoluntarioIdVoluntarioOrderByDiaSemanaAscHoraInicioAsc(idVoluntario);
+        } else if (idHabilidad != null) {
+            franjas = disponibilidadRepository.findByVoluntarioHabilidadesId(idHabilidad);
+        } else {
+            franjas = disponibilidadRepository.findAll();
+        }
+
+        List<Disponibilidad> activas = franjas.stream()
+                .filter(f -> Boolean.TRUE.equals(f.getVoluntario().getActivo()))
+                .toList();
+
+        List<Ocurrencia> ocurrencias = new ArrayList<>();
+        for (LocalDate fecha = desde; !fecha.isAfter(hasta); fecha = fecha.plusDays(1)) {
+            DiaSemana dia = DiaSemana.desdeNumero((short) fecha.getDayOfWeek().getValue());
+            for (Disponibilidad f : activas) {
+                if (f.getDiaSemana() == dia) {
+                    Voluntario v = f.getVoluntario();
+                    ocurrencias.add(new Ocurrencia(v.getIdVoluntario(), v.getNombre(), v.getApellido(),
+                            fecha, dia, f.getHoraInicio(), f.getHoraFin()));
+                }
+            }
+        }
+
+        ocurrencias.sort(Comparator.comparing(Ocurrencia::fecha)
+                .thenComparing(Ocurrencia::horaInicio)
+                .thenComparing(Ocurrencia::idVoluntario));
+        return ocurrencias;
     }
 
     private Voluntario exigirVoluntario(Integer idVoluntario) {

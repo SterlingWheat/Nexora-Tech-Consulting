@@ -14,6 +14,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
@@ -180,5 +181,80 @@ class DisponibilidadServiceImplTest {
         when(voluntarioRepository.findById(9)).thenReturn(Optional.empty());
 
         assertThrows(ResourceNotFoundException.class, () -> service.obtenerDisponibilidad(9));
+    }
+
+    // RF-23 Criterio 1
+    @Test
+    void calendario_expandeLaFranjaSemanalEnCadaFechaDelRangoQueCaeEnEseDia() {
+        Voluntario ana = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Pérez").activo(true).build();
+        Disponibilidad lunes = Disponibilidad.builder().voluntario(ana).diaSemana(DiaSemana.LUNES)
+                .horaInicio(LocalTime.of(8, 0)).horaFin(LocalTime.of(12, 0)).build();
+        when(disponibilidadRepository.findAll()).thenReturn(List.of(lunes));
+
+        // 2026-11-23 es lunes; 2026-11-30 también lo es, y cae fuera del rango
+        var resultado = service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), null, null);
+
+        assertEquals(1, resultado.size());
+        assertEquals(LocalDate.of(2026, 11, 23), resultado.get(0).fecha());
+        assertEquals(1, resultado.get(0).idVoluntario());
+    }
+
+    // RF-23 Criterio 2
+    @Test
+    void calendario_conIdVoluntario_filtraPorEseVoluntario() {
+        Voluntario ana = Voluntario.builder().idVoluntario(1).nombre("Ana").apellido("Pérez").activo(true).build();
+        voluntarioExiste();
+        Disponibilidad lunes = Disponibilidad.builder().voluntario(ana).diaSemana(DiaSemana.LUNES)
+                .horaInicio(LocalTime.of(8, 0)).horaFin(LocalTime.of(12, 0)).build();
+        when(disponibilidadRepository.findByVoluntarioIdVoluntarioOrderByDiaSemanaAscHoraInicioAsc(1)).thenReturn(List.of(lunes));
+
+        var resultado = service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), 1, null);
+
+        assertEquals(1, resultado.size());
+        verify(disponibilidadRepository, never()).findAll();
+    }
+
+    // RF-23 Criterio 2
+    @Test
+    void calendario_conIdHabilidad_usaLaConsultaPorHabilidad() {
+        when(disponibilidadRepository.findByVoluntarioHabilidadesId(3L)).thenReturn(List.of());
+
+        service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), null, 3L);
+
+        verify(disponibilidadRepository).findByVoluntarioHabilidadesId(3L);
+        verify(disponibilidadRepository, never()).findAll();
+    }
+
+    @Test
+    void calendario_excluyeFranjasDeVoluntariosInactivos() {
+        Voluntario inactivo = Voluntario.builder().idVoluntario(2).nombre("Ben").apellido("Diaz").activo(false).build();
+        Disponibilidad lunes = Disponibilidad.builder().voluntario(inactivo).diaSemana(DiaSemana.LUNES)
+                .horaInicio(LocalTime.of(8, 0)).horaFin(LocalTime.of(12, 0)).build();
+        when(disponibilidadRepository.findAll()).thenReturn(List.of(lunes));
+
+        var resultado = service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), null, null);
+
+        assertTrue(resultado.isEmpty());
+    }
+
+    @Test
+    void calendario_hastaAnteriorADesde_lanzaValidacion() {
+        assertThrows(BusinessValidationException.class,
+                () -> service.obtenerCalendario(LocalDate.of(2026, 11, 29), LocalDate.of(2026, 11, 23), null, null));
+        verify(disponibilidadRepository, never()).findAll();
+    }
+
+    @Test
+    void calendario_rangoMayorA60Dias_lanzaValidacion() {
+        assertThrows(BusinessValidationException.class,
+                () -> service.obtenerCalendario(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31), null, null));
+    }
+
+    @Test
+    void calendario_idVoluntarioInexistente_lanzaNoEncontrado() {
+        when(voluntarioRepository.findById(9)).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> service.obtenerCalendario(LocalDate.of(2026, 11, 23), LocalDate.of(2026, 11, 29), 9, null));
     }
 }

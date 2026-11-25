@@ -16,4 +16,8 @@ public interface DisponibilidadRepository extends JpaRepository<Disponibilidad, 
     // KAN-31 Criterio 3: ¿el voluntario declaró disponibilidad que cubre por completo esta franja?
     boolean existsByVoluntarioIdVoluntarioAndDiaSemanaAndHoraInicioLessThanEqualAndHoraFinGreaterThanEqual(
             Integer idVoluntario, DiaSemana diaSemana, LocalTime horaInicio, LocalTime horaFin);
+
+    // RF-23 Criterio 2: disponibilidad de los voluntarios que tienen una habilidad dada, para el calendario
+    // (Habilidad.id es Long: ver el catálogo de habilidades agregado en la rama de KAN 39-40)
+    List<Disponibilidad> findByVoluntarioHabilidadesId(Long idHabilidad);
 }

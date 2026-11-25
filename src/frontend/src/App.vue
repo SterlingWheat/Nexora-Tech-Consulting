@@ -11,6 +11,10 @@
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
 
+          <RouterLink v-if="puedeVerCalendario" to="/calendario-disponibilidad" class="nav-btn">
+            Calendario
+          </RouterLink>
+
           <RouterLink v-if="puedeGestionarTareas" to="/turnos/calendario" class="nav-btn">
             Calendario de turnos
           </RouterLink>
@@ -77,6 +81,10 @@ const router = useRouter()
 
 const puedeGestionarTareas = computed(() =>
   ['ADMINISTRADOR', 'GESTOR_TAREAS'].includes(authStore.rol)
+)
+
+const puedeVerCalendario = computed(() =>
+  ['ADMINISTRADOR', 'TI', 'GESTOR_TAREAS'].includes(authStore.rol)
 )
 
 const cerrarSesion = async () => {
