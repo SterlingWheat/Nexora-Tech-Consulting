@@ -14,7 +14,6 @@
         Tu rol no tiene permiso para crear o editar tareas.
       </p>
 
-      <!-- HU1: Componente de filtros -->
       <FiltrosTarea 
         :categorias="categorias" 
         :voluntarios="voluntarios" 
@@ -48,7 +47,7 @@
                 <th>Categoría</th>
                 <th>Estado</th>
                 <th>Avance</th>
-                <th v-if="puedeGestionarTareas" class="th-acciones">Acciones</th>
+                <th class="th-acciones">Acciones</th>
               </tr>
             </thead>
             <tbody>
@@ -70,9 +69,10 @@
                 <td>
                   <strong>{{ tarea.avance ?? 0 }}%</strong>
                 </td>
-                <td v-if="puedeGestionarTareas">
+                <td>
                   <div class="acciones-grid">
                     <button 
+                      v-if="puedeGestionarTareas"
                       class="tareas-boton-accion" 
                       :disabled="esEstadoInmutable(tarea.estado)"
                       @click="editarTarea(tarea.idTarea)"
@@ -80,8 +80,8 @@
                     >
                       Editar
                     </button>
-                    <!-- HU2: Asignación de voluntarios -->
                     <button 
+                      v-if="puedeGestionarTareas"
                       class="tareas-boton-accion btn-asignar" 
                       :disabled="esEstadoInmutable(tarea.estado)"
                       @click="abrirAsignarVoluntario(tarea)"
@@ -89,8 +89,8 @@
                     >
                       Asignar
                     </button>
-                    <!-- HU3: Gestión de estados -->
                     <button 
+                      v-if="puedeGestionarTareas"
                       class="tareas-boton-accion btn-estado" 
                       :disabled="esEstadoInmutable(tarea.estado)"
                       @click="abrirCambiarEstado(tarea)"
@@ -98,8 +98,8 @@
                     >
                       Estado
                     </button>
-                    <!-- HU: Registrar Avance -->
                     <button 
+                      v-if="puedeGestionarTareas"
                       class="tareas-boton-accion btn-avance" 
                       :disabled="tarea.estado !== 'En progreso'"
                       @click="abrirRegistrarAvance(tarea)"
@@ -107,13 +107,21 @@
                     >
                       Avance
                     </button>
+                    
+                    <!-- HU2: Botón para visualizar el historial de solo lectura -->
+                    <button 
+                      class="tareas-boton-accion btn-historial" 
+                      @click="abrirHistorial(tarea)"
+                      title="Ver Historial"
+                    >
+                      Historial
+                    </button>
                   </div>
                 </td>
               </tr>
             </tbody>
           </table>
           
-          <!-- HU1: Componente de paginación -->
           <Paginacion 
             :paginaActual="paginaActual" 
             :totalPaginas="totalPaginas" 
@@ -123,7 +131,7 @@
       </div>
     </div>
 
-    <!-- Modales para HU2, HU3 y Avance -->
+    <!-- Modales para Gestión -->
     <AsignarVoluntarioModal 
       :visible="mostrarModalAsignar"
       :tarea="tareaSeleccionada"
@@ -142,6 +150,18 @@
       @close="mostrarModalAvance = false"
       @avanceRegistrado="onAccionCompletada"
     />
+
+    <!-- HU2: Modal para Trazabilidad Operativa -->
+    <div v-if="mostrarModalHistorial" class="historial-modal-overlay" @click.self="mostrarModalHistorial = false">
+      <div class="historial-modal-content">
+        <div class="historial-modal-header">
+          <h3>Trazabilidad de Tarea</h3>
+          <button class="historial-btn-cerrar" @click="mostrarModalHistorial = false" title="Cerrar">&times;</button>
+        </div>
+        <p class="historial-tarea-titulo">{{ tareaSeleccionada?.titulo }}</p>
+        <HistorialTareaTimeline :tareaId="tareaSeleccionada?.idTarea" />
+      </div>
+    </div>
   </section>
 </template>
 
@@ -157,6 +177,9 @@ import AsignarVoluntarioModal from '../components/AsignarVoluntarioModal.vue'
 import CambiarEstadoModal from '../components/CambiarEstadoModal.vue'
 import RegistrarAvanceModal from '../components/RegistrarAvanceModal.vue'
 
+// HU2: Importación del componente de la línea de tiempo
+import HistorialTareaTimeline from '../components/HistorialTareaTimeline.vue'
+
 const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
@@ -166,22 +189,23 @@ const puedeGestionarTareas = computed(() =>
 )
 const accesoDenegado = computed(() => route.query.acceso === 'denegado')
 
-// Estado de la vista
 const tareas = ref([])
 const categorias = ref([])
 const voluntarios = ref([])
 const cargando = ref(true)
 
-// Estado de paginación y filtros
 const paginaActual = ref(0)
 const totalPaginas = ref(0)
 const totalElementos = ref(0)
 const filtrosActuales = ref({})
 
-// Estado de Modales
 const mostrarModalAsignar = ref(false)
 const mostrarModalEstado = ref(false)
 const mostrarModalAvance = ref(false)
+
+// HU2: Estado para el modal del historial
+const mostrarModalHistorial = ref(false)
+
 const tareaSeleccionada = ref(null)
 
 const cargarDependencias = async () => {
@@ -253,8 +277,13 @@ const abrirRegistrarAvance = (tarea) => {
   mostrarModalAvance.value = true
 }
 
+// HU2: Función para abrir la trazabilidad
+const abrirHistorial = (tarea) => {
+  tareaSeleccionada.value = tarea
+  mostrarModalHistorial.value = true
+}
+
 const onAccionCompletada = () => {
-  // Refrescar los datos después de una asignación, cambio de estado o avance
   cargarTareas(paginaActual.value)
 }
 </script>
@@ -371,7 +400,7 @@ const onAccionCompletada = () => {
 .tareas-tabla th:first-child { border-radius: 10px 0 0 10px; }
 .tareas-tabla th:last-child { border-radius: 0 10px 10px 0; }
 .th-acciones {
-  min-width: 280px;
+  min-width: 320px;
 }
 .tareas-tabla td {
   padding: 22px 16px;
@@ -449,15 +478,76 @@ const onAccionCompletada = () => {
 .btn-avance:hover:not(:disabled) {
   background: #E3E9D7;
 }
+
+/* HU2: Estilo específico para el botón de historial */
+.btn-historial {
+  border-color: #D1D5DB;
+  color: #4B5563;
+}
+.btn-historial:hover:not(:disabled) {
+  background: #F3F4F6;
+}
 .tareas-boton-accion:disabled {
   opacity: 0.4;
   cursor: not-allowed;
+}
+
+/* HU2: Estilos para el Modal de Historial */
+.historial-modal-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+}
+.historial-modal-content {
+  background: white;
+  border-radius: 20px;
+  padding: 30px;
+  width: min(650px, 90%);
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 15px 50px rgba(0,0,0,0.1);
+}
+.historial-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.historial-modal-header h3 {
+  margin: 0;
+  font-family: "DM Serif Display", serif;
+  font-size: 24px;
+  color: var(--texto);
+}
+.historial-tarea-titulo {
+  font-size: 14px;
+  color: var(--texto-suave);
+  margin-top: 5px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--crema);
+  padding-bottom: 10px;
+}
+.historial-btn-cerrar {
+  background: transparent;
+  border: none;
+  font-size: 28px;
+  cursor: pointer;
+  color: var(--texto-suave);
+  transition: color 0.2s;
+  line-height: 1;
+}
+.historial-btn-cerrar:hover {
+  color: var(--verde-oscuro);
 }
 
 @media (max-width: 600px) {
   .tareas-pagina { padding: 50px 15px; }
   .tareas-tarjeta { padding: 17px; }
   .tareas-tarjeta-encabezado { flex-direction: column; align-items: flex-start; }
-  .tareas-tabla { min-width: 860px; }
+  .tareas-tabla { min-width: 900px; }
 }
 </style>
