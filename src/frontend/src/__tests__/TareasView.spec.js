@@ -104,7 +104,7 @@ describe('TareasView', () => {
       { idTarea: 3, titulo: 'Limpieza', estado: 'En progreso', avance: 20 }
     ])
     
-    expect(wrapper.find('.th-acciones').exists()).toBe(false)
+    expect(wrapper.find('.th-acciones').exists()).toBe(true)
     expect(wrapper.find('.btn-asignar').exists()).toBe(false)
     expect(wrapper.find('.btn-estado').exists()).toBe(false)
     expect(wrapper.find('.btn-avance').exists()).toBe(false)

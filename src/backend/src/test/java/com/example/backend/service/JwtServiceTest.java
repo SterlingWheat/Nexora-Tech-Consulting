@@ -19,7 +19,9 @@ class JwtServiceTest {
         String token = jwtService.generarToken("persona@example.com", "VOLUNTARIO");
 
         assertTrue(jwtService.validarToken(token));
-        assertFalse(jwtService.validarToken(token.substring(0, token.length() - 1) + "x"));
+        
+        // Corrompe la firma o el payload de manera determinista añadiendo texto inválido
+        assertFalse(jwtService.validarToken(token + "corrupto"));
     }
 
     @Test

@@ -77,6 +77,7 @@ class TareaServiceImplTest {
 
         assertTrue(ex.getMessage().contains("Transición no permitida"));
         verify(historialTareaService, never()).registrarAccion(any(), any(), any());
+        verify(historialTareaService, never()).registrarAccionDetallada(any(), any(), any(), any(), any(), any());
     }
 
     @Test
@@ -92,7 +93,13 @@ class TareaServiceImplTest {
 
         assertEquals("En progreso", resultado.getEstado());
         verify(tareaRepository).save(tarea);
-        verify(historialTareaService).registrarAccion(eq(2), eq(10), contains("En progreso"));
+        verify(historialTareaService).registrarAccionDetallada(
+                eq(2),
+                eq(10),
+                eq("ESTADO"),
+                contains("En progreso"),
+                eq("Pendiente"),
+                eq("En progreso"));
     }
 
     @Test
@@ -113,8 +120,13 @@ class TareaServiceImplTest {
 
         assertEquals((short) 60, resultado.getAvance());
         verify(tareaRepository).save(tarea);
-        verify(historialTareaService).registrarAccion(eq(3), eq(10), contains("60%"));
-        verify(historialTareaService).registrarAccion(eq(3), eq(10), contains("Lote clasificado"));
+        verify(historialTareaService).registrarAccionDetallada(
+                eq(3),
+                eq(10),
+                eq("EDICION"),
+                argThat(detalle -> detalle.contains("60%") && detalle.contains("Lote clasificado")),
+                eq("10"),
+                eq("60"));
     }
 
     @Test
@@ -134,5 +146,6 @@ class TareaServiceImplTest {
 
         assertTrue(ex.getMessage().contains("Solo se puede registrar avance en tareas que están 'En progreso'"));
         verify(historialTareaService, never()).registrarAccion(any(), any(), any());
+        verify(historialTareaService, never()).registrarAccionDetallada(any(), any(), any(), any(), any(), any());
     }
 }

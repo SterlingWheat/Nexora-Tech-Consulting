@@ -20,13 +20,15 @@ class NotificationOutboxServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-04-25T10:00:00Z");
     private final NotificationOutboxRepository repository = mock(NotificationOutboxRepository.class);
+    
+    // HU1: Inicializamos el servicio con el nuevo valor por defecto (3 intentos máximos configurables)
     private final NotificationOutboxService service = new NotificationOutboxService(
             repository,
             Clock.fixed(NOW, ZoneOffset.UTC),
-            5,
-            20,
-            300,
-            30);
+            3, // maxAttempts
+            20, // batchSize
+            300, // leaseSeconds
+            30); // retryBaseSeconds
 
     @Test
     void enqueueUsesUniqueEventKeyAndTemplateData() {
@@ -57,15 +59,19 @@ class NotificationOutboxServiceTest {
 
         assertEquals(List.of(message), claimed);
         org.mockito.ArgumentCaptor<String> token = org.mockito.ArgumentCaptor.forClass(String.class);
+        
+        // Verificamos que se usan los 3 intentos máximos de la configuración de HU1
         verify(repository).failExhaustedClaims(
-                org.mockito.ArgumentMatchers.eq(5),
+                org.mockito.ArgumentMatchers.eq(3),
                 org.mockito.ArgumentMatchers.eq(LocalDateTime.of(2026, 4, 25, 9, 55)));
+        
         verify(repository).claimDue(
                 org.mockito.ArgumentMatchers.eq(LocalDateTime.of(2026, 4, 25, 10, 0)),
                 org.mockito.ArgumentMatchers.eq(LocalDateTime.of(2026, 4, 25, 9, 55)),
-                org.mockito.ArgumentMatchers.eq(5),
+                org.mockito.ArgumentMatchers.eq(3),
                 org.mockito.ArgumentMatchers.eq(20),
                 token.capture());
+                
         verify(repository).findAllByClaimTokenOrderByCreatedAtAsc(token.getValue());
     }
 
@@ -79,6 +85,7 @@ class NotificationOutboxServiceTest {
 
         service.retry(message, "CONNECTION");
 
+        // HU1: Verifica el cálculo del backoff para el siguiente reintento
         verify(repository).scheduleRetry(
                 1L,
                 "claim-1",

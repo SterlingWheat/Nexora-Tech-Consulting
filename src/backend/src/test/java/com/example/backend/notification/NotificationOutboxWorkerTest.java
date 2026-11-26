@@ -44,6 +44,7 @@ class NotificationOutboxWorkerTest {
 
         worker.deliverDueMessages();
 
+        // HU1: Verifica que un fallo temporal delega correctamente al servicio de reintento
         verify(outboxService).retry(message, "CONNECTION");
     }
 
@@ -56,6 +57,7 @@ class NotificationOutboxWorkerTest {
 
         worker.deliverDueMessages();
 
+        // HU1: Verifica que ante fallos estructurales o de negocio, se marca fallido sin quemar reintentos inútiles
         verify(outboxService).fail(message, "Plantilla inactiva");
     }
 
