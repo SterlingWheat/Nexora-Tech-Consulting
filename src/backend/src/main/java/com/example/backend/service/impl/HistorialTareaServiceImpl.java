@@ -31,6 +31,13 @@ public class HistorialTareaServiceImpl implements HistorialTareaService {
     @Override
     @Transactional
     public HistorialTarea registrarAccion(Integer idTarea, Integer idUsuario, String detalle) {
+        // Se mantiene por compatibilidad hacia atrás con otros flujos, asignando el tipo por defecto
+        return registrarAccionDetallada(idTarea, idUsuario, "EDICION", detalle, null, null);
+    }
+
+    @Override
+    @Transactional
+    public HistorialTarea registrarAccionDetallada(Integer idTarea, Integer idUsuario, String tipoCambio, String detalle, String valorAnterior, String valorNuevo) {
         Tarea tarea = tareaRepository.findById(idTarea)
                 .orElseThrow(() -> new ResourceNotFoundException("Tarea no encontrada con ID: " + idTarea));
         
@@ -40,7 +47,10 @@ public class HistorialTareaServiceImpl implements HistorialTareaService {
         HistorialTarea historial = HistorialTarea.builder()
                 .tarea(tarea)
                 .usuario(usuario)
+                .tipoCambio(tipoCambio)
                 .detalle(detalle)
+                .valorAnterior(valorAnterior)
+                .valorNuevo(valorNuevo)
                 .build();
 
         return historialTareaRepository.save(historial);

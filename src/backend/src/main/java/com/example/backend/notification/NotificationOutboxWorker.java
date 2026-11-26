@@ -44,13 +44,21 @@ public class NotificationOutboxWorker {
                             message.getActivity(),
                             message.getActivityDate()));
             outboxService.markSent(message);
+            
+            // HU1 CA1: Log de trazabilidad exitosa para el equipo de TI
+            logger.info("Envío de correo exitoso: id={}, destinatario={}, plantilla={}",
+                    message.getId(), message.getRecipient(), message.getTemplateType());
+            
         } catch (SmtpEmailException exception) {
-            logger.warn("Queued notification delivery failed: id={}, reason={}",
-                    message.getId(), exception.getReason());
+            // HU1 CA2: Log de reintento por fallo de red o SMTP
+            logger.warn("Fallo temporal enviando correo. Programando reintento: id={}, destinatario={}, intentoActual={}, error={}",
+                    message.getId(), message.getRecipient(), message.getAttemptCount(), exception.getReason());
             outboxService.retry(message, exception.getReason().name());
+            
         } catch (BusinessValidationException | ResourceNotFoundException | IllegalArgumentException exception) {
-            logger.warn("Queued notification cannot be delivered: id={}, reason={}",
-                    message.getId(), exception.getMessage());
+            // HU1 CA1: Log de fallo definitivo (plantilla no existe o datos inválidos)
+            logger.error("Fallo definitivo enviando correo. No se reintentará: id={}, destinatario={}, error={}",
+                    message.getId(), message.getRecipient(), exception.getMessage());
             outboxService.fail(message, exception.getMessage());
         }
     }

@@ -113,6 +113,7 @@ public interface NotificationOutboxRepository extends JpaRepository<Notification
             @Param("claimToken") String claimToken,
             @Param("sentAt") LocalDateTime sentAt);
 
+    // HU1 CA2: Actualiza el registro actual en lugar de generar duplicados
     @Modifying
     @Query("""
             UPDATE NotificationOutboxMessage message

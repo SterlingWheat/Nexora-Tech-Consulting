@@ -9,6 +9,7 @@ import java.util.List;
 @Repository
 public interface HistorialTareaRepository extends JpaRepository<HistorialTarea, Integer> {
     
+    // HU2: Obtiene los registros ordenados desde el más reciente al más antiguo para la línea de tiempo
     List<HistorialTarea> findByTareaIdTareaOrderByFechaRegistroDesc(Integer idTarea);
     
 }

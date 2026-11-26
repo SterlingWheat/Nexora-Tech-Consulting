@@ -34,7 +34,13 @@ public class HistorialTareaController {
         dto.setIdTarea(historial.getTarea().getIdTarea());
         dto.setIdUsuario(historial.getUsuario().getIdUsuario());
         dto.setNombreUsuario(historial.getUsuario().getNombre());
+        
+        // HU2: Mapeo explícito de los nuevos campos agregados para la trazabilidad
+        dto.setTipoCambio(historial.getTipoCambio());
+        dto.setValorAnterior(historial.getValorAnterior());
+        dto.setValorNuevo(historial.getValorNuevo());
         dto.setDetalle(historial.getDetalle());
+        
         dto.setFechaRegistro(historial.getFechaRegistro());
         return dto;
     }

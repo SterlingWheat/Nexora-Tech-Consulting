@@ -36,7 +36,6 @@ public class TareaServiceImpl implements TareaService {
     @Override
     @Transactional
     public Tarea crearTarea(Tarea tarea) {
-        // HU1 y Tarea: La tarea se crea en estado Pendiente
         tarea.setEstado("Pendiente");
         tarea.setAvance((short) 0);
         
@@ -87,7 +86,6 @@ public class TareaServiceImpl implements TareaService {
     @Transactional(readOnly = true)
     public Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable,
                                      LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
-        // HU1 Criterio 1 y 2: Filtrado en la base de datos
         return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, pageable);
     }
 
@@ -97,13 +95,11 @@ public class TareaServiceImpl implements TareaService {
         Tarea tarea = obtenerTareaPorId(idTarea);
         String estadoActual = tarea.getEstado();
 
-        // HU3 Criterio 1: Estados permitidos
         List<String> estadosValidos = Arrays.asList("Pendiente", "Asignada", "En progreso", "Finalizada", "Cancelada");
         if (!estadosValidos.contains(nuevoEstado)) {
             throw new BusinessValidationException("El estado '" + nuevoEstado + "' no es un estado controlado válido.");
         }
 
-        // HU3 Criterio 3: Transiciones no permitidas (Evitar mover desde estados terminales)
         if ("Finalizada".equalsIgnoreCase(estadoActual) || "Cancelada".equalsIgnoreCase(estadoActual)) {
             throw new BusinessValidationException("Transición no permitida: La tarea ya se encuentra " + estadoActual + ".");
         }
@@ -111,9 +107,9 @@ public class TareaServiceImpl implements TareaService {
         tarea.setEstado(nuevoEstado);
         Tarea tareaGuardada = tareaRepository.save(tarea);
 
-        // HU3 Criterio 2: Registrar en el historial la fecha, usuario y cambio de estado
+        // HU2 Criterio 1: Registrar en el historial el cambio de estado con tipoCambio "ESTADO"
         String detalle = "El estado cambió de '" + estadoActual + "' a '" + nuevoEstado + "'.";
-        historialTareaService.registrarAccion(idTarea, idUsuario, detalle);
+        historialTareaService.registrarAccionDetallada(idTarea, idUsuario, "ESTADO", detalle, estadoActual, nuevoEstado);
 
         return tareaGuardada;
     }
@@ -123,26 +119,32 @@ public class TareaServiceImpl implements TareaService {
     public Tarea registrarAvance(Integer idTarea, RegistroAvanceRequestDTO request, Integer idUsuario) {
         Tarea tarea = obtenerTareaPorId(idTarea);
 
-        // HU Criterio 1: Solo tareas "En progreso"
         if (!"En progreso".equalsIgnoreCase(tarea.getEstado())) {
             throw new BusinessValidationException("Solo se puede registrar avance en tareas que están 'En progreso'.");
         }
 
         Short avanceAnterior = tarea.getAvance();
-        tarea.setAvance(request.getAvance());
+        Short avanceNuevo = request.getAvance();
+        tarea.setAvance(avanceNuevo);
         Tarea tareaGuardada = tareaRepository.save(tarea);
 
-        // Crear detalle para el historial detallando el cambio de avance y la observación
         StringBuilder detalleBuilder = new StringBuilder();
         detalleBuilder.append("Se actualizó el avance de ").append(avanceAnterior != null ? avanceAnterior : 0)
-                      .append("% a ").append(request.getAvance()).append("%.");
+                      .append("% a ").append(avanceNuevo).append("%.");
 
-        // HU Criterio 2: Registrar observación con autor (el autor ya lo maneja HistorialTareaService)
         if (request.getObservacion() != null && !request.getObservacion().trim().isEmpty()) {
             detalleBuilder.append(" Observación: ").append(request.getObservacion().trim());
         }
 
-        historialTareaService.registrarAccion(idTarea, idUsuario, detalleBuilder.toString());
+        // HU2 Criterio 1: Registrar en el historial el avance operativo como "EDICION"
+        historialTareaService.registrarAccionDetallada(
+            idTarea, 
+            idUsuario, 
+            "EDICION", 
+            detalleBuilder.toString(), 
+            String.valueOf(avanceAnterior != null ? avanceAnterior : 0), 
+            String.valueOf(avanceNuevo)
+        );
 
         return tareaGuardada;
     }

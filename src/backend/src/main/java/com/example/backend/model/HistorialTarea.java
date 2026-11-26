@@ -29,8 +29,19 @@ public class HistorialTarea {
     @JoinColumn(name = "id_usuario", nullable = false)
     private Usuario usuario;
 
+    // HU2: Tipo de cambio para el frontend (ej. CREACION, ESTADO, ASIGNACION, AVANCE)
+    @Column(name = "tipo_cambio", length = 50)
+    private String tipoCambio;
+
     @Column(columnDefinition = "TEXT")
     private String detalle;
+
+    // HU2: Valores para auditoría de cambios específicos (opcionales)
+    @Column(name = "valor_anterior", columnDefinition = "TEXT")
+    private String valorAnterior;
+
+    @Column(name = "valor_nuevo", columnDefinition = "TEXT")
+    private String valorNuevo;
 
     @Column(name = "fecha_registro", updatable = false)
     private LocalDateTime fechaRegistro;
@@ -39,6 +50,10 @@ public class HistorialTarea {
     protected void onCreate() {
         if (this.fechaRegistro == null) {
             this.fechaRegistro = LocalDateTime.now();
+        }
+        // Asignar tipo genérico si llega por un método antiguo
+        if (this.tipoCambio == null) {
+            this.tipoCambio = "EDICION";
         }
     }
 }

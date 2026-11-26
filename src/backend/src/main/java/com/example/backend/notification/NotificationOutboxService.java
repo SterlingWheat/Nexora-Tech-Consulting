@@ -26,7 +26,7 @@ public class NotificationOutboxService {
     public NotificationOutboxService(
             NotificationOutboxRepository repository,
             Clock clock,
-            @Value("${app.notification.outbox.max-attempts:5}") int maxAttempts,
+            @Value("${app.notification.outbox.max-attempts:3}") int maxAttempts, // Límite configurable HU1
             @Value("${app.notification.outbox.batch-size:20}") int batchSize,
             @Value("${app.notification.outbox.lease-seconds:300}") long leaseSeconds,
             @Value("${app.notification.outbox.retry-base-seconds:30}") long retryBaseSeconds) {
@@ -83,6 +83,7 @@ public class NotificationOutboxService {
             fail(message, safeReason);
             return;
         }
+        // HU1 CA2: Algoritmo de Backoff exponencial
         long multiplier = 1L << Math.min(Math.max(message.getAttemptCount() - 1, 0), 20);
         long delaySeconds = Math.min(
                 retryBaseDelay.multipliedBy(multiplier).toSeconds(),

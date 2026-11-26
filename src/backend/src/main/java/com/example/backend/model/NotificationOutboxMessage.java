@@ -48,15 +48,18 @@ public class NotificationOutboxMessage {
     @Column(name = "activity_date", nullable = false, length = 100)
     private String activityDate;
 
+    // HU1 CA1: Registro del resultado (PENDING, PROCESSING, SENT, RETRY, FAILED)
     @Column(nullable = false, length = 20)
     private String status;
 
+    // HU1 CA2: Control de reintentos sobre el mismo registro
     @Column(name = "attempt_count", nullable = false)
     private int attemptCount;
 
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt;
 
+    // HU1 CA2: Cálculo de backoff
     @Column(name = "next_attempt_at", nullable = false)
     private LocalDateTime nextAttemptAt;
 
@@ -72,6 +75,7 @@ public class NotificationOutboxMessage {
     @Column(name = "read_at")
     private LocalDateTime readAt;
 
+    // HU1 CA1: Registro de error
     @Column(name = "last_error", length = 500)
     private String lastError;
 
