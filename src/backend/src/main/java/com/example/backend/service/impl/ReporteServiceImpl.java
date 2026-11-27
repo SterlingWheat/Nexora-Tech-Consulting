@@ -4,12 +4,13 @@ import com.example.backend.dto.ReporteTablaDTO;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Turno;
 import com.example.backend.model.Voluntario;
+import com.example.backend.repository.TareaRepository;
 import com.example.backend.service.ReporteService;
-import com.example.backend.service.TareaService;
 import com.example.backend.service.TurnoService;
 import com.example.backend.service.VoluntarioService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -25,10 +26,14 @@ import java.util.TreeMap;
 public class ReporteServiceImpl implements ReporteService {
 
     private final VoluntarioService voluntarioService;
-    private final TareaService tareaService;
+    // Riesgo arquitectónico corregido (QA): se usa TareaRepository directamente (con JOIN FETCH,
+    // ver listarParaReporte()) en vez de TareaService.listarTareas(), que deja Tarea.categoria como
+    // proxy LAZY y dependía implícitamente de que open-in-view estuviera activo para resolverse.
+    private final TareaRepository tareaRepository;
     private final TurnoService turnoService;
 
     @Override
+    @Transactional(readOnly = true)
     public ReporteTablaDTO reporteVoluntarios() {
         List<String> encabezados = List.of(
                 "Nombre", "Apellido", "Documento", "Correo", "Teléfono", "Carrera/Profesión", "Activo", "Fecha de registro"
@@ -61,12 +66,13 @@ public class ReporteServiceImpl implements ReporteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ReporteTablaDTO reporteTareas() {
         List<String> encabezados = List.of(
                 "Título", "Categoría", "Estado", "Avance (%)", "Fecha de creación"
         );
 
-        List<Tarea> tareas = new ArrayList<>(tareaService.listarTareas());
+        List<Tarea> tareas = new ArrayList<>(tareaRepository.listarParaReporte());
         tareas.sort(Comparator.comparing(Tarea::getFechaCreacion, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
 
         Map<String, String> resumen = new LinkedHashMap<>();
@@ -92,6 +98,7 @@ public class ReporteServiceImpl implements ReporteService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ReporteTablaDTO reporteTurnos() {
         List<String> encabezados = List.of(
                 "Fecha", "Hora inicio", "Hora fin", "Actividad", "Estado", "Cupos totales", "Cupos ocupados", "Cupos libres"
