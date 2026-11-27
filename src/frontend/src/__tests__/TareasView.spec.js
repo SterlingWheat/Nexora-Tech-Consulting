@@ -10,9 +10,10 @@ import CambiarEstadoModal from '../components/CambiarEstadoModal.vue'
 import RegistrarAvanceModal from '../components/RegistrarAvanceModal.vue'
 
 const push = vi.fn()
+let routeQuery = {}
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: routeQuery })
 }))
 
 vi.mock('../services/tareaService', () => ({
@@ -32,7 +33,8 @@ describe('TareasView', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.clearAllMocks()
-    
+    routeQuery = {}
+
     tareaService.obtenerCategorias.mockResolvedValue([{ idCategoria: 1, nombre: 'Logística' }])
     voluntarioService.obtenerVoluntarios.mockResolvedValue([{ idVoluntario: 1, nombre: 'Ana', apellido: 'Perez', activo: true }])
   })
@@ -114,5 +116,15 @@ describe('TareasView', () => {
     const wrapper = await mountView('ADMINISTRADOR', [])
     await wrapper.find('.tareas-boton-nuevo').trigger('click')
     expect(push).toHaveBeenCalledWith('/tareas/nueva')
+  })
+
+  // RF-44 (KAN-49) Criterio 2: llegar desde el dashboard con ?vista=abiertas aplica ese filtro
+  it('al llegar con ?vista=abiertas en la URL, consulta solo las tareas abiertas', async () => {
+    routeQuery = { vista: 'abiertas' }
+    await mountView('ADMINISTRADOR', [])
+
+    expect(tareaService.filtrarTareas).toHaveBeenCalledWith(
+      expect.objectContaining({ abierta: true }), 0, 10
+    )
   })
 })

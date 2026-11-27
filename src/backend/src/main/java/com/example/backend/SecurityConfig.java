@@ -51,6 +51,9 @@ public class SecurityConfig {
                         // Pruebas de configuración SMTP disponibles solo para administradores
                         .requestMatchers("/api/admin/email/**").hasRole("ADMINISTRADOR")
                         .requestMatchers("/api/admin/email-templates/**").hasRole("ADMINISTRADOR")
+
+                        // RF-44 (KAN-49): panel administrativo, solo para Administrador
+                        .requestMatchers("/api/dashboard/**").hasRole("ADMINISTRADOR")
                         
                         // Perfil
                         .requestMatchers("/api/perfil/me").authenticated()

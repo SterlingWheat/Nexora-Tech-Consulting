@@ -51,6 +51,17 @@ describe('tareaService', () => {
     expect(url).toContain('idCategoria=3')
   })
 
+  // RF-44 (KAN-49) Criterio 2
+  it('filtrarTareas envía el filtro "abierta" cuando se llega desde el dashboard', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockRespuesta(true, { content: [], totalElements: 0 }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    await tareaService.filtrarTareas({ abierta: true }, 0, 10)
+
+    const [url] = fetchMock.mock.calls[0]
+    expect(url).toContain('abierta=true')
+  })
+
   it('cambiarEstado envía un PATCH con el nuevo estado (HU3)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockRespuesta(true, { idTarea: 5, estado: 'En progreso' }))
     vi.stubGlobal('fetch', fetchMock)

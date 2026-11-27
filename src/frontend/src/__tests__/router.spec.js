@@ -83,6 +83,27 @@ describe('router authentication guard', () => {
     await router.push('/')
   })
 
+  // RF-44 (KAN-49)
+  it('restricts the administrative dashboard to ADMINISTRADOR', async () => {
+    setActivePinia(createPinia())
+    const authStore = useAuthStore()
+    authStore.token = 'signed-token'
+
+    for (const rol of ['TI', 'GESTOR_TAREAS', 'VOLUNTARIO']) {
+      authStore.rol = rol
+      await router.push('/dashboard')
+      expect(router.currentRoute.value.name).toBe('tareas')
+      expect(router.currentRoute.value.query.acceso).toBe('denegado')
+    }
+
+    authStore.rol = 'ADMINISTRADOR'
+    await router.push('/dashboard')
+    expect(router.currentRoute.value.name).toBe('dashboard')
+
+    authStore.logout()
+    await router.push('/')
+  })
+
   it('allows every authenticated role to view their own profile, but only admins to view others', async () => {
     setActivePinia(createPinia())
     const authStore = useAuthStore()

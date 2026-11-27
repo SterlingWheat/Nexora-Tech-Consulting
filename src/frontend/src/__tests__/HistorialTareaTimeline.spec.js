@@ -28,9 +28,11 @@ describe('HistorialTareaTimeline.vue', () => {
   });
 
   it('muestra el historial correctamente cuando hay datos', async () => {
+    // Nombres de campo iguales a los de HistorialTareaResponseDTO (backend): idHistorial,
+    // tipoCambio, detalle, nombreUsuario, fechaRegistro.
     const mockHistorial = [
-      { id: 1, tipoCambio: 'CREACION', descripcion: 'Tarea creada', autorNombre: 'Admin', ocurridoEn: '2026-11-25T10:00:00Z' },
-      { id: 2, tipoCambio: 'ESTADO', descripcion: 'Cambio a EN_PROGRESO', autorNombre: 'Voluntario 1', ocurridoEn: '2026-11-25T11:00:00Z' }
+      { idHistorial: 1, tipoCambio: 'CREACION', detalle: 'Tarea creada', nombreUsuario: 'Admin', fechaRegistro: '2026-11-25T10:00:00Z' },
+      { idHistorial: 2, tipoCambio: 'ESTADO', detalle: 'Cambio a EN_PROGRESO', nombreUsuario: 'Voluntario 1', fechaRegistro: '2026-11-25T11:00:00Z' }
     ];
     historialTareaService.obtenerHistorial.mockResolvedValue(mockHistorial);
     

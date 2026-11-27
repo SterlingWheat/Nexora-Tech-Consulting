@@ -193,7 +193,7 @@
 
 <script setup>
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { voluntarioService } from '../services/voluntarioService'
 import { habilidadService } from '../services/habilidadService'
 import { DIAS } from '../services/disponibilidadService'
@@ -201,6 +201,7 @@ import Paginacion from '../components/Paginacion.vue'
 import HistorialVoluntarioModal from '../components/HistorialVoluntarioModal.vue' // HU1
 
 const router = useRouter()
+const route = useRoute()
 const voluntarios = ref([])
 const cargando = ref(true)
 const error = ref('')
@@ -227,7 +228,10 @@ const filtrosEstado = [
   { valor: 'inactivos', etiqueta: 'Inactivos' },
 ]
 const texto = ref('')
-const filtroEstado = ref('todos')
+// RF-44 (KAN-49) Criterio 2: llegar desde el dashboard con ?estado=activos ya aplica ese filtro
+const filtroEstado = ref(
+  filtrosEstado.some((opcion) => opcion.valor === route.query.estado) ? route.query.estado : 'todos'
+)
 const diaSemana = ref('')
 
 // HU2: Catalogo de Habilidades para el filtro

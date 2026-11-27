@@ -79,4 +79,7 @@ public interface TurnoRepository extends JpaRepository<Turno, Integer> {
                                       @Param("hasta") LocalDate hasta,
                                       @Param("actividad") String actividad,
                                       @Param("idVoluntario") Integer idVoluntario);
+
+    // RF-44 (KAN-49): turnos vigentes a partir de hoy (inclusive), para el indicador de "turnos próximos"
+    long countByFechaGreaterThanEqualAndEstadoNot(LocalDate desde, String estado);
 }

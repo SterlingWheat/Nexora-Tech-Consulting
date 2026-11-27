@@ -52,8 +52,7 @@ public class TareaServiceImpl implements TareaService {
         Tarea tareaExistente = tareaRepository.findById(idTarea)
                 .orElseThrow(() -> new ResourceNotFoundException("Tarea no encontrada con ID: " + idTarea));
 
-        if ("Finalizada".equalsIgnoreCase(tareaExistente.getEstado()) || 
-            "Cancelada".equalsIgnoreCase(tareaExistente.getEstado())) {
+        if (Tarea.esEstadoTerminal(tareaExistente.getEstado())) {
             throw new BusinessValidationException("No se puede editar la tarea porque se encuentra " + tareaExistente.getEstado());
         }
 
@@ -85,8 +84,9 @@ public class TareaServiceImpl implements TareaService {
     @Override
     @Transactional(readOnly = true)
     public Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable,
-                                     LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
-        return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, pageable);
+                                     LocalDateTime fechaInicio, LocalDateTime fechaFin, Boolean abierta, Pageable pageable) {
+        return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, abierta,
+                Tarea.ESTADOS_TERMINALES, pageable);
     }
 
     @Override
@@ -100,7 +100,7 @@ public class TareaServiceImpl implements TareaService {
             throw new BusinessValidationException("El estado '" + nuevoEstado + "' no es un estado controlado válido.");
         }
 
-        if ("Finalizada".equalsIgnoreCase(estadoActual) || "Cancelada".equalsIgnoreCase(estadoActual)) {
+        if (Tarea.esEstadoTerminal(estadoActual)) {
             throw new BusinessValidationException("Transición no permitida: La tarea ya se encuentra " + estadoActual + ".");
         }
 

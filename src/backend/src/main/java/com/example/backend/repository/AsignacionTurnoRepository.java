@@ -163,6 +163,18 @@ public class AsignacionTurnoRepository {
                 EstadosAsignacion.PENDIENTE);
     }
 
+    // RF-44 (KAN-49): asignaciones de turno aún sin respuesta del voluntario, de turnos vigentes
+    public int countPendientes() {
+        Integer total = jdbcTemplate.queryForObject(
+                "select count(*) from asignacion_turno a "
+                        + "join turno t on t.id_turno = a.id_turno "
+                        + "where t.estado <> 'CANCELADO' and coalesce(a.estado, ?) = ?",
+                Integer.class,
+                EstadosAsignacion.PENDIENTE,
+                EstadosAsignacion.PENDIENTE);
+        return total == null ? 0 : total;
+    }
+
     public int cancelActiveByTurno(Integer idTurno) {
         return jdbcTemplate.update(
                 "update asignacion_turno a set estado = ? "

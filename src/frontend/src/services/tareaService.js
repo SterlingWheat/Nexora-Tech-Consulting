@@ -32,6 +32,8 @@ export const tareaService = {
     if (filtros.idResponsable) query.set('idResponsable', filtros.idResponsable)
     if (filtros.fechaInicio) query.set('fechaInicio', filtros.fechaInicio)
     if (filtros.fechaFin) query.set('fechaFin', filtros.fechaFin)
+    // RF-44 (KAN-49): filtro "abierta" usado por el panel administrativo
+    if (filtros.abierta !== undefined && filtros.abierta !== null) query.set('abierta', filtros.abierta)
 
     const respuesta = await fetch(`${TASK_API_URL}/filtrar?${query.toString()}`, { 
       headers: headersAutenticados() 

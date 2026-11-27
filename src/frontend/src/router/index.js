@@ -32,6 +32,12 @@ const routes = [
     component: PasswordResetView
   },
   {
+    path: '/dashboard',
+    name: 'dashboard',
+    component: () => import('../views/DashboardView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
+  },
+  {
     path: '/tareas',
     name: 'tareas',
     component: TareasView,

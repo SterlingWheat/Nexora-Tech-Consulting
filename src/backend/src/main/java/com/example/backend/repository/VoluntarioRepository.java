@@ -35,4 +35,12 @@ public interface VoluntarioRepository extends JpaRepository<Voluntario, Integer>
             @Param("diaSemana") DiaSemana diaSemana,
             @Param("habilidadId") Long habilidadId,
             Pageable pageable);
+
+    // RF-44 (KAN-49): activos de verdad, igual que en VoluntarioGestionController#mapearADTO
+    // (activo=true y, si tiene cuenta de acceso, que esa cuenta también esté ACTIVA).
+    // LEFT JOIN explícito: navegar "v.usuario.estado" en el WHERE generaría un INNER JOIN y
+    // excluiría por error a los voluntarios sin cuenta de acceso (usuario = null).
+    @Query("SELECT COUNT(v) FROM Voluntario v LEFT JOIN v.usuario u " +
+           "WHERE v.activo = true AND (u IS NULL OR u.estado = 'ACTIVO')")
+    long contarActivos();
 }

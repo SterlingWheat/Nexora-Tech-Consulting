@@ -22,9 +22,10 @@ public interface TareaService {
     
     Tarea obtenerTareaPorId(Integer idTarea);
 
-    // HU1 Criterio 1, 2 y 3: Consulta, filtrado con múltiples variables y paginación
+    // HU1 Criterio 1, 2 y 3: Consulta, filtrado con múltiples variables y paginación.
+    // RF-44 (KAN-49) Criterio 2: "abierta" permite llegar aquí ya filtrado desde el dashboard.
     Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable,
-                              LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable);
+                              LocalDateTime fechaInicio, LocalDateTime fechaFin, Boolean abierta, Pageable pageable);
 
     // HU3 Criterio 1, 2 y 3: Mover una tarea entre estados controlados y registrar el cambio en el historial
     Tarea cambiarEstado(Integer idTarea, String nuevoEstado, Integer idUsuario);

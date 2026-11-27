@@ -33,4 +33,17 @@ public interface AsignacionTareaRepository extends JpaRepository<AsignacionTarea
               AND COALESCE(a.estadoRespuesta, 'Asignado') NOT IN ('Cancelada', 'Rechazada')
             """)
     long countActiveByTareaId(@Param("idTarea") Integer idTarea);
+
+    // RF-44 (KAN-49): asignaciones de tarea aún sin respuesta del voluntario, de tareas que todavía
+    // no llegaron a un estado terminal (igual que asignacionTurnoRepository.countPendientes() excluye
+    // los turnos cancelados). Sin este filtro, una tarea cancelada con una asignación sin responder
+    // inflaba el KPI del dashboard para siempre, porque cancelar una tarea no cancela en cascada
+    // sus asignaciones.
+    @Query("""
+            SELECT COUNT(a)
+            FROM AsignacionTarea a
+            WHERE COALESCE(a.estadoRespuesta, 'Asignado') IN ('Asignado', 'Pendiente')
+              AND a.tarea.estado NOT IN :estadosTerminales
+            """)
+    long countPendientes(@Param("estadosTerminales") List<String> estadosTerminales);
 }
