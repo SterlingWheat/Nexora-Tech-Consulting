@@ -142,6 +142,13 @@ const routes = [
     name: 'editar-turno',
     component: () => import('../views/TurnoFormView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
+  },
+  // RF-45/46 (KAN-56): reportes de voluntarios, tareas y turnos
+  {
+    path: '/reportes',
+    name: 'reportes',
+    component: () => import('../views/ReportesView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
   }
 ]
 

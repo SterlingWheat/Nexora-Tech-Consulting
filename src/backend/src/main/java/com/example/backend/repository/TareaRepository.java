@@ -45,4 +45,12 @@ public interface TareaRepository extends JpaRepository<Tarea, Integer> {
     @Query("SELECT t.estado AS estado, COUNT(t) AS cantidad FROM Tarea t GROUP BY t.estado")
     List<ConteoPorEstado> contarPorEstado();
 
+    // RF-45/46/47 (KAN-56/58): trae la categoría ya cargada con JOIN FETCH, en vez de dejar que
+    // Tarea.categoria (LAZY) se resuelva después por fuera de la transacción de este método. Resolverla
+    // "después" solo funciona hoy porque Spring Boot mantiene open-in-view activo por defecto; si
+    // algún día se desactiva (algo común al endurecer la configuración en producción), acceder a
+    // t.getCategoria().getNombre() fuera de esta consulta lanzaría LazyInitializationException.
+    @Query("SELECT t FROM Tarea t LEFT JOIN FETCH t.categoria")
+    List<Tarea> listarParaReporte();
+
 }

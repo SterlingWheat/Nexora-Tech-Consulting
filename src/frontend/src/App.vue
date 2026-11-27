@@ -50,6 +50,14 @@
             Plantillas de correo
           </RouterLink>
 
+          <RouterLink
+            v-if="authStore.rol === 'ADMINISTRADOR'"
+            to="/reportes"
+            class="nav-btn"
+          >
+            Reportes
+          </RouterLink>
+
           <RouterLink to="/perfil" class="nav-btn">Mi perfil</RouterLink>
 
           <div class="nav-acciones">
