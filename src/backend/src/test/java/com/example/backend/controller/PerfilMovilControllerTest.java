@@ -66,27 +66,20 @@ class PerfilMovilControllerTest {
     }
 
     @Test
-    void putActualizaSoloCamposPermitidosYDevuelveUnJwtConElCorreoActualizado() throws Exception {
+    void putActualizaSoloElTelefonoYDevuelveUnJwt() throws Exception {
         Usuario usuario = usuario();
-        Usuario usuarioActualizado = usuario();
-        usuarioActualizado.setNombre("María López");
-        usuarioActualizado.setEmail("maria@example.com");
-        Voluntario voluntario = voluntario(usuarioActualizado);
-        
+        Voluntario voluntario = voluntario(usuario);
+
         when(usuarioRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(usuario));
-        when(voluntarioService.actualizarPerfil(15, "María", "López", "maria@example.com", "12345678"))
-                .thenReturn(voluntario);
-        when(usuarioRepository.findById(15)).thenReturn(Optional.of(usuarioActualizado));
-        when(jwtService.generarToken("maria@example.com", "VOLUNTARIO")).thenReturn("jwt-nuevo");
+        when(voluntarioService.actualizarPerfil(15, "12345678")).thenReturn(voluntario);
+        when(usuarioRepository.findById(15)).thenReturn(Optional.of(usuario));
+        when(jwtService.generarToken("ana@example.com", "VOLUNTARIO")).thenReturn("jwt-nuevo");
 
         mvc.perform(put("/api/movil/perfil/me")
                         .principal(new UsernamePasswordAuthenticationToken("ana@example.com", null))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nombre":"María",
-                                  "apellido":"López",
-                                  "email":"maria@example.com",
                                   "telefono":"12345678"
                                 }
                                 """))
@@ -95,22 +88,45 @@ class PerfilMovilControllerTest {
                 .andExpect(jsonPath("$.perfil.rol").value("VOLUNTARIO"))
                 .andExpect(jsonPath("$.token").value("jwt-nuevo"));
 
-        verify(voluntarioService).actualizarPerfil(
-                eq(15), eq("María"), eq("López"), eq("maria@example.com"), eq("12345678"));
-        verify(jwtService).generarToken("maria@example.com", "VOLUNTARIO");
+        verify(voluntarioService).actualizarPerfil(eq(15), eq("12345678"));
+        verify(jwtService).generarToken("ana@example.com", "VOLUNTARIO");
     }
 
+    // Nombre, apellido y correo ya no se aceptan en este endpoint: si el cliente los envía, se ignoran
     @Test
-    void putRechazaCorreoConFormatoInvalido() throws Exception {
+    void putIgnoraNombreApellidoYCorreoAunqueSeEnvien() throws Exception {
+        Usuario usuario = usuario();
+        Voluntario voluntario = voluntario(usuario);
+
+        when(usuarioRepository.findByEmail("ana@example.com")).thenReturn(Optional.of(usuario));
+        when(voluntarioService.actualizarPerfil(15, "12345678")).thenReturn(voluntario);
+        when(usuarioRepository.findById(15)).thenReturn(Optional.of(usuario));
+        when(jwtService.generarToken("ana@example.com", "VOLUNTARIO")).thenReturn("jwt-nuevo");
+
         mvc.perform(put("/api/movil/perfil/me")
                         .principal(new UsernamePasswordAuthenticationToken("ana@example.com", null))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "nombre":"Ana",
-                                  "apellido":"López",
-                                  "email":"correo-invalido",
-                                  "telefono":""
+                                  "nombre":"Otra Persona",
+                                  "apellido":"Suplantada",
+                                  "email":"otra@example.com",
+                                  "telefono":"12345678"
+                                }
+                                """))
+                .andExpect(status().isOk());
+
+        verify(voluntarioService).actualizarPerfil(eq(15), eq("12345678"));
+    }
+
+    @Test
+    void putRechazaTelefonoConFormatoInvalido() throws Exception {
+        mvc.perform(put("/api/movil/perfil/me")
+                        .principal(new UsernamePasswordAuthenticationToken("ana@example.com", null))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "telefono":"abc"
                                 }
                                 """))
                 .andExpect(status().isBadRequest());
