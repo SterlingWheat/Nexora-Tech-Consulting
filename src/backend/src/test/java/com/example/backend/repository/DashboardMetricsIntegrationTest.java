@@ -99,7 +99,7 @@ class DashboardMetricsIntegrationTest {
     void contarAbiertasYPorEstado_soloCuentaLasQueNoLlegaronAUnEstadoTerminal() {
         String sufijo = UUID.randomUUID().toString().substring(0, 8);
         CategoriaTarea categoria = nuevaCategoria(sufijo);
-        long abiertasAntes = tareaRepository.contarAbiertas();
+        long abiertasAntes = tareaRepository.contarAbiertas(Tarea.ESTADOS_TERMINALES);
 
         nuevaTarea(sufijo + "-pendiente", categoria, "Pendiente");
         nuevaTarea(sufijo + "-progreso", categoria, "En progreso");
@@ -107,7 +107,7 @@ class DashboardMetricsIntegrationTest {
         nuevaTarea(sufijo + "-cancelada", categoria, "Cancelada");
         entityManager.clear();
 
-        long abiertasDespues = tareaRepository.contarAbiertas();
+        long abiertasDespues = tareaRepository.contarAbiertas(Tarea.ESTADOS_TERMINALES);
         assertEquals(abiertasAntes + 2, abiertasDespues);
 
         List<ConteoPorEstado> porEstado = tareaRepository.contarPorEstado();
@@ -143,7 +143,7 @@ class DashboardMetricsIntegrationTest {
         Tarea tareaConfirmada = nuevaTarea(sufijo + "-conf", categoria, "Asignada");
         Voluntario voluntario = nuevoVoluntario(sufijo, true, null);
 
-        long antes = asignacionTareaRepository.countPendientes();
+        long antes = asignacionTareaRepository.countPendientes(Tarea.ESTADOS_TERMINALES);
 
         entityManager.persistFlushFind(AsignacionTarea.builder()
                 .tarea(tareaPendiente).voluntario(voluntario).estadoRespuesta("Pendiente").build());
@@ -151,8 +151,27 @@ class DashboardMetricsIntegrationTest {
                 .tarea(tareaConfirmada).voluntario(voluntario).estadoRespuesta("Confirmada").build());
         entityManager.clear();
 
-        long despues = asignacionTareaRepository.countPendientes();
+        long despues = asignacionTareaRepository.countPendientes(Tarea.ESTADOS_TERMINALES);
         assertEquals(antes + 1, despues);
+    }
+
+    // Bug corregido (QA): una asignación "Asignado" de una tarea ya Cancelada no debe seguir
+    // inflando el KPI, porque cancelar una tarea no cancela en cascada sus asignaciones.
+    @Test
+    void contarAsignacionesDeTareaPendientes_excluyeLasDeTareasCanceladas() {
+        String sufijo = UUID.randomUUID().toString().substring(0, 8);
+        CategoriaTarea categoria = nuevaCategoria(sufijo);
+        Tarea tareaCancelada = nuevaTarea(sufijo + "-cancelada-pend", categoria, "Cancelada");
+        Voluntario voluntario = nuevoVoluntario(sufijo, true, null);
+
+        long antes = asignacionTareaRepository.countPendientes(Tarea.ESTADOS_TERMINALES);
+
+        entityManager.persistFlushFind(AsignacionTarea.builder()
+                .tarea(tareaCancelada).voluntario(voluntario).estadoRespuesta("Asignado").build());
+        entityManager.clear();
+
+        long despues = asignacionTareaRepository.countPendientes(Tarea.ESTADOS_TERMINALES);
+        assertEquals(antes, despues);
     }
 
     // RF-44 Criterio 1: asignaciones de turno pendientes de respuesta

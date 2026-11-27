@@ -154,6 +154,6 @@ class TareaServiceImplTest {
     void filtrarTareas_reenviaElFiltroAbiertaAlRepositorio() {
         tareaService.filtrarTareas(null, null, null, null, null, true, null);
 
-        verify(tareaRepository).filtrarTareas(null, null, null, null, null, true, null);
+        verify(tareaRepository).filtrarTareas(null, null, null, null, null, true, Tarea.ESTADOS_TERMINALES, null);
     }
 }

@@ -1,6 +1,7 @@
 package com.example.backend.service;
 
 import com.example.backend.dto.DashboardMetricsDTO;
+import com.example.backend.model.Tarea;
 import com.example.backend.repository.AsignacionTareaRepository;
 import com.example.backend.repository.AsignacionTurnoRepository;
 import com.example.backend.repository.ConteoPorEstado;
@@ -62,12 +63,12 @@ class DashboardServiceImplTest {
     void obtenerMetricas_devuelveLosCuatroIndicadoresClave() {
         when(voluntarioRepository.count()).thenReturn(20L);
         when(voluntarioRepository.contarActivos()).thenReturn(15L);
-        when(tareaRepository.contarAbiertas()).thenReturn(7L);
+        when(tareaRepository.contarAbiertas(Tarea.ESTADOS_TERMINALES)).thenReturn(7L);
         when(tareaRepository.contarPorEstado()).thenReturn(List.of(
                 conteo("Pendiente", 3L), conteo("En progreso", 4L), conteo("Finalizada", 10L)));
         when(turnoRepository.countByFechaGreaterThanEqualAndEstadoNot(LocalDate.of(2026, 11, 23), "CANCELADO"))
                 .thenReturn(5L);
-        when(asignacionTareaRepository.countPendientes()).thenReturn(2L);
+        when(asignacionTareaRepository.countPendientes(Tarea.ESTADOS_TERMINALES)).thenReturn(2L);
         when(asignacionTurnoRepository.countPendientes()).thenReturn(3);
 
         DashboardMetricsDTO metricas = service.obtenerMetricas();

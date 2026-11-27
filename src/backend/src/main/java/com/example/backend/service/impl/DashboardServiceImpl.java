@@ -2,6 +2,7 @@ package com.example.backend.service.impl;
 
 import com.example.backend.dto.ConteoPorEstadoDTO;
 import com.example.backend.dto.DashboardMetricsDTO;
+import com.example.backend.model.Tarea;
 import com.example.backend.repository.AsignacionTareaRepository;
 import com.example.backend.repository.AsignacionTurnoRepository;
 import com.example.backend.repository.TareaRepository;
@@ -55,13 +56,16 @@ public class DashboardServiceImpl implements DashboardService {
         long turnosProximos = turnoRepository.countByFechaGreaterThanEqualAndEstadoNot(
                 LocalDate.now(clock), "CANCELADO");
 
-        long asignacionesPendientes = asignacionTareaRepository.countPendientes()
+        // Bug corregido: antes esto no excluía las asignaciones de tareas ya canceladas/finalizadas
+        // (al revés de asignacionTurnoRepository.countPendientes(), que sí excluye turnos cancelados),
+        // así que una tarea cancelada con una asignación sin responder inflaba este KPI para siempre.
+        long asignacionesPendientes = asignacionTareaRepository.countPendientes(Tarea.ESTADOS_TERMINALES)
                 + asignacionTurnoRepository.countPendientes();
 
         return new DashboardMetricsDTO(
                 voluntariosActivos,
                 totalVoluntarios - voluntariosActivos,
-                tareaRepository.contarAbiertas(),
+                tareaRepository.contarAbiertas(Tarea.ESTADOS_TERMINALES),
                 tareasPorEstado,
                 turnosProximos,
                 asignacionesPendientes);
