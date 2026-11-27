@@ -16,7 +16,9 @@ public interface VoluntarioService {
 
     Voluntario actualizarVoluntario(Integer idVoluntario, Voluntario detalles, List<Long> habilidadesIds);
 
-    Voluntario actualizarPerfil(Integer idUsuario, String nombre, String apellido, String email, String telefono);
+    // Autoservicio desde el móvil: solo el teléfono es editable por el propio voluntario;
+    // nombre, apellido y correo no se pueden cambiar así para evitar que alguien se haga pasar por otra persona
+    Voluntario actualizarPerfil(Integer idUsuario, String telefono);
 
     Voluntario habilitarAcceso(Integer idVoluntario, String password);
 

@@ -53,9 +53,6 @@ public class PerfilMovilController {
         Usuario usuario = usuarioAutenticado(authentication);
         Voluntario actualizado = voluntarioService.actualizarPerfil(
                 usuario.getIdUsuario(),
-                request.nombre(),
-                request.apellido(),
-                request.email(),
                 request.telefono());
         Usuario usuarioActualizado = usuarioRepository.findById(usuario.getIdUsuario())
                 .orElseThrow(() -> new ResourceNotFoundException(

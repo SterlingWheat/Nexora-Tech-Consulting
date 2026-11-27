@@ -107,7 +107,7 @@ class VoluntarioServiceImplTest {
     }
 
     @Test
-    void actualizarPerfil_normalizaCamposSinModificarDocumentoNiRolYActualizaLaCuenta() {
+    void actualizarPerfil_soloActualizaElTelefonoSinTocarNombreApellidoNiCorreo() {
         Usuario usuario = Usuario.builder()
                 .idUsuario(15)
                 .nombre("Nombre anterior")
@@ -122,24 +122,38 @@ class VoluntarioServiceImplTest {
                 .documento("DOC-123")
                 .email("ana@correo.com")
                 .build();
-        
+
         when(repository.findByUsuarioIdUsuario(15)).thenReturn(Optional.of(voluntario));
         when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
-        when(usuarioRepository.save(any(Usuario.class))).thenAnswer(i -> i.getArgument(0));
 
-        Voluntario actualizado = service.actualizarPerfil(
-                15, "  María ", "  López ", " MARIA@CORREO.COM ", "  12345678  ");
+        Voluntario actualizado = service.actualizarPerfil(15, "  12345678  ");
 
-        assertEquals("María", actualizado.getNombre());
-        assertEquals("López", actualizado.getApellido());
+        // Nombre, apellido y correo (del voluntario y de su cuenta) no cambian: no es posible
+        // suplantar a otra persona desde este autoservicio
+        assertEquals("Ana", actualizado.getNombre());
+        assertEquals("Quispe", actualizado.getApellido());
         assertEquals("DOC-123", actualizado.getDocumento());
-        assertEquals("maria@correo.com", actualizado.getEmail());
+        assertEquals("ana@correo.com", actualizado.getEmail());
         assertEquals("12345678", actualizado.getTelefono());
-        assertEquals("María López", usuario.getNombre());
-        assertEquals("maria@correo.com", usuario.getEmail());
-        assertEquals("VOLUNTARIO", usuario.getRol().getNombre());
-        verify(usuarioRepository).save(usuario);
+        assertEquals("Nombre anterior", usuario.getNombre());
+        assertEquals("ana@correo.com", usuario.getEmail());
+        verify(usuarioRepository, never()).save(any());
         verify(repository).save(voluntario);
+    }
+
+    @Test
+    void actualizarPerfil_telefonoVacio_loGuardaComoNulo() {
+        Usuario usuario = Usuario.builder().idUsuario(15).rol(new com.example.backend.model.RolEntity(4, "VOLUNTARIO")).build();
+        Voluntario voluntario = Voluntario.builder().idVoluntario(7).usuario(usuario)
+                .nombre("Ana").apellido("Quispe").documento("DOC-123").email("ana@correo.com")
+                .telefono("00000000").build();
+
+        when(repository.findByUsuarioIdUsuario(15)).thenReturn(Optional.of(voluntario));
+        when(repository.save(any(Voluntario.class))).thenAnswer(i -> i.getArgument(0));
+
+        Voluntario actualizado = service.actualizarPerfil(15, "   ");
+
+        assertEquals(null, actualizado.getTelefono());
     }
 
     @Test
