@@ -33,4 +33,12 @@ public interface AsignacionTareaRepository extends JpaRepository<AsignacionTarea
               AND COALESCE(a.estadoRespuesta, 'Asignado') NOT IN ('Cancelada', 'Rechazada')
             """)
     long countActiveByTareaId(@Param("idTarea") Integer idTarea);
+
+    // RF-44 (KAN-49): asignaciones de tarea aún sin respuesta del voluntario
+    @Query("""
+            SELECT COUNT(a)
+            FROM AsignacionTarea a
+            WHERE COALESCE(a.estadoRespuesta, 'Asignado') IN ('Asignado', 'Pendiente')
+            """)
+    long countPendientes();
 }

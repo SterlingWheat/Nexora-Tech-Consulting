@@ -85,8 +85,8 @@ public class TareaServiceImpl implements TareaService {
     @Override
     @Transactional(readOnly = true)
     public Page<Tarea> filtrarTareas(String estado, Integer idCategoria, Integer idResponsable,
-                                     LocalDateTime fechaInicio, LocalDateTime fechaFin, Pageable pageable) {
-        return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, pageable);
+                                     LocalDateTime fechaInicio, LocalDateTime fechaFin, Boolean abierta, Pageable pageable) {
+        return tareaRepository.filtrarTareas(estado, idCategoria, idResponsable, fechaInicio, fechaFin, abierta, pageable);
     }
 
     @Override

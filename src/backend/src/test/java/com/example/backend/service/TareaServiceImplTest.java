@@ -148,4 +148,12 @@ class TareaServiceImplTest {
         verify(historialTareaService, never()).registrarAccion(any(), any(), any());
         verify(historialTareaService, never()).registrarAccionDetallada(any(), any(), any(), any(), any(), any());
     }
+
+    // RF-44 (KAN-49) Criterio 2: el filtro "abierta" del dashboard se reenvía tal cual al repositorio
+    @Test
+    void filtrarTareas_reenviaElFiltroAbiertaAlRepositorio() {
+        tareaService.filtrarTareas(null, null, null, null, null, true, null);
+
+        verify(tareaRepository).filtrarTareas(null, null, null, null, null, true, null);
+    }
 }

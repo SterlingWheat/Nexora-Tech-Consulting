@@ -84,20 +84,21 @@ public class TareaController {
             @RequestParam(required = false) Integer idResponsable,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin,
+            @RequestParam(required = false) Boolean abierta,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "fechaCreacion") String sortBy,
             @RequestParam(defaultValue = "desc") String sortDir) {
-        
+
         // Paginación y ordenamiento
         Sort sort = sortDir.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
-        
+
         // Transformar LocalDate a LocalDateTime para abarcar todo el día
         LocalDateTime inicio = (fechaInicio != null) ? fechaInicio.atStartOfDay() : null;
         LocalDateTime fin = (fechaFin != null) ? fechaFin.atTime(LocalTime.MAX) : null;
 
-        Page<Tarea> tareasPaginadas = tareaService.filtrarTareas(estado, idCategoria, idResponsable, inicio, fin, pageable);
+        Page<Tarea> tareasPaginadas = tareaService.filtrarTareas(estado, idCategoria, idResponsable, inicio, fin, abierta, pageable);
         
         return ResponseEntity.ok(tareasPaginadas.map(this::mapearADTO));
     }
