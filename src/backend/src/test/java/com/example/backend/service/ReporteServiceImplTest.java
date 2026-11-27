@@ -5,6 +5,7 @@ import com.example.backend.model.CategoriaTarea;
 import com.example.backend.model.Tarea;
 import com.example.backend.model.Turno;
 import com.example.backend.model.Voluntario;
+import com.example.backend.repository.TareaRepository;
 import com.example.backend.service.impl.ReporteServiceImpl;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -29,7 +30,7 @@ class ReporteServiceImplTest {
     @Mock
     private VoluntarioService voluntarioService;
     @Mock
-    private TareaService tareaService;
+    private TareaRepository tareaRepository;
     @Mock
     private TurnoService turnoService;
 
@@ -70,7 +71,7 @@ class ReporteServiceImplTest {
                 .titulo("Armar kits").categoria(categoria).estado("En progreso")
                 .avance((short) 40).fechaCreacion(LocalDateTime.of(2026, 3, 5, 8, 0))
                 .build();
-        when(tareaService.listarTareas()).thenReturn(List.of(tarea));
+        when(tareaRepository.listarParaReporte()).thenReturn(List.of(tarea));
 
         ReporteTablaDTO reporte = reporteService.reporteTareas();
 

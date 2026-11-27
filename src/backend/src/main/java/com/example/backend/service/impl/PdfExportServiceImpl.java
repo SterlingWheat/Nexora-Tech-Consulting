@@ -26,6 +26,31 @@ public class PdfExportServiceImpl implements PdfExportService {
     private static final float TAMANO_LETRA_TITULO = 14f;
     private static final float TAMANO_LETRA_CELDA = 9f;
     private static final DateTimeFormatter FORMATO_FECHA_HORA = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final char CARACTER_NO_REPRESENTABLE = '?';
+
+    // Agrupa el content stream de la página actual: al envolver todo el render en un
+    // try-with-resources sobre esta clase, un error a mitad de una fila (p. ej. QA: un carácter
+    // que la fuente no puede codificar) ya no deja el PDPageContentStream de esa página sin cerrar.
+    private static final class PaginaActual implements AutoCloseable {
+        private PDPageContentStream flujo;
+
+        void reemplazar(PDPageContentStream nuevo) throws IOException {
+            cerrar();
+            this.flujo = nuevo;
+        }
+
+        void cerrar() throws IOException {
+            if (flujo != null) {
+                flujo.close();
+                flujo = null;
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            cerrar();
+        }
+    }
 
     @Override
     public byte[] exportar(ReporteTablaDTO reporte) {
@@ -35,32 +60,30 @@ public class PdfExportServiceImpl implements PdfExportService {
             PDType1Font fuenteCelda = new PDType1Font(Standard14Fonts.FontName.HELVETICA);
 
             List<String> encabezados = reporte.encabezados();
+            List<Object> encabezadosComoObjeto = encabezados.stream().map(Object.class::cast).toList();
             List<List<Object>> filas = reporte.filas();
 
             float[] anchos = calcularAnchosColumna(encabezados.size(), PDRectangle.A4.getWidth() - 2 * MARGEN);
-
-            PDPage pagina = new PDPage(PDRectangle.A4);
-            documento.addPage(pagina);
-            PDPageContentStream flujo = new PDPageContentStream(documento, pagina);
-            float y = PDRectangle.A4.getHeight() - MARGEN;
-
             float anchoPagina = PDRectangle.A4.getWidth() - 2 * MARGEN;
-            y = escribirTexto(flujo, fuenteTitulo, TAMANO_LETRA_TITULO, MARGEN, y, reporte.titulo(), anchoPagina);
-            y -= ALTO_FILA;
-            y = dibujarFila(flujo, fuenteEncabezado, encabezados.stream().map(Object.class::cast).toList(), anchos, y);
 
-            for (List<Object> fila : filas) {
-                if (y < MARGEN + ALTO_FILA) {
-                    flujo.close();
-                    pagina = new PDPage(PDRectangle.A4);
-                    documento.addPage(pagina);
-                    flujo = new PDPageContentStream(documento, pagina);
-                    y = PDRectangle.A4.getHeight() - MARGEN;
-                    y = dibujarFila(flujo, fuenteEncabezado, encabezados.stream().map(Object.class::cast).toList(), anchos, y);
+            try (PaginaActual pagina = new PaginaActual()) {
+                pagina.reemplazar(nuevaPagina(documento));
+                float y = PDRectangle.A4.getHeight() - MARGEN;
+
+                y = escribirTexto(pagina.flujo, fuenteTitulo, TAMANO_LETRA_TITULO, MARGEN, y, reporte.titulo(), anchoPagina);
+                y -= ALTO_FILA;
+                y = dibujarFila(pagina.flujo, fuenteEncabezado, encabezadosComoObjeto, anchos, y);
+
+                for (List<Object> fila : filas) {
+                    if (y < MARGEN + ALTO_FILA) {
+                        pagina.reemplazar(nuevaPagina(documento));
+                        y = PDRectangle.A4.getHeight() - MARGEN;
+                        y = dibujarFila(pagina.flujo, fuenteEncabezado, encabezadosComoObjeto, anchos, y);
+                    }
+                    y = dibujarFila(pagina.flujo, fuenteCelda, fila, anchos, y);
                 }
-                y = dibujarFila(flujo, fuenteCelda, fila, anchos, y);
+                pagina.cerrar();
             }
-            flujo.close();
 
             ByteArrayOutputStream salida = new ByteArrayOutputStream();
             documento.save(salida);
@@ -68,6 +91,12 @@ public class PdfExportServiceImpl implements PdfExportService {
         } catch (IOException e) {
             throw new UncheckedIOException("No se pudo generar el archivo PDF del reporte", e);
         }
+    }
+
+    private PDPageContentStream nuevaPagina(PDDocument documento) throws IOException {
+        PDPage pagina = new PDPage(PDRectangle.A4);
+        documento.addPage(pagina);
+        return new PDPageContentStream(documento, pagina);
     }
 
     private float dibujarFila(PDPageContentStream flujo, PDType1Font fuente, List<Object> valores, float[] anchos, float y) throws IOException {
@@ -81,12 +110,40 @@ public class PdfExportServiceImpl implements PdfExportService {
     }
 
     private float escribirTexto(PDPageContentStream flujo, PDType1Font fuente, float tamano, float x, float y, String texto, float anchoMaximo) throws IOException {
+        String representable = sanearParaFuente(texto, fuente);
         flujo.beginText();
         flujo.setFont(fuente, tamano);
         flujo.newLineAtOffset(x, y);
-        flujo.showText(recortar(texto, fuente, tamano, anchoMaximo));
+        flujo.showText(recortar(representable, fuente, tamano, anchoMaximo));
         flujo.endText();
         return y;
+    }
+
+    // Bug corregido (QA): un emoji u otro carácter fuera de WinAnsiEncoding hacía que getStringWidth()/
+    // showText() lanzaran IllegalArgumentException a mitad de la exportación, abortándola por completo.
+    // Primero se intenta el texto completo tal cual (camino feliz, sin costo extra); solo si falla se
+    // reemplaza carácter por carácter el que no es representable, en vez de perder todo el reporte.
+    private String sanearParaFuente(String texto, PDType1Font fuente) throws IOException {
+        if (texto == null || texto.isEmpty()) {
+            return texto == null ? "" : texto;
+        }
+        try {
+            fuente.getStringWidth(texto);
+            return texto;
+        } catch (IllegalArgumentException primerIntentoFallido) {
+            int[] codigos = texto.codePoints().toArray();
+            StringBuilder saneado = new StringBuilder(codigos.length);
+            for (int codigo : codigos) {
+                String caracter = new String(Character.toChars(codigo));
+                try {
+                    fuente.getStringWidth(caracter);
+                    saneado.append(caracter);
+                } catch (IllegalArgumentException caracterNoSoportado) {
+                    saneado.append(CARACTER_NO_REPRESENTABLE);
+                }
+            }
+            return saneado.toString();
+        }
     }
 
     private String recortar(String texto, PDType1Font fuente, float tamano, float anchoMaximo) throws IOException {

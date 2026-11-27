@@ -44,6 +44,31 @@ class PdfExportServiceImplTest {
         }
     }
 
+    // Bug corregido (QA): un emoji u otro carácter fuera de WinAnsiEncoding abortaba toda la
+    // exportación con IllegalArgumentException. Ahora se reemplaza solo ese carácter y el resto
+    // del reporte (incluida la fila siguiente) se exporta con normalidad.
+    @Test
+    void exportar_conEmojiUOtroCaracterNoSoportado_noFallaYSustituyeElCaracter() throws IOException {
+        ReporteTablaDTO reporte = new ReporteTablaDTO(
+                "Reporte de tareas",
+                List.of("Título", "Estado"),
+                List.of(
+                        List.of("Entrega de donaciones 😀", "Pendiente"),
+                        List.of("Siguiente tarea", "Finalizada")
+                )
+        );
+
+        byte[] contenido = exportador.exportar(reporte);
+        assertTrue(contenido.length > 0);
+
+        try (PDDocument documento = Loader.loadPDF(contenido)) {
+            String texto = new PDFTextStripper().getText(documento);
+            assertTrue(texto.contains("Entrega de donaciones ?"));
+            assertTrue(texto.contains("Siguiente tarea"));
+            assertTrue(texto.contains("Finalizada"));
+        }
+    }
+
     @Test
     void exportar_conMuchasFilas_generaVariasPaginas() throws IOException {
         List<List<Object>> filas = new ArrayList<>();
