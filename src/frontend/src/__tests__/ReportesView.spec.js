@@ -3,10 +3,12 @@ import { mount, flushPromises } from '@vue/test-utils'
 import ReportesView from '../views/ReportesView.vue'
 import { reporteService } from '../services/reporteService'
 
-// RF-45/46 (KAN-56)
+// RF-45/46/47 (KAN-56/58)
 vi.mock('../services/reporteService', () => ({
   reporteService: {
-    obtenerReporte: vi.fn()
+    obtenerReporte: vi.fn(),
+    exportarPdf: vi.fn(),
+    exportarExcel: vi.fn()
   },
   TIPOS_REPORTE: [
     { valor: 'voluntarios', etiqueta: 'Voluntarios' },
@@ -85,5 +87,52 @@ describe('ReportesView', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Error al obtener el reporte')
+  })
+
+  it('exporta a PDF el reporte seleccionado al pulsar el botón', async () => {
+    reporteService.obtenerReporte.mockResolvedValue(reporteVoluntarios)
+    reporteService.exportarPdf.mockResolvedValue()
+
+    const wrapper = mount(ReportesView)
+    await flushPromises()
+
+    const botonPdf = wrapper.findAll('button').find(b => b.text() === 'Exportar PDF')
+    await botonPdf.trigger('click')
+    await flushPromises()
+
+    expect(reporteService.exportarPdf).toHaveBeenCalledWith('voluntarios')
+  })
+
+  it('exporta a Excel el reporte seleccionado al pulsar el botón', async () => {
+    reporteService.obtenerReporte.mockResolvedValueOnce(reporteVoluntarios)
+    reporteService.obtenerReporte.mockResolvedValueOnce(reporteTareas)
+    reporteService.exportarExcel.mockResolvedValue()
+
+    const wrapper = mount(ReportesView)
+    await flushPromises()
+
+    const botonTareas = wrapper.findAll('button').find(b => b.text() === 'Tareas')
+    await botonTareas.trigger('click')
+    await flushPromises()
+
+    const botonExcel = wrapper.findAll('button').find(b => b.text() === 'Exportar Excel')
+    await botonExcel.trigger('click')
+    await flushPromises()
+
+    expect(reporteService.exportarExcel).toHaveBeenCalledWith('tareas')
+  })
+
+  it('muestra un mensaje de error cuando la exportación falla', async () => {
+    reporteService.obtenerReporte.mockResolvedValue(reporteVoluntarios)
+    reporteService.exportarPdf.mockRejectedValue(new Error('No se pudo exportar el reporte'))
+
+    const wrapper = mount(ReportesView)
+    await flushPromises()
+
+    const botonPdf = wrapper.findAll('button').find(b => b.text() === 'Exportar PDF')
+    await botonPdf.trigger('click')
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('No se pudo exportar el reporte')
   })
 })

@@ -95,7 +95,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/voluntarios/*/desactivar").hasAnyRole("ADMINISTRADOR", "TI")
                         .requestMatchers("/api/voluntarios/**").authenticated()
 
-                        // RF-45/46 (KAN-56): reportes de voluntarios, tareas y turnos, solo para Administrador
+                        // RF-45/46/47 (KAN-56/58): reportes de voluntarios, tareas y turnos, y su
+                        // exportación a PDF/Excel, solo para Administrador
                         .requestMatchers("/api/reportes/**").hasRole("ADMINISTRADOR")
 
                         .anyRequest().authenticated())

@@ -5,8 +5,8 @@
         <span class="vols-etiqueta">REPORTES</span>
         <h1>Reportes de <em>voluntarios, tareas y turnos.</em></h1>
         <p>
-          Consulta el resumen y el detalle de voluntarios, tareas o turnos para
-          tener una vista clara del estado operativo.
+          Consulta el resumen y el detalle de voluntarios, tareas o turnos, y expórtalo
+          a PDF o Excel para archivarlo o compartirlo.
         </p>
       </div>
 
@@ -27,7 +27,27 @@
         <div v-else-if="error" class="vols-mensaje vols-mensaje-error" role="alert">{{ error }}</div>
 
         <template v-else-if="reporte">
-          <h2 class="titulo-reporte">{{ reporte.titulo }}</h2>
+          <div class="encabezado-reporte">
+            <h2 class="titulo-reporte">{{ reporte.titulo }}</h2>
+            <div class="acciones-exportar">
+              <button
+                class="vols-boton-editar"
+                :disabled="exportando === 'pdf'"
+                @click="exportar('pdf')"
+              >
+                {{ exportando === 'pdf' ? 'Exportando...' : 'Exportar PDF' }}
+              </button>
+              <button
+                class="vols-boton-editar"
+                :disabled="exportando === 'excel'"
+                @click="exportar('excel')"
+              >
+                {{ exportando === 'excel' ? 'Exportando...' : 'Exportar Excel' }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="errorExportar" class="vols-mensaje vols-mensaje-error" role="alert">{{ errorExportar }}</div>
 
           <div class="resumen-tarjetas">
             <div v-for="(valor, etiqueta) in reporte.resumen" :key="etiqueta" class="resumen-tarjeta">
@@ -68,6 +88,8 @@ const tipoSeleccionado = ref(TIPOS_REPORTE[0].valor)
 const reporte = ref(null)
 const cargando = ref(true)
 const error = ref('')
+const exportando = ref('')
+const errorExportar = ref('')
 
 const cargarReporte = async (tipo) => {
   cargando.value = true
@@ -84,7 +106,24 @@ const cargarReporte = async (tipo) => {
 
 const seleccionar = (tipo) => {
   tipoSeleccionado.value = tipo
+  errorExportar.value = ''
   cargarReporte(tipo)
+}
+
+const exportar = async (formato) => {
+  exportando.value = formato
+  errorExportar.value = ''
+  try {
+    if (formato === 'pdf') {
+      await reporteService.exportarPdf(tipoSeleccionado.value)
+    } else {
+      await reporteService.exportarExcel(tipoSeleccionado.value)
+    }
+  } catch (err) {
+    errorExportar.value = err.message
+  } finally {
+    exportando.value = ''
+  }
 }
 
 const formatearCelda = (valor) => {
@@ -157,8 +196,12 @@ onMounted(() => cargarReporte(tipoSeleccionado.value))
   cursor: pointer;
   transition: all 0.2s;
 }
-.vols-boton-editar:hover {
+.vols-boton-editar:hover:not(:disabled) {
   background: var(--crema);
+}
+.vols-boton-editar:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .boton-activo {
   background: var(--verde-oscuro);
@@ -169,12 +212,25 @@ onMounted(() => cargarReporte(tipoSeleccionado.value))
   background: var(--verde-oscuro);
 }
 
+.encabezado-reporte {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
 .titulo-reporte {
   font-family: "DM Serif Display", serif;
   font-size: 24px;
   font-weight: 400;
   color: var(--texto);
-  margin: 0 0 20px;
+  margin: 0;
+}
+.acciones-exportar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
 }
 
 .resumen-tarjetas {
@@ -211,6 +267,12 @@ onMounted(() => cargarReporte(tipoSeleccionado.value))
 }
 .vols-mensaje-error {
   color: #A34D41;
+  text-align: left;
+  padding: 12px;
+  background: #FFF0EB;
+  border-radius: 10px;
+  border: 1px solid #E9B0A5;
+  margin-bottom: 20px;
 }
 
 .vols-tabla-contenedor {

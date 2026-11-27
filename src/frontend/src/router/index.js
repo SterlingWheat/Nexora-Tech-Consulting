@@ -143,7 +143,7 @@ const routes = [
     component: () => import('../views/TurnoFormView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
   },
-  // RF-45/46 (KAN-56): reportes de voluntarios, tareas y turnos
+  // RF-45/46/47 (KAN-56/58): reportes de voluntarios, tareas y turnos, y su exportación a PDF y Excel
   {
     path: '/reportes',
     name: 'reportes',

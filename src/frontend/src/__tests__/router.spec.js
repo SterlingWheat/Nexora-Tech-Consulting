@@ -137,8 +137,8 @@ describe('router authentication guard', () => {
     await router.push('/')
   })
 
-  // RF-45/46 (KAN-56)
-  it('restricts reports to ADMINISTRADOR', async () => {
+  // RF-45/46/47 (KAN-56/58)
+  it('restricts reports and their export to ADMINISTRADOR', async () => {
     setActivePinia(createPinia())
     const authStore = useAuthStore()
     authStore.token = 'signed-token'

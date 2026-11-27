@@ -19,8 +19,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-// RF-45/46 (KAN-56): construye los reportes de voluntarios, tareas y turnos a partir
-// de lo que ya exponen los servicios de dominio, con un resumen de conteos y el detalle.
+// RF-45/46/47 (KAN-56/58): construye los reportes de voluntarios, tareas y turnos a partir
+// de lo que ya exponen los servicios de dominio, con un resumen de conteos y el detalle,
+// usado tanto para mostrarlos en pantalla como para exportarlos a PDF/Excel.
 @Service
 @RequiredArgsConstructor
 public class ReporteServiceImpl implements ReporteService {

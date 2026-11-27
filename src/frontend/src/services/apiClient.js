@@ -34,3 +34,24 @@ export async function request(path, { method = 'GET', body, mensajeError = 'Erro
   const textResponse = await respuesta.text();
   return textResponse ? JSON.parse(textResponse) : null;
 }
+
+// RF-47 (KAN-58): variante de request() para descargar archivos binarios (PDF, Excel)
+// en vez de parsear la respuesta como JSON.
+export async function requestBlob(path, { mensajeError = 'Error al descargar el archivo' } = {}) {
+  const respuesta = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      ...authService.getAuthorizationHeader()
+    }
+  });
+
+  if (respuesta.status === 401) {
+    window.dispatchEvent(new Event('auth:expired'));
+  }
+
+  if (!respuesta.ok) {
+    const texto = await respuesta.text();
+    throw new Error(texto || mensajeError);
+  }
+
+  return respuesta.blob();
+}
