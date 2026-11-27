@@ -197,7 +197,8 @@ const cargando = ref(true)
 const paginaActual = ref(0)
 const totalPaginas = ref(0)
 const totalElementos = ref(0)
-const filtrosActuales = ref({})
+// RF-44 (KAN-49) Criterio 2: llegar desde el dashboard con ?vista=abiertas ya aplica ese filtro
+const filtrosActuales = ref(route.query.vista === 'abiertas' ? { abierta: true } : {})
 
 const mostrarModalAsignar = ref(false)
 const mostrarModalEstado = ref(false)

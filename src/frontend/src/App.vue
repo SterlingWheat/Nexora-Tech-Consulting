@@ -8,6 +8,10 @@
         </RouterLink>
 
         <nav v-if="authStore.isAuthenticated" class="nav-links" aria-label="Navegación principal">
+          <RouterLink v-if="authStore.rol === 'ADMINISTRADOR'" to="/dashboard" class="nav-btn">
+            Panel
+          </RouterLink>
+
           <RouterLink to="/tareas" class="nav-btn">Listado de Tareas</RouterLink>
           <RouterLink to="/turnos" class="nav-btn">Turnos</RouterLink>
 

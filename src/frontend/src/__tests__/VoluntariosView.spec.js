@@ -2,8 +2,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 
 const push = vi.fn()
+let routeQuery = {}
 vi.mock('vue-router', () => ({
   useRouter: () => ({ push }),
+  useRoute: () => ({ query: routeQuery }),
 }))
 
 vi.mock('../services/voluntarioService', () => ({
@@ -38,6 +40,7 @@ const pagina = (content, overrides = {}) => ({
 describe('VoluntariosView', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    routeQuery = {}
     vi.stubGlobal('confirm', vi.fn().mockReturnValue(true))
     // Habilidades por defecto para que no falle al montar
     habilidadService.obtenerHabilidades.mockResolvedValue([
@@ -217,5 +220,18 @@ describe('VoluntariosView', () => {
     expect(modal.exists()).toBe(true)
     expect(modal.props('visible')).toBe(true)
     expect(modal.props('voluntario').idVoluntario).toBe(5)
+  })
+
+  // RF-44 (KAN-49) Criterio 2: llegar desde el dashboard con ?estado=activos aplica ese filtro
+  it('al llegar con ?estado=activos en la URL, consulta solo los voluntarios activos', async () => {
+    routeQuery = { estado: 'activos' }
+    voluntarioService.buscarVoluntarios.mockResolvedValue(pagina([]))
+
+    mount(VoluntariosView)
+    await flushPromises()
+
+    expect(voluntarioService.buscarVoluntarios).toHaveBeenCalledWith(
+      expect.objectContaining({ activo: true })
+    )
   })
 })
