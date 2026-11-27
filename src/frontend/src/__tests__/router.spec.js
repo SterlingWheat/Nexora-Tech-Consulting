@@ -115,4 +115,25 @@ describe('router authentication guard', () => {
     authStore.logout()
     await router.push('/')
   })
+
+  // RF-45/46 (KAN-56)
+  it('restricts reports to ADMINISTRADOR', async () => {
+    setActivePinia(createPinia())
+    const authStore = useAuthStore()
+    authStore.token = 'signed-token'
+
+    for (const rol of ['TI', 'GESTOR_TAREAS', 'VOLUNTARIO']) {
+      authStore.rol = rol
+      await router.push('/reportes')
+      expect(router.currentRoute.value.name).toBe('tareas')
+      expect(router.currentRoute.value.query.acceso).toBe('denegado')
+    }
+
+    authStore.rol = 'ADMINISTRADOR'
+    await router.push('/reportes')
+    expect(router.currentRoute.value.name).toBe('reportes')
+
+    authStore.logout()
+    await router.push('/')
+  })
 })
