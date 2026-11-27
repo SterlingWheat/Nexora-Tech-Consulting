@@ -136,6 +136,13 @@ const routes = [
     name: 'editar-turno',
     component: () => import('../views/TurnoFormView.vue'),
     meta: { requiresAuth: true, roles: ['ADMINISTRADOR', 'GESTOR_TAREAS'] }
+  },
+  // RF-47 (KAN-58): exportación de reportes a PDF y Excel
+  {
+    path: '/reportes',
+    name: 'reportes',
+    component: () => import('../views/ReportesView.vue'),
+    meta: { requiresAuth: true, roles: ['ADMINISTRADOR'] }
   }
 ]
 
