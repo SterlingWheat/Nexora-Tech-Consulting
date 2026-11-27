@@ -1,0 +1,102 @@
+package com.example.backend.service.impl;
+
+import com.example.backend.dto.ReporteTablaDTO;
+import com.example.backend.model.Tarea;
+import com.example.backend.model.Turno;
+import com.example.backend.model.Voluntario;
+import com.example.backend.service.ReporteService;
+import com.example.backend.service.TareaService;
+import com.example.backend.service.TurnoService;
+import com.example.backend.service.VoluntarioService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class ReporteServiceImpl implements ReporteService {
+
+    private final VoluntarioService voluntarioService;
+    private final TareaService tareaService;
+    private final TurnoService turnoService;
+
+    @Override
+    public ReporteTablaDTO reporteVoluntarios() {
+        List<String> encabezados = List.of(
+                "Nombre", "Apellido", "Documento", "Correo", "Teléfono", "Carrera/Profesión", "Activo", "Fecha de registro"
+        );
+
+        List<Voluntario> voluntarios = new ArrayList<>(voluntarioService.listarVoluntarios());
+        voluntarios.sort(Comparator.comparing(Voluntario::getApellido, Comparator.nullsLast(String::compareToIgnoreCase)));
+
+        List<List<Object>> filas = voluntarios.stream()
+                .map(v -> List.<Object>of(
+                        valorOTexto(v.getNombre()),
+                        valorOTexto(v.getApellido()),
+                        valorOTexto(v.getDocumento()),
+                        valorOTexto(v.getEmail()),
+                        valorOTexto(v.getTelefono()),
+                        valorOTexto(v.getCarreraProfesion()),
+                        Boolean.TRUE.equals(v.getActivo()),
+                        v.getFechaCreacion() == null ? "" : v.getFechaCreacion().toLocalDate()
+                ))
+                .toList();
+
+        return new ReporteTablaDTO("Reporte de voluntarios", encabezados, filas);
+    }
+
+    @Override
+    public ReporteTablaDTO reporteTareas() {
+        List<String> encabezados = List.of(
+                "Título", "Categoría", "Estado", "Avance (%)", "Fecha de creación"
+        );
+
+        List<Tarea> tareas = new ArrayList<>(tareaService.listarTareas());
+        tareas.sort(Comparator.comparing(Tarea::getFechaCreacion, Comparator.nullsLast(Comparator.naturalOrder())).reversed());
+
+        List<List<Object>> filas = tareas.stream()
+                .map(t -> List.<Object>of(
+                        valorOTexto(t.getTitulo()),
+                        t.getCategoria() == null ? "" : valorOTexto(t.getCategoria().getNombre()),
+                        valorOTexto(t.getEstado()),
+                        (int) (t.getAvance() == null ? 0 : t.getAvance()),
+                        t.getFechaCreacion() == null ? "" : t.getFechaCreacion().toLocalDate()
+                ))
+                .toList();
+
+        return new ReporteTablaDTO("Reporte de tareas", encabezados, filas);
+    }
+
+    @Override
+    public ReporteTablaDTO reporteTurnos() {
+        List<String> encabezados = List.of(
+                "Fecha", "Hora inicio", "Hora fin", "Actividad", "Estado", "Cupos totales", "Cupos ocupados", "Cupos libres"
+        );
+
+        List<Turno> turnos = new ArrayList<>(turnoService.listarTurnos());
+        turnos.sort(Comparator.comparing(Turno::getFecha, Comparator.nullsLast(Comparator.naturalOrder()))
+                .thenComparing(Turno::getHoraInicio, Comparator.nullsLast(Comparator.naturalOrder())));
+
+        List<List<Object>> filas = turnos.stream()
+                .map(t -> List.<Object>of(
+                        t.getFecha() == null ? "" : t.getFecha(),
+                        t.getHoraInicio() == null ? "" : t.getHoraInicio(),
+                        t.getHoraFin() == null ? "" : t.getHoraFin(),
+                        valorOTexto(t.getActividad()),
+                        valorOTexto(t.getEstado()),
+                        t.getCuposTotales() == null ? 0 : t.getCuposTotales(),
+                        t.getCuposOcupados() == null ? 0 : t.getCuposOcupados(),
+                        t.getCuposLibres()
+                ))
+                .toList();
+
+        return new ReporteTablaDTO("Reporte de turnos", encabezados, filas);
+    }
+
+    private static String valorOTexto(String valor) {
+        return valor == null ? "" : valor;
+    }
+}

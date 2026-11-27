@@ -91,7 +91,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/voluntarios/*/activar").hasAnyRole("ADMINISTRADOR", "TI")
                         .requestMatchers(HttpMethod.PUT, "/api/voluntarios/*/desactivar").hasAnyRole("ADMINISTRADOR", "TI")
                         .requestMatchers("/api/voluntarios/**").authenticated()
-                        
+
+                        // RF-47 (KAN-58): exportación de reportes, solo para Administrador
+                        .requestMatchers("/api/reportes/**").hasRole("ADMINISTRADOR")
+
                         .anyRequest().authenticated())
                 .exceptionHandling(exception -> exception
                         .authenticationEntryPoint((request, response, authException) -> {
